@@ -350,7 +350,11 @@ where
 }
 
 pub mod requests {
-    use super::*;
+    use super::{
+        Breakpoint, ConnectionType, DebuggerCapabilities, Deserialize, HashMap, Request, Scope,
+        Serialize, Source, SourceBreakpoint, StackFrame, StackFrameFormat, Thread, ThreadId, Value,
+        ValueFormat, Variable, VariablePresentationHint,
+    };
     #[derive(Debug, Default, PartialEq, Eq, Clone, Deserialize, Serialize)]
     #[serde(rename_all = "camelCase")]
     pub struct InitializeArguments {
@@ -793,7 +797,7 @@ pub mod requests {
 // Events
 
 pub mod events {
-    use super::*;
+    use super::{DebuggerCapabilities, Deserialize, Serialize, Source, ThreadId, Value};
 
     pub trait Event {
         type Body: serde::de::DeserializeOwned + serde::Serialize;

@@ -44,6 +44,7 @@ pub struct DiffHandle {
 }
 
 impl DiffHandle {
+    #[must_use] 
     pub fn new(diff_base: Rope, doc: Rope) -> DiffHandle {
         DiffHandle::new_with_handle(diff_base, doc).0
     }
@@ -72,6 +73,7 @@ impl DiffHandle {
     }
 
     /// Load the actual diff
+    #[must_use] 
     pub fn load(&self) -> Diff<'_> {
         Diff {
             diff: self.diff.read(),
@@ -82,6 +84,7 @@ impl DiffHandle {
     /// Updates the document associated with this redraw handle
     /// This function is only intended to be called from within the rendering loop
     /// if called from elsewhere it may fail to acquire the render lock and panic
+    #[must_use] 
     pub fn update_document(&self, doc: Rope, block: bool) -> bool {
         let lock = helix_event::lock_frame();
         let timeout = if block {
@@ -93,6 +96,7 @@ impl DiffHandle {
     }
 
     /// Updates the base text of the diff. Returns if the update was successful.
+    #[must_use] 
     pub fn update_diff_base(&self, diff_base: Rope) -> bool {
         self.update_document_impl(diff_base, !self.inverted, None)
     }

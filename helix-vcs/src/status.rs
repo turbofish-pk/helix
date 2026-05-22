@@ -18,6 +18,7 @@ pub enum FileChange {
 }
 
 impl FileChange {
+    #[must_use] 
     pub fn path(&self) -> &Path {
         match self {
             Self::Untracked { path } => path,

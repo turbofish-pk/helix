@@ -51,6 +51,7 @@ impl Default for Handler {
 }
 
 impl Handler {
+    #[must_use] 
     pub fn new() -> Self {
         let (tx, rx) = mpsc::unbounded_channel();
         tokio::spawn(Self::run(rx));

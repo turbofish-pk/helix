@@ -33,6 +33,7 @@ use unicode_segmentation::UnicodeSegmentation;
 /// Panics when missing primary or appeared more than once.
 /// Panics when missing head or anchor.
 /// Panics when head come after head or anchor come after anchor.
+#[must_use]
 pub fn print(s: &str) -> (String, Selection) {
     let mut primary_idx = None;
     let mut ranges = SmallVec::new();
@@ -116,15 +117,15 @@ pub fn print(s: &str) -> (String, Selection) {
         }
 
         if head_at_beg {
-            panic!("missing end `{}#` {:?} {:?}", close_pair, left, s);
+            panic!("missing end `{close_pair}#` {left:?} {s:?}");
         } else {
-            panic!("missing end `|{}#` {:?} {:?}", close_pair, left, s);
+            panic!("missing end `|{close_pair}#` {left:?} {s:?}");
         }
     }
 
     let primary = match primary_idx {
         Some(i) => i,
-        None => panic!("missing primary `#[|]#` {:?}", s),
+        None => panic!("missing primary `#[|]#` {s:?}"),
     };
 
     let selection = Selection::new(ranges, primary);

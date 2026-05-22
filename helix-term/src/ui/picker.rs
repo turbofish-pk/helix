@@ -6,11 +6,10 @@ use crate::{
     compositor::{self, Component, Compositor, Context, Event, EventResult},
     ctrl, key, shift,
     ui::{
-        self,
-        document::{render_document, LinePos, TextRenderer},
+        self, EditorView,
+        document::{LinePos, TextRenderer, render_document},
         picker::query::PickerQuery,
         text_decorations::DecorationManager,
-        EditorView,
     },
 };
 use futures_util::future::BoxFuture;
@@ -34,22 +33,22 @@ use std::{
     io::Read,
     path::Path,
     sync::{
-        atomic::{self, AtomicUsize},
         Arc,
+        atomic::{self, AtomicUsize},
     },
 };
 
 use crate::ui::{Prompt, PromptEvent};
 use helix_core::{
-    char_idx_at_visual_offset, fuzzy::MATCHER, movement::Direction,
-    text_annotations::TextAnnotations, unicode::segmentation::UnicodeSegmentation, Position,
+    Position, char_idx_at_visual_offset, fuzzy::MATCHER, movement::Direction,
+    text_annotations::TextAnnotations, unicode::segmentation::UnicodeSegmentation,
 };
 use helix_view::{
+    Document, DocumentId, Editor,
     editor::Action,
     graphics::{CursorKind, Margin, Modifier, Rect},
     theme::Style,
     view::ViewPosition,
-    Document, DocumentId, Editor,
 };
 
 use self::handlers::{DynamicQueryChange, DynamicQueryHandler, PreviewHighlightHandler};
@@ -218,6 +217,7 @@ impl<T, D> Column<T, D> {
         }
     }
 
+    #[must_use] 
     pub fn without_filtering(mut self) -> Self {
         self.filter = false;
         self
@@ -397,6 +397,7 @@ impl<T: 'static + Send + Sync, D: 'static + Send + Sync> Picker<T, D> {
         }
     }
 
+    #[must_use] 
     pub fn injector(&self) -> Injector<T, D> {
         Injector {
             dst: self.matcher.injector(),
@@ -408,6 +409,7 @@ impl<T: 'static + Send + Sync, D: 'static + Send + Sync> Picker<T, D> {
         }
     }
 
+    #[must_use] 
     pub fn truncate_start(mut self, truncate_start: bool) -> Self {
         self.truncate_start = truncate_start;
         self
@@ -424,11 +426,13 @@ impl<T: 'static + Send + Sync, D: 'static + Send + Sync> Picker<T, D> {
         self
     }
 
+    #[must_use] 
     pub fn with_history_register(mut self, history_register: Option<char>) -> Self {
         self.prompt.with_history_register(history_register);
         self
     }
 
+    #[must_use] 
     pub fn with_initial_cursor(mut self, cursor: u32) -> Self {
         self.cursor = cursor;
         self
@@ -450,6 +454,7 @@ impl<T: 'static + Send + Sync, D: 'static + Send + Sync> Picker<T, D> {
         self
     }
 
+    #[must_use] 
     pub fn with_default_action(mut self, action: Action) -> Self {
         self.default_action = action;
         self
@@ -498,6 +503,7 @@ impl<T: 'static + Send + Sync, D: 'static + Send + Sync> Picker<T, D> {
             .saturating_sub(1);
     }
 
+    #[must_use] 
     pub fn selection(&self) -> Option<&T> {
         self.matcher
             .snapshot()
@@ -513,11 +519,7 @@ impl<T: 'static + Send + Sync, D: 'static + Send + Sync> Picker<T, D> {
     }
 
     fn header_height(&self) -> u16 {
-        if self.columns.len() > 1 {
-            1
-        } else {
-            0
-        }
+        if self.columns.len() > 1 { 1 } else { 0 }
     }
 
     pub fn toggle_preview(&mut self) {
@@ -610,7 +612,7 @@ impl<T: 'static + Send + Sync, D: 'static + Send + Sync> Picker<T, D> {
                 let preview = std::fs::metadata(&path)
                     .and_then(|metadata| {
                         if metadata.is_dir() {
-                            let files = super::directory_content(&path, editor)?;
+                            let files = super::directory_content(&path, editor);
                             let file_names: Vec<_> = files
                                 .iter()
                                 .filter_map(|(file_path, is_dir)| {
@@ -1085,7 +1087,7 @@ impl<I: 'static + Send + Sync, D: 'static + Send + Sync> Component for Picker<I,
                 };
             EventResult::Consumed(Some(callback))
         };
-
+        #[allow(clippy::unnested_or_patterns)]
         match key_event {
             shift!(Tab) | key!(Up) | ctrl!('p') => {
                 self.move_by(1, Direction::Backward);

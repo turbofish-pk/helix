@@ -101,7 +101,7 @@ pub struct DocumentOnTypeFormattingParams {
     pub options: FormattingOptions,
 }
 
-/// Extends TextDocumentRegistrationOptions
+/// Extends `TextDocumentRegistrationOptions`
 #[derive(Debug, Eq, PartialEq, Clone, Default, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DocumentOnTypeFormattingRegistrationOptions {

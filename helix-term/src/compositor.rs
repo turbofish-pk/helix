@@ -84,6 +84,7 @@ pub struct Compositor {
 }
 
 impl Compositor {
+    #[must_use] 
     pub fn new(area: Rect) -> Self {
         Self {
             layers: Vec::new(),
@@ -93,6 +94,7 @@ impl Compositor {
         }
     }
 
+    #[must_use] 
     pub fn size(&self) -> Rect {
         self.area
     }
@@ -196,6 +198,7 @@ impl Compositor {
         (None, CursorKind::Hidden)
     }
 
+    #[must_use] 
     pub fn has_component(&self, type_name: &str) -> bool {
         self.layers
             .iter()

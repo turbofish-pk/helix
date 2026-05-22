@@ -3,8 +3,8 @@ use std::iter;
 use crate::tree_sitter::Node;
 use ropey::RopeSlice;
 
-use crate::movement::Direction::{self, Backward, Forward};
 use crate::Syntax;
+use crate::movement::Direction::{self, Backward, Forward};
 
 const MAX_PLAINTEXT_SCAN: usize = 10000;
 const MATCH_LIMIT: usize = 16;
@@ -170,11 +170,7 @@ pub fn find_matching_bracket_plaintext(doc: RopeSlice, cursor_pos: usize) -> Opt
     let bracket = doc.get_char(cursor_pos)?;
     let matching_bracket = {
         let pair = get_pair(bracket);
-        if pair.0 == bracket {
-            pair.1
-        } else {
-            pair.0
-        }
+        if pair.0 == bracket { pair.1 } else { pair.0 }
     };
     // Don't do anything when the cursor is not on top of a bracket.
     if !is_valid_bracket(bracket) {
@@ -220,6 +216,7 @@ pub fn find_matching_bracket_plaintext(doc: RopeSlice, cursor_pos: usize) -> Opt
 /// assert_eq!(get_pair('}'), ('{', '}'));
 /// assert_eq!(get_pair('"'), ('"', '"'));
 /// ```
+#[must_use]
 pub fn get_pair(ch: char) -> (char, char) {
     PAIRS
         .iter()
@@ -228,26 +225,32 @@ pub fn get_pair(ch: char) -> (char, char) {
         .unwrap_or((ch, ch))
 }
 
+#[must_use]
 pub fn is_open_bracket(ch: char) -> bool {
     BRACKETS.iter().any(|(l, _)| *l == ch)
 }
 
+#[must_use]
 pub fn is_close_bracket(ch: char) -> bool {
     BRACKETS.iter().any(|(_, r)| *r == ch)
 }
 
+#[must_use]
 pub fn is_valid_bracket(ch: char) -> bool {
     BRACKETS.iter().any(|(l, r)| *l == ch || *r == ch)
 }
 
+#[must_use]
 pub fn is_open_pair(ch: char) -> bool {
     PAIRS.iter().any(|(l, _)| *l == ch)
 }
 
+#[must_use]
 pub fn is_close_pair(ch: char) -> bool {
     PAIRS.iter().any(|(_, r)| *r == ch)
 }
 
+#[must_use]
 pub fn is_valid_pair(ch: char) -> bool {
     PAIRS.iter().any(|(l, r)| *l == ch || *r == ch)
 }
@@ -261,7 +264,7 @@ fn as_close_pair(doc: RopeSlice, node: &Node) -> Option<(char, char)> {
         .find_map(|&(open, close_)| (close_ == close).then_some((close, open)))
 }
 
-/// Checks if `node` or its siblings (at most MATCH_LIMIT nodes) is the specified closing char
+/// Checks if `node` or its siblings (at most `MATCH_LIMIT` nodes) is the specified closing char
 ///
 /// # Returns
 ///

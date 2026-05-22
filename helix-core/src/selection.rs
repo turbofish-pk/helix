@@ -3,6 +3,7 @@
 //!
 //! All positioning is done via `char` offsets into the buffer.
 use crate::{
+    Assoc, ChangeSet, RopeSlice,
     graphemes::{
         ensure_grapheme_boundary_next, ensure_grapheme_boundary_prev, next_grapheme_boundary,
         prev_grapheme_boundary,
@@ -10,11 +11,10 @@ use crate::{
     line_ending::get_line_ending,
     movement::Direction,
     tree_sitter::Node,
-    Assoc, ChangeSet, RopeSlice,
 };
 use helix_stdx::range::is_subset;
 use helix_stdx::rope::{self, RopeSliceExt};
-use smallvec::{smallvec, SmallVec};
+use smallvec::{SmallVec, smallvec};
 use std::{borrow::Cow, iter, slice};
 
 /// A single selection range.
@@ -63,6 +63,7 @@ pub struct Range {
 }
 
 impl Range {
+    #[must_use]
     pub fn new(anchor: usize, head: usize) -> Self {
         Self {
             anchor,
@@ -71,10 +72,12 @@ impl Range {
         }
     }
 
+    #[must_use]
     pub fn point(head: usize) -> Self {
         Self::new(head, head)
     }
 
+    #[must_use]
     pub fn from_node(node: Node, text: RopeSlice, direction: Direction) -> Self {
         let from = text.byte_to_char(node.start_byte() as usize);
         let to = text.byte_to_char(node.end_byte() as usize);
@@ -118,6 +121,7 @@ impl Range {
 
     /// `true` when head and anchor are at the same position.
     #[inline]
+    #[must_use]
     pub fn is_empty(&self) -> bool {
         self.anchor == self.head
     }
@@ -135,6 +139,7 @@ impl Range {
     }
 
     /// Flips the direction of the selection
+    #[must_use]
     pub fn flip(&self) -> Self {
         Self {
             anchor: self.head,
@@ -145,6 +150,7 @@ impl Range {
 
     /// Returns the selection if it goes in the direction of `direction`,
     /// flipping the selection otherwise.
+    #[must_use]
     pub fn with_direction(self, direction: Direction) -> Self {
         if self.direction() == direction {
             self
@@ -163,10 +169,12 @@ impl Range {
     }
 
     #[inline]
+    #[must_use]
     pub fn contains_range(&self, other: &Self) -> bool {
         self.from() <= other.from() && self.to() >= other.to()
     }
 
+    #[must_use]
     pub fn contains(&self, pos: usize) -> bool {
         self.from() <= pos && pos < self.to()
     }
@@ -176,7 +184,8 @@ impl Range {
     /// function runs in O(N) (N is number of changes) and can therefore
     /// cause performance problems if run for a large number of ranges as the
     /// complexity is then O(MN) (for multicuror M=N usually). Instead use
-    /// [Selection::map] or [ChangeSet::update_positions].
+    /// [`Selection::map`] or [`ChangeSet::update_positions`].
+    #[must_use]
     pub fn map(mut self, changes: &ChangeSet) -> Self {
         use std::cmp::Ordering;
         if changes.is_empty() {
@@ -251,6 +260,7 @@ impl Range {
     /// chunk of the rope. Otherwise a copy of the text is returned. Consider
     /// using `slice` instead if you do not need a `Cow` or `String` to avoid copying.
     #[inline]
+    #[must_use]
     pub fn fragment<'a, 'b: 'a>(&'a self, text: RopeSlice<'b>) -> Cow<'b, str> {
         self.slice(text).into()
     }
@@ -260,6 +270,7 @@ impl Range {
     /// The returned value is a reference to the passed slice. This method never
     /// copies any contents.
     #[inline]
+    #[must_use]
     pub fn slice<'a, 'b: 'a>(&'a self, text: RopeSlice<'b>) -> RopeSlice<'b> {
         text.slice(self.from()..self.to())
     }
@@ -378,6 +389,7 @@ impl Range {
     }
 
     /// Returns true if this Range covers a single grapheme in the given text
+    #[must_use]
     pub fn is_single_grapheme(&self, doc: RopeSlice) -> bool {
         let mut graphemes = doc.slice(self.from()..self.to()).graphemes();
         let first = graphemes.next();
@@ -387,6 +399,7 @@ impl Range {
 
     /// Converts this char range into an in order byte range, discarding
     /// direction.
+    #[must_use]
     pub fn into_byte_range(&self, text: RopeSlice) -> (usize, usize) {
         (text.char_to_byte(self.from()), text.char_to_byte(self.to()))
     }
@@ -436,6 +449,7 @@ impl Selection {
     }
 
     /// Ensure selection containing only the primary selection.
+    #[must_use]
     pub fn into_single(self) -> Self {
         if self.ranges.len() == 1 {
             self
@@ -448,6 +462,7 @@ impl Selection {
     }
 
     /// Adds a new range to the selection and makes it the primary range.
+    #[must_use]
     pub fn push(mut self, range: Range) -> Self {
         self.ranges.push(range);
         self.set_primary_index(self.ranges().len() - 1);
@@ -455,6 +470,7 @@ impl Selection {
     }
 
     /// Removes a range from the selection.
+    #[must_use]
     pub fn remove(mut self, index: usize) -> Self {
         assert!(
             self.ranges.len() > 1,
@@ -469,6 +485,7 @@ impl Selection {
     }
 
     /// Replace a range in the selection with a new range.
+    #[must_use]
     pub fn replace(mut self, index: usize, range: Range) -> Self {
         self.ranges[index] = range;
         self.normalize()
@@ -476,12 +493,14 @@ impl Selection {
 
     /// Map selections over a set of changes. Useful for adjusting the selection position after
     /// applying changes to a document.
+    #[must_use]
     pub fn map(self, changes: &ChangeSet) -> Self {
         self.map_no_normalize(changes).normalize()
     }
 
     /// Map selections over a set of changes. Useful for adjusting the selection position after
     /// applying changes to a document. Doesn't normalize the selection
+    #[must_use]
     pub fn map_no_normalize(mut self, changes: &ChangeSet) -> Self {
         if changes.is_empty() {
             return self;
@@ -509,6 +528,7 @@ impl Selection {
         self
     }
 
+    #[must_use]
     pub fn ranges(&self) -> &[Range] {
         &self.ranges
     }
@@ -516,6 +536,7 @@ impl Selection {
     /// Returns an iterator over the line ranges of each range in the selection.
     ///
     /// Adjacent and overlapping line ranges of the [Range]s in the selection are merged.
+    #[must_use]
     pub fn line_ranges<'a>(&'a self, text: RopeSlice<'a>) -> LineRangeIter<'a> {
         LineRangeIter {
             ranges: self.ranges.iter().peekable(),
@@ -527,6 +548,7 @@ impl Selection {
         self.ranges.iter().map(|&range| range.into())
     }
 
+    #[must_use]
     pub fn primary_index(&self) -> usize {
         self.primary_index
     }
@@ -550,13 +572,14 @@ impl Selection {
     }
 
     /// Constructs a selection holding a single cursor.
+    #[must_use]
     pub fn point(pos: usize) -> Self {
         Self::single(pos, pos)
     }
 
     /// Normalizes a `Selection`.
     ///
-    /// Ranges are sorted by [Range::from], with overlapping ranges merged.
+    /// Ranges are sorted by [`Range::from`], with overlapping ranges merged.
     fn normalize(mut self) -> Self {
         if self.len() < 2 {
             return self;
@@ -587,6 +610,7 @@ impl Selection {
     }
 
     /// Replaces ranges with one spanning from first to last range.
+    #[must_use]
     pub fn merge_ranges(self) -> Self {
         let first = self.ranges.first().unwrap();
         let last = self.ranges.last().unwrap();
@@ -594,6 +618,7 @@ impl Selection {
     }
 
     /// Merges all ranges that are consecutive.
+    #[must_use]
     pub fn merge_consecutive_ranges(mut self) -> Self {
         let mut primary = self.ranges[self.primary_index];
 
@@ -659,6 +684,7 @@ impl Selection {
     //    very end of the document.
     // 3. Ranges are non-overlapping.
     // 4. Ranges are sorted by their position in the text.
+    #[must_use]
     pub fn ensure_invariants(self, text: RopeSlice) -> Self {
         self.transform(|r| r.min_width_1(text).grapheme_aligned(text))
             .normalize()
@@ -666,10 +692,12 @@ impl Selection {
 
     /// Transforms the selection into all of the left-side head positions,
     /// using block-cursor semantics.
+    #[must_use]
     pub fn cursors(self, text: RopeSlice) -> Self {
         self.transform(|range| Range::point(range.cursor(text)))
     }
 
+    #[must_use]
     pub fn fragments<'a>(
         &'a self,
         text: RopeSlice<'a>,
@@ -678,6 +706,7 @@ impl Selection {
         self.ranges.iter().map(move |range| range.fragment(text))
     }
 
+    #[must_use]
     pub fn slices<'a>(
         &'a self,
         text: RopeSlice<'a>,
@@ -692,11 +721,13 @@ impl Selection {
     }
 
     #[inline(always)]
+    #[must_use]
     pub fn len(&self) -> usize {
         self.ranges.len()
     }
 
     /// returns true if self ⊇ other
+    #[must_use]
     pub fn contains(&self, other: &Selection) -> bool {
         is_subset::<true>(self.range_bounds(), other.range_bounds())
     }
@@ -764,6 +795,7 @@ impl Iterator for LineRangeIter<'_> {
 
 // TODO: checkSelection -> check if valid for doc length && sorted
 
+#[must_use]
 pub fn keep_or_remove_matches(
     text: RopeSlice,
     selection: &Selection,
@@ -784,6 +816,7 @@ pub fn keep_or_remove_matches(
 }
 
 // TODO: support to split on capture #N instead of whole match
+#[must_use]
 pub fn select_on_matches(
     text: RopeSlice,
     selection: &Selection,
@@ -815,6 +848,7 @@ pub fn select_on_matches(
     None
 }
 
+#[must_use]
 pub fn split_on_newline(text: RopeSlice, selection: &Selection) -> Selection {
     let mut result = SmallVec::with_capacity(selection.len());
 
@@ -849,6 +883,7 @@ pub fn split_on_newline(text: RopeSlice, selection: &Selection) -> Selection {
     Selection::new(result, 0)
 }
 
+#[must_use]
 pub fn split_on_matches(text: RopeSlice, selection: &Selection, regex: &rope::Regex) -> Selection {
     let mut result = SmallVec::with_capacity(selection.len());
 

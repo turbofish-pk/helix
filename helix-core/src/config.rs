@@ -1,11 +1,12 @@
 use helix_loader::workspace_trust::WorkspaceTrust;
 
 use crate::syntax::{
-    config::{Configuration, LanguageConfiguration},
     Loader, LoaderError,
+    config::{Configuration, LanguageConfiguration},
 };
 
 /// Language configuration based on built-in languages.toml.
+#[must_use]
 pub fn default_lang_config() -> Configuration {
     helix_loader::config::default_lang_config()
         .try_into()
@@ -13,6 +14,7 @@ pub fn default_lang_config() -> Configuration {
 }
 
 /// Language configuration loader based on built-in languages.toml.
+#[must_use] 
 pub fn default_lang_loader() -> Loader {
     Loader::new(default_lang_config()).expect("Could not compile loader for default config")
 }

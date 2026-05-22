@@ -1,5 +1,6 @@
 use crate::{movement::Direction, syntax::TreeCursor, Range, RopeSlice, Selection, Syntax};
 
+#[must_use] 
 pub fn expand_selection(syntax: &Syntax, text: RopeSlice, selection: Selection) -> Selection {
     let cursor = &mut syntax.walk();
 
@@ -24,6 +25,7 @@ pub fn expand_selection(syntax: &Syntax, text: RopeSlice, selection: Selection) 
     })
 }
 
+#[must_use] 
 pub fn shrink_selection(syntax: &Syntax, text: RopeSlice, selection: Selection) -> Selection {
     select_node_impl(
         syntax,
@@ -36,6 +38,7 @@ pub fn shrink_selection(syntax: &Syntax, text: RopeSlice, selection: Selection) 
     )
 }
 
+#[must_use] 
 pub fn select_next_sibling(syntax: &Syntax, text: RopeSlice, selection: Selection) -> Selection {
     select_node_impl(
         syntax,
@@ -52,6 +55,7 @@ pub fn select_next_sibling(syntax: &Syntax, text: RopeSlice, selection: Selectio
     )
 }
 
+#[must_use] 
 pub fn select_all_siblings(syntax: &Syntax, text: RopeSlice, selection: Selection) -> Selection {
     let mut cursor = syntax.walk();
     selection.transform_iter(move |range| {
@@ -66,6 +70,7 @@ pub fn select_all_siblings(syntax: &Syntax, text: RopeSlice, selection: Selectio
     })
 }
 
+#[must_use] 
 pub fn select_all_children(syntax: &Syntax, text: RopeSlice, selection: Selection) -> Selection {
     let mut cursor = syntax.walk();
     selection.transform_iter(move |range| {
@@ -89,6 +94,7 @@ fn select_children(cursor: &mut TreeCursor, text: RopeSlice, range: Range) -> Ve
     }
 }
 
+#[must_use] 
 pub fn select_prev_sibling(syntax: &Syntax, text: RopeSlice, selection: Selection) -> Selection {
     select_node_impl(
         syntax,

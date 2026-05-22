@@ -10,6 +10,7 @@ pub struct Text {
 }
 
 impl Text {
+    #[must_use] 
     pub fn new(contents: String) -> Self {
         Self {
             contents: tui::text::Text::from(contents),

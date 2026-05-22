@@ -41,15 +41,18 @@ pub enum GraphemeSource {
 
 impl GraphemeSource {
     /// Returns whether this grapheme is virtual inline text
+    #[must_use] 
     pub fn is_virtual(self) -> bool {
         matches!(self, GraphemeSource::VirtualText { .. })
     }
 
+    #[must_use] 
     pub fn is_eof(self) -> bool {
         // all doc chars except the EOF char have non-zero codepoints
         matches!(self, GraphemeSource::Document { codepoints: 0 })
     }
 
+    #[must_use] 
     pub fn doc_chars(self) -> usize {
         match self {
             GraphemeSource::Document { codepoints } => codepoints as usize,
@@ -70,22 +73,27 @@ pub struct FormattedGrapheme<'a> {
 }
 
 impl FormattedGrapheme<'_> {
+    #[must_use] 
     pub fn is_virtual(&self) -> bool {
         self.source.is_virtual()
     }
 
+    #[must_use] 
     pub fn doc_chars(&self) -> usize {
         self.source.doc_chars()
     }
 
+    #[must_use] 
     pub fn is_whitespace(&self) -> bool {
         self.raw.is_whitespace()
     }
 
+    #[must_use] 
     pub fn width(&self) -> usize {
         self.raw.width()
     }
 
+    #[must_use] 
     pub fn is_word_boundary(&self) -> bool {
         self.raw.is_word_boundary()
     }
@@ -205,6 +213,7 @@ impl<'t> DocumentFormatter<'t> {
     /// This is usually just a normal line break.
     /// However very long lines are always wrapped at constant intervals that can be cheaply calculated
     /// to avoid pathological behaviour.
+    #[must_use] 
     pub fn new_at_prev_checkpoint(
         text: RopeSlice<'t>,
         text_fmt: &'t TextFormat,
@@ -420,10 +429,12 @@ impl<'t> DocumentFormatter<'t> {
     }
 
     /// returns the char index at the end of the last yielded grapheme
+    #[must_use] 
     pub fn next_char_pos(&self) -> usize {
         self.char_pos
     }
     /// returns the visual position at the end of the last yielded grapheme
+    #[must_use] 
     pub fn next_visual_pos(&self) -> Position {
         self.visual_pos
     }

@@ -1,3 +1,4 @@
+#![allow(clippy::missing_errors_doc)]
 //! `helix-event` contains systems that allow (often async) communication between
 //! different editor components without strongly coupling them. Specifically
 //! it allows defining synchronous hooks that run when certain editor events
@@ -30,12 +31,11 @@
 //! Hooks declared in helix-term can furthermore dispatch synchronous jobs to be run on the
 //! main loop (including access to the compositor). Ideally that queue will be moved
 //! to helix-view in the future if we manage to detach the compositor from its rendering backend.
-
 use anyhow::Result;
-pub use cancel::{cancelable_future, TaskController, TaskHandle};
-pub use debounce::{send_blocking, AsyncHook};
+pub use cancel::{TaskController, TaskHandle, cancelable_future};
+pub use debounce::{AsyncHook, send_blocking};
 pub use redraw::{
-    lock_frame, redraw_requested, request_redraw, start_frame, RenderLockGuard, RequestRedrawOnDrop,
+    RenderLockGuard, RequestRedrawOnDrop, lock_frame, redraw_requested, request_redraw, start_frame,
 };
 pub use registry::Event;
 
@@ -52,7 +52,7 @@ pub mod status;
 mod test;
 
 pub fn register_event<E: Event + 'static>() {
-    registry::with_mut(|registry| registry.register_event::<E>())
+    registry::with_mut(registry::Registry::register_event::<E>);
 }
 
 /// Registers a hook that will be called when an event of type `E` is dispatched.
@@ -70,7 +70,7 @@ pub fn register_event<E: Event + 'static>() {
 pub unsafe fn register_hook_raw<E: Event>(
     hook: impl Fn(&mut E) -> Result<()> + 'static + Send + Sync,
 ) {
-    registry::with_mut(|registry| registry.register_hook(hook))
+    registry::with_mut(|registry| unsafe { registry.register_hook(hook) });
 }
 
 /// Register a hook solely by event name
@@ -199,7 +199,7 @@ macro_rules! register_hook {
                     panic!("invalid type alias");
                 }
             };
-            $crate::register_hook_raw::<$event_ty>(val);
+$crate::register_hook_raw::<$event_ty>(val);
         }
     };
 }

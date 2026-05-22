@@ -135,7 +135,7 @@ pub trait LineAnnotation {
     /// # Returns
     ///
     /// The `char_idx` of the next anchor this `LineAnnotation` is interested in,
-    /// **after the end of conceal_end_char_idx**
+    /// **after the end of `conceal_end_char_idx`**
     /// replaces the currently registered anchor. Return `usize::MAX` to ignore
     fn skip_concealed_anchors(&mut self, conceal_end_char_idx: usize) -> usize {
         self.reset_pos(conceal_end_char_idx)
@@ -226,10 +226,10 @@ fn reset_pos<A, M>(layers: &[Layer<A, M>], pos: usize, get_pos: impl Fn(&A) -> u
     }
 }
 
-/// Safety: We store LineAnnotation in a NonNull pointer. This is necessary to work
+/// Safety: We store `LineAnnotation` in a `NonNull` pointer. This is necessary to work
 /// around an unfortunate inconsistency in rusts variance system that unnnecesarily
 /// makes the lifetime invariant if implemented with safe code. This makes the
-/// DocFormatter API very cumbersome/basically impossible to work with.
+/// `DocFormatter` API very cumbersome/basically impossible to work with.
 ///
 /// Normally object types `dyn Foo + 'a` are covariant so if we used `Box<dyn LineAnnotation + 'a>` below
 /// everything would be alright. However we want to use `Cell<Box<dyn LineAnnotation + 'a>>`
@@ -256,7 +256,7 @@ impl<T: ?Sized> RawBox<T> {
     /// created by this function may exist at a given time.
     #[allow(clippy::mut_from_ref)]
     unsafe fn get(&self) -> &mut T {
-        &mut *self.0.as_ptr()
+        unsafe { &mut *self.0.as_ptr() }
     }
 }
 impl<T: ?Sized> From<Box<T>> for RawBox<T> {
@@ -291,7 +291,7 @@ impl Debug for TextAnnotations<'_> {
 }
 
 impl<'a> TextAnnotations<'a> {
-    /// Prepare the TextAnnotations for iteration starting at char_idx
+    /// Prepare the `TextAnnotations` for iteration starting at `char_idx`
     pub fn reset_pos(&self, char_idx: usize) {
         reset_pos(&self.inline_annotations, char_idx, |annot| annot.char_idx);
         reset_pos(&self.overlays, char_idx, |annot| annot.char_idx);
@@ -300,6 +300,7 @@ impl<'a> TextAnnotations<'a> {
         }
     }
 
+    #[must_use]
     pub fn collect_overlay_highlights(&self, char_range: Range<usize>) -> OverlayHighlights {
         let mut highlights = Vec::new();
         self.reset_pos(char_range.start);
@@ -400,7 +401,7 @@ impl<'a> TextAnnotations<'a> {
                         next_anchor.set(unsafe { layer.get().process_anchor(grapheme) })
                     }
                     Ordering::Greater => break,
-                };
+                }
             }
         }
     }

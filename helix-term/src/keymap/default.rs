@@ -4,6 +4,7 @@ use super::macros::keymap;
 use super::{KeyTrie, Mode};
 use helix_core::hashmap;
 
+#[must_use] 
 pub fn default() -> HashMap<Mode, KeyTrie> {
     let normal = keymap!({ "Normal mode"
         "h" | "left" => move_char_left,

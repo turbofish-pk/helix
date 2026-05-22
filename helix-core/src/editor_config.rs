@@ -1,6 +1,6 @@
-//! Support for [EditorConfig](https://EditorConfig.org) configuration loading.
+//! Support for [`EditorConfig`](https://EditorConfig.org) configuration loading.
 //!
-//! EditorConfig is an editor-agnostic format for specifying configuration in an INI-like, human
+//! `EditorConfig` is an editor-agnostic format for specifying configuration in an INI-like, human
 //! friendly syntax in `.editorconfig` files (which are intended to be checked into VCS). This
 //! module provides functions to search for all `.editorconfig` files that apply to a given path
 //! and returns an `EditorConfig` type containing any specified configuration options.
@@ -11,7 +11,7 @@
 use std::{
     collections::HashMap,
     fs,
-    num::{NonZeroU16, NonZeroU8},
+    num::{NonZeroU8, NonZeroU16},
     path::Path,
     str::FromStr,
 };
@@ -20,8 +20,8 @@ use encoding_rs::Encoding;
 use globset::{GlobBuilder, GlobMatcher};
 
 use crate::{
-    indent::{IndentStyle, MAX_INDENT},
     LineEnding,
+    indent::{IndentStyle, MAX_INDENT},
 };
 
 /// Configuration declared for a path in `.editorconfig` files.
@@ -52,13 +52,15 @@ impl EditorConfig {
             let ini = match contents.parse::<Ini>() {
                 Ok(ini) => ini,
                 Err(err) => {
-                    log::warn!("Ignoring EditorConfig file at '{editor_config_file:?}' because a glob failed to compile: {err}");
+                    log::warn!(
+                        "Ignoring EditorConfig file at '{editor_config_file:?}' because a glob failed to compile: {err}"
+                    );
                     continue;
                 }
             };
             let is_root = ini.pairs.get("root").map(AsRef::as_ref) == Some("true");
             configs.push((ini, ancestor));
-            // > The search shall stop if an EditorConfig file is found with the `root` key set to
+            // > The search shall stop if an `EditorConfig` file is found with the `root` key set to
             // > `true` in the preamble or when reaching the root filesystem directory.
             if is_root {
                 break;
@@ -69,8 +71,8 @@ impl EditorConfig {
         // Reverse the configuration stack so that the `.editorconfig` files closest to `path`
         // are applied last and overwrite settings in files closer to the search ceiling.
         //
-        // > If multiple EditorConfig files have matching sections, the pairs from the closer
-        // > EditorConfig file are read last, so pairs in closer files take precedence.
+        // > If multiple `EditorConfig` files have matching sections, the pairs from the closer
+        // > `EditorConfig` file are read last, so pairs in closer files take precedence.
         for (config, dir) in configs.into_iter().rev() {
             let relative_path = path.strip_prefix(dir).expect("dir is an ancestor of path");
 

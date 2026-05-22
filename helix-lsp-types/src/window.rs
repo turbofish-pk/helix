@@ -90,7 +90,7 @@ pub enum MessageActionItemProperty {
 
 #[derive(Debug, Eq, PartialEq, Clone, Deserialize, Serialize)]
 pub struct LogMessageParams {
-    /// The message type. See {@link MessageType}
+    /// The message type. See {@link `MessageType`}
     #[serde(rename = "type")]
     pub typ: MessageType,
 
@@ -100,7 +100,7 @@ pub struct LogMessageParams {
 
 #[derive(Debug, Eq, PartialEq, Clone, Deserialize, Serialize)]
 pub struct ShowMessageParams {
-    /// The message type. See {@link MessageType}.
+    /// The message type. See {@link `MessageType`}.
     #[serde(rename = "type")]
     pub typ: MessageType,
 
@@ -110,7 +110,7 @@ pub struct ShowMessageParams {
 
 #[derive(Debug, Eq, PartialEq, Clone, Deserialize, Serialize)]
 pub struct ShowMessageRequestParams {
-    /// The message type. See {@link MessageType}
+    /// The message type. See {@link `MessageType`}
     #[serde(rename = "type")]
     pub typ: MessageType,
 

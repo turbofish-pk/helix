@@ -52,7 +52,7 @@ pub fn lock_frame() -> RenderLockGuard {
     RENDER_LOCK.read()
 }
 
-/// A zero sized type that requests a redraw via [request_redraw] when the type [Drop]s.
+/// A zero sized type that requests a redraw via [`request_redraw`] when the type [`Drop`]s.
 pub struct RequestRedrawOnDrop;
 
 impl Drop for RequestRedrawOnDrop {

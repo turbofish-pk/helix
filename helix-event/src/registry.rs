@@ -42,7 +42,7 @@ impl Registry {
     /// # Safety
     ///
     /// `hook` must be totally generic over all lifetime parameters of `E`. For
-    /// example if `E` was a known type `Foo<'a, 'b> then the correct trait bound
+    /// example if `E` was a known type `Foo<'a, 'b>` then the correct trait bound
     /// would be `F: for<'a, 'b, 'c> Fn(&'a mut Foo<'b, 'c>)` but there is no way to
     /// express that kind of constraint for a generic type with the rust type system
     /// right now.
@@ -71,7 +71,7 @@ impl Registry {
         // ensure event type ids match so we can rely on them always matching
         if self.events.get(id).is_none() {
             bail!("Tried to register handler for unknown event {id}");
-        };
+        }
         let hook = ErasedHook::new_dynamic(hook);
         self.handlers.get_mut(id).unwrap().push(hook);
         Ok(())
@@ -105,8 +105,8 @@ runtime_local! {
     static REGISTRY: RwLock<Registry> = RwLock::new(Registry {
         // hardcoded random number is good enough here we don't care about DOS resistance
         // and avoids the additional complexity of `Option<Registry>`
-        events: HashMap::with_hasher(foldhash::fast::FixedState::with_seed(72536814787)),
-        handlers: HashMap::with_hasher(foldhash::fast::FixedState::with_seed(72536814787)),
+        events: HashMap::with_hasher(foldhash::fast::FixedState::with_seed(72_536_814_787)),
+        handlers: HashMap::with_hasher(foldhash::fast::FixedState::with_seed(72_536_814_787)),
     });
 }
 

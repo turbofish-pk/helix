@@ -2,13 +2,13 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use helix_core::syntax::config::LanguageServerFeature;
-use helix_event::{cancelable_future, register_hook, send_blocking, TaskController, TaskHandle};
+use helix_event::{TaskController, TaskHandle, cancelable_future, register_hook, send_blocking};
 use helix_lsp::lsp::{self, SignatureInformation};
 use helix_stdx::rope::RopeSliceExt;
+use helix_view::Editor;
 use helix_view::document::Mode;
 use helix_view::events::{DocumentDidChange, SelectionDidChange};
 use helix_view::handlers::lsp::{SignatureHelpEvent, SignatureHelpInvoked};
-use helix_view::Editor;
 use tokio::sync::mpsc::Sender;
 use tokio::time::Instant;
 
@@ -16,8 +16,8 @@ use crate::commands::Open;
 use crate::compositor::Compositor;
 use crate::events::{OnModeSwitch, PostInsertChar};
 use crate::handlers::Handlers;
-use crate::ui::lsp::signature_help::{Signature, SignatureHelp};
 use crate::ui::Popup;
+use crate::ui::lsp::signature_help::{Signature, SignatureHelp};
 use crate::{job, ui};
 
 #[derive(Debug, PartialEq, Eq)]
@@ -27,7 +27,7 @@ enum State {
     Pending,
 }
 
-/// debounce timeout in ms, value taken from VSCode
+/// debounce timeout in ms, value taken from `VSCode`
 /// TODO: make this configurable?
 const TIMEOUT: u64 = 120;
 
@@ -291,21 +291,18 @@ pub fn show_signature_help(
 fn signature_help_post_insert_char_hook(
     tx: &Sender<SignatureHelpEvent>,
     PostInsertChar { cx, .. }: &mut PostInsertChar<'_, '_>,
-) -> anyhow::Result<()> {
+) -> () {
     if !cx.editor.config().lsp.auto_signature_help {
-        return Ok(());
+        return;
     }
     let (view, doc) = current!(cx.editor);
-    // TODO support multiple language servers (not just the first that is found), likely by merging UI somehow
     let Some(language_server) = doc
         .language_servers_with_feature(LanguageServerFeature::SignatureHelp)
         .next()
     else {
-        return Ok(());
+        return;
     };
-
     let capabilities = language_server.capabilities();
-
     if let lsp::ServerCapabilities {
         signature_help_provider:
             Some(lsp::SignatureHelpOptions {
@@ -323,7 +320,6 @@ fn signature_help_post_insert_char_hook(
             send_blocking(tx, SignatureHelpEvent::Trigger)
         }
     }
-    Ok(())
 }
 
 pub(super) fn register_hooks(handlers: &Handlers) {
@@ -345,9 +341,10 @@ pub(super) fn register_hooks(handlers: &Handlers) {
     });
 
     let tx = handlers.signature_hints.clone();
-    register_hook!(
-        move |event: &mut PostInsertChar<'_, '_>| signature_help_post_insert_char_hook(&tx, event)
-    );
+    register_hook!(move |event: &mut PostInsertChar<'_, '_>| {
+        signature_help_post_insert_char_hook(&tx, event);
+        Ok(())
+    });
 
     let tx = handlers.signature_hints.clone();
     register_hook!(move |event: &mut DocumentDidChange<'_>| {

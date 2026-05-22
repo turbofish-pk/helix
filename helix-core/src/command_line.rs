@@ -32,6 +32,7 @@ use std::{borrow::Cow, collections::HashMap, error::Error, fmt, ops, slice, vec}
 /// The third tuple member describes whether the command part is finished. When this boolean is
 /// true the completion code for the command line should complete command names, otherwise
 /// command arguments.
+#[must_use]
 pub fn split(line: &str) -> (&str, &str, bool) {
     const SEPARATOR_PATTERN: [char; 2] = [' ', '\t'];
 
@@ -55,8 +56,8 @@ pub struct Flag {
     /// This value is also used to construct the "longhand" version of the flag. For example a
     /// flag with a name "reverse" has a longhand `--reverse`.
     ///
-    /// This value should be supplied when reading a flag out of the [Args] with [Args::get_flag]
-    /// and [Args::has_flag]. The `:sort` command implementation for example should ask for
+    /// This value should be supplied when reading a flag out of the [`Args`] with [`Args::get_flag`]
+    /// and [`Args::has_flag`]. The `:sort` command implementation for example should ask for
     /// `args.has_flag("reverse")`.
     pub name: &'static str,
     /// The character that can be used as a shorthand for the flag, optionally.
@@ -263,6 +264,7 @@ impl ExpansionKind {
     pub const VARIANTS: &'static [Self] =
         &[Self::Variable, Self::Unicode, Self::Shell, Self::Register];
 
+    #[must_use]
     pub const fn as_str(&self) -> &'static str {
         match self {
             Self::Variable => "",
@@ -272,6 +274,7 @@ impl ExpansionKind {
         }
     }
 
+    #[must_use]
     pub fn from_kind(name: &str) -> Option<Self> {
         match name {
             "" => Some(Self::Variable),
@@ -290,6 +293,7 @@ pub enum Quote {
 }
 
 impl Quote {
+    #[must_use]
     pub const fn char(&self) -> char {
         match self {
             Self::Single => '\'',
@@ -298,6 +302,7 @@ impl Quote {
     }
 
     // Quotes can be escaped by doubling them: `'hello '' world'` becomes `hello ' world`.
+    #[must_use]
     pub const fn escape(&self) -> &'static str {
         match self {
             Self::Single => "''",
@@ -365,6 +370,7 @@ pub struct Token<'a> {
 }
 
 impl<'a> Token<'a> {
+    #[must_use]
     pub fn empty_at(content_start: usize) -> Self {
         Self {
             kind: TokenKind::Unquoted,
@@ -395,6 +401,7 @@ pub struct Tokenizer<'a> {
 }
 
 impl<'a> Tokenizer<'a> {
+    #[must_use]
     pub fn new(input: &'a str, validate: bool) -> Self {
         Self {
             input,
@@ -404,6 +411,7 @@ impl<'a> Tokenizer<'a> {
     }
 
     /// Returns the current byte index position of the parser in the input.
+    #[must_use]
     pub fn pos(&self) -> usize {
         self.pos
     }
@@ -762,6 +770,7 @@ impl Default for Args<'_> {
 }
 
 impl<'a> Args<'a> {
+    #[must_use]
     pub fn new(signature: Signature, validate: bool) -> Self {
         Self {
             signature,
@@ -904,6 +913,7 @@ impl<'a> Args<'a> {
     ///
     /// For example if the last argument in the command line is `--foo` then the argument may be
     /// considered to be a flag.
+    #[must_use]
     pub fn completion_state(&self) -> CompletionState {
         self.state
     }
@@ -911,6 +921,7 @@ impl<'a> Args<'a> {
     /// Returns the number of positionals supplied in the input.
     ///
     /// This number does not account for any flags passed in the input.
+    #[must_use]
     pub fn len(&self) -> usize {
         self.positionals.len()
     }
@@ -919,6 +930,7 @@ impl<'a> Args<'a> {
     ///
     /// Note that this function returns `true` if there are no positional arguments even if the
     /// input contained flags.
+    #[must_use]
     pub fn is_empty(&self) -> bool {
         self.positionals.is_empty()
     }
@@ -935,6 +947,7 @@ impl<'a> Args<'a> {
 
     /// Flattens all positional arguments together with the given separator between each
     /// positional.
+    #[must_use]
     pub fn join(&self, sep: &str) -> String {
         self.positionals.join(sep)
     }
@@ -946,7 +959,7 @@ impl<'a> Args<'a> {
 
     /// Gets the value associated with a flag's long name if the flag was provided.
     ///
-    /// This function should be preferred over [Self::has_flag] when the flag accepts an argument.
+    /// This function should be preferred over [`Self::has_flag`] when the flag accepts an argument.
     pub fn get_flag(&'a self, name: &'static str) -> Option<&'a str> {
         debug_assert!(
             self.signature.flags.iter().any(|flag| flag.name == name),
@@ -965,8 +978,9 @@ impl<'a> Args<'a> {
 
     /// Checks if a flag was provided in the arguments.
     ///
-    /// This function should be preferred over [Self::get_flag] for boolean flags - flags that
+    /// This function should be preferred over [`Self::get_flag`] for boolean flags - flags that
     /// either are present or not.
+    #[must_use]
     pub fn has_flag(&self, name: &'static str) -> bool {
         debug_assert!(
             self.signature.flags.iter().any(|flag| flag.name == name),
@@ -1030,7 +1044,9 @@ mod test {
     #[track_caller]
     fn assert_incomplete_tokens(input: &str, expected: &[&str]) {
         assert!(
-            Tokenizer::new(input, true).collect::<Result<Vec<_>, _>>().is_err(),
+            Tokenizer::new(input, true)
+                .collect::<Result<Vec<_>, _>>()
+                .is_err(),
             "`assert_incomplete_tokens` only accepts input that fails validation, consider using `assert_tokens` instead"
         );
 

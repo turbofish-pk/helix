@@ -119,12 +119,12 @@ fn text<'a>(
         while let Some((i, c)) = chars.next() {
             match c {
                 '\\' => {
-                    if let Some(&(_, c)) = chars.peek() {
-                        if escape_chars.contains(&c) {
-                            chars.next();
-                            res.push(c);
-                            continue;
-                        }
+                    if let Some(&(_, c)) = chars.peek()
+                        && escape_chars.contains(&c)
+                    {
+                        chars.next();
+                        res.push(c);
+                        continue;
                     }
                     res.push('\\');
                 }
@@ -142,7 +142,7 @@ fn digit<'a>() -> impl Parser<'a, Output = usize> {
 }
 
 fn case_change<'a>() -> impl Parser<'a, Output = CaseChange> {
-    use CaseChange::*;
+    use CaseChange::{CamelCase, Capitalize, Downcase, PascalCase, Upcase};
 
     choice!(
         map("upcase", |_| Upcase),
@@ -154,7 +154,7 @@ fn case_change<'a>() -> impl Parser<'a, Output = CaseChange> {
 }
 
 fn format<'a>() -> impl Parser<'a, Output = FormatItem> {
-    use FormatItem::*;
+    use FormatItem::{Capture, CaseChange, Conditional};
 
     choice!(
         // '$' int

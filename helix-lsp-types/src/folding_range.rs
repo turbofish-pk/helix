@@ -82,7 +82,7 @@ pub struct FoldingRangeClientCapabilities {
     pub range_limit: Option<u32>,
 
     /// If set, the client signals that it only supports folding complete lines. If set, client will
-    /// ignore specified `startCharacter` and `endCharacter` properties in a FoldingRange.
+    /// ignore specified `startCharacter` and `endCharacter` properties in a `FoldingRange`.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub line_folding_only: Option<bool>,
 
@@ -129,9 +129,9 @@ pub struct FoldingRange {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub end_character: Option<u32>,
 
-    /// Describes the kind of the folding range such as `comment' or 'region'. The kind
-    /// is used to categorize folding ranges and used by commands like 'Fold all comments'. See
-    /// [FoldingRangeKind](#FoldingRangeKind) for an enumeration of standardized kinds.
+    /// Describes the kind of the folding range such as `comment` or `region`. The kind
+    /// is used to categorize folding ranges and used by commands like `Fold all comments`. See
+    /// [`FoldingRangeKind`](#FoldingRangeKind) for an enumeration of standardized kinds.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub kind: Option<FoldingRangeKind>,
 

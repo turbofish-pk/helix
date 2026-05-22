@@ -57,7 +57,7 @@ fn fmt_pascal_case(f: &mut std::fmt::Formatter<'_>, name: &str) -> std::fmt::Res
     for word in name.split('_') {
         let mut chars = word.chars();
         let first = chars.next().unwrap();
-        write!(f, "{}", first)?;
+        write!(f, "{first}")?;
         for rest in chars {
             write!(f, "{}", rest.to_lowercase())?;
         }
@@ -253,6 +253,7 @@ pub struct Position {
 }
 
 impl Position {
+    #[must_use]
     pub fn new(line: u32, character: u32) -> Position {
         Position { line, character }
     }
@@ -269,6 +270,7 @@ pub struct Range {
 }
 
 impl Range {
+    #[must_use]
     pub fn new(start: Position, end: Position) -> Range {
         Range { start, end }
     }
@@ -282,6 +284,7 @@ pub struct Location {
 }
 
 impl Location {
+    #[must_use]
     pub fn new(uri: Url, range: Range) -> Location {
         Location { uri, range }
     }
@@ -332,10 +335,12 @@ impl PositionEncodingKind {
     /// encoding-agnostic representation of character offsets.
     pub const UTF32: PositionEncodingKind = PositionEncodingKind::new("utf-32");
 
+    #[must_use]
     pub const fn new(tag: &'static str) -> Self {
         PositionEncodingKind(std::borrow::Cow::Borrowed(tag))
     }
 
+    #[must_use]
     pub fn as_str(&self) -> &str {
         &self.0
     }
@@ -408,6 +413,7 @@ pub struct CodeDescription {
 }
 
 impl Diagnostic {
+    #[must_use]
     pub fn new(
         range: Range,
         severity: Option<DiagnosticSeverity>,
@@ -429,10 +435,12 @@ impl Diagnostic {
         }
     }
 
+    #[must_use]
     pub fn new_simple(range: Range, message: String) -> Diagnostic {
         Self::new(range, None, None, None, message, None, None)
     }
 
+    #[must_use]
     pub fn new_with_code_number(
         range: Range,
         severity: DiagnosticSeverity,
@@ -509,6 +517,7 @@ pub struct Command {
 }
 
 impl Command {
+    #[must_use]
     pub fn new(title: String, command: String, arguments: Option<Vec<Value>>) -> Command {
         Command {
             title,
@@ -535,6 +544,7 @@ pub struct TextEdit {
 }
 
 impl TextEdit {
+    #[must_use]
     pub fn new(range: Range, new_text: String) -> TextEdit {
         TextEdit { range, new_text }
     }
@@ -572,7 +582,7 @@ pub struct TextDocumentEdit {
 
     /// The edits to be applied.
     ///
-    /// @since 3.16.0 - support for AnnotatedTextEdit. This is guarded by the
+    /// @since 3.16.0 - support for `AnnotatedTextEdit`. This is guarded by the
     /// client capability `workspace.workspaceEdit.changeAnnotationSupport`
     pub edits: Vec<OneOf<TextEdit, AnnotatedTextEdit>>,
 }
@@ -796,7 +806,7 @@ mod url_map {
     use std::fmt;
     use std::marker::PhantomData;
 
-    use super::*;
+    use super::{de, HashMap, Url};
 
     pub fn deserialize<'de, D, V>(deserializer: D) -> Result<Option<HashMap<Url, V>>, D::Error>
     where
@@ -886,6 +896,7 @@ mod url_map {
         deserializer.deserialize_option(OptionUrlMapVisitor::default())
     }
 
+    #[allow(clippy::ref_option)]
     pub fn serialize<S, V>(
         changes: &Option<HashMap<Url, V>>,
         serializer: S,
@@ -896,11 +907,11 @@ mod url_map {
     {
         use serde::ser::SerializeMap;
 
-        match *changes {
-            Some(ref changes) => {
+        match changes {
+            Some(changes) => {
                 let mut map = serializer.serialize_map(Some(changes.len()))?;
                 for (k, v) in changes {
-                    map.serialize_entry(k.as_str(), v)?;
+                    map.serialize_entry(k.as_str(), &v)?;
                 }
                 map.end()
             }
@@ -910,6 +921,7 @@ mod url_map {
 }
 
 impl WorkspaceEdit {
+    #[must_use]
     pub fn new(changes: HashMap<Url, Vec<TextEdit>>) -> WorkspaceEdit {
         WorkspaceEdit {
             changes: Some(changes),
@@ -931,6 +943,7 @@ pub struct TextDocumentIdentifier {
 }
 
 impl TextDocumentIdentifier {
+    #[must_use]
     pub fn new(uri: Url) -> TextDocumentIdentifier {
         TextDocumentIdentifier { uri }
     }
@@ -955,6 +968,7 @@ pub struct TextDocumentItem {
 }
 
 impl TextDocumentItem {
+    #[must_use]
     pub fn new(uri: Url, language_id: String, version: i32, text: String) -> TextDocumentItem {
         TextDocumentItem {
             uri,
@@ -980,6 +994,7 @@ pub struct VersionedTextDocumentIdentifier {
 }
 
 impl VersionedTextDocumentIdentifier {
+    #[must_use]
     pub fn new(uri: Url, version: i32) -> VersionedTextDocumentIdentifier {
         VersionedTextDocumentIdentifier { uri, version }
     }
@@ -1005,6 +1020,7 @@ pub struct OptionalVersionedTextDocumentIdentifier {
 }
 
 impl OptionalVersionedTextDocumentIdentifier {
+    #[must_use]
     pub fn new(uri: Url, version: i32) -> OptionalVersionedTextDocumentIdentifier {
         OptionalVersionedTextDocumentIdentifier {
             uri,
@@ -1029,6 +1045,7 @@ pub struct TextDocumentPositionParams {
 }
 
 impl TextDocumentPositionParams {
+    #[must_use]
     pub fn new(
         text_document: TextDocumentIdentifier,
         position: Position,
@@ -1449,12 +1466,11 @@ impl<T> TagSupport<T> {
     {
         Ok(
             match Option::<Value>::deserialize(serializer).map_err(serde::de::Error::custom)? {
-                Some(Value::Bool(false)) => None,
+                Some(Value::Bool(false)) | None => None,
                 Some(Value::Bool(true)) => Some(TagSupport { value_set: vec![] }),
                 Some(other) => {
                     Some(TagSupport::<T>::deserialize(other).map_err(serde::de::Error::custom)?)
                 }
-                None => None,
             },
         )
     }
@@ -1606,7 +1622,7 @@ pub struct TextDocumentClientCapabilities {
     pub inline_completion: Option<InlineCompletionClientCapabilities>,
 }
 
-/// Where ClientCapabilities are currently empty:
+/// Where `ClientCapabilities` are currently empty:
 #[derive(Debug, PartialEq, Clone, Default, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ClientCapabilities {
@@ -1670,7 +1686,7 @@ pub struct GeneralClientCapabilities {
     /// servers can assume that the client supports UTF-16. UTF-16 is
     /// therefore a mandatory encoding.
     ///
-    /// If omitted it defaults to ['utf-16'].
+    /// If omitted it defaults to [`utf-16`].
     ///
     /// Implementation considerations: since the conversion from one encoding
     /// into another requires the content of the file / line the conversion
@@ -1696,7 +1712,7 @@ pub struct StaleRequestSupportClientCapabilities {
 
     /// The list of requests for which the client
     /// will retry the request if it receives a
-    /// response with error code `ContentModified``
+    /// response with error code `ContentModified`
     pub retry_on_content_modified: Vec<String>,
 }
 
@@ -1760,7 +1776,7 @@ pub struct ServerInfo {
 pub struct InitializeError {
     /// Indicates whether the client execute the following retry logic:
     ///
-    /// - (1) show the message provided by the ResponseError to the user
+    /// - (1) show the message provided by the `ResponseError` to the user
     /// - (2) user selects retry or cancel
     /// - (3) if user selected retry the initialize method is sent again.
     pub retry: bool,
@@ -1834,7 +1850,7 @@ pub struct TextDocumentSyncOptions {
     pub open_close: Option<bool>,
 
     /// Change notifications are sent to the server. See TextDocumentSyncKind.None, TextDocumentSyncKind.Full
-    /// and TextDocumentSyncKindIncremental.
+    /// and `TextDocumentSyncKindIncremental`.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub change: Option<TextDocumentSyncKind>,
 
@@ -2293,7 +2309,7 @@ pub struct TextDocumentContentChangeEvent {
 
 /// Describe options to be used when registering for text document change events.
 ///
-/// Extends TextDocumentRegistrationOptions
+/// Extends `TextDocumentRegistrationOptions`
 #[derive(Debug, Eq, PartialEq, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TextDocumentChangeRegistrationOptions {
@@ -2302,7 +2318,7 @@ pub struct TextDocumentChangeRegistrationOptions {
     pub document_selector: Option<DocumentSelector>,
 
     /// How documents are synced to the server. See TextDocumentSyncKind.Full
-    /// and TextDocumentSyncKindIncremental.
+    /// and `TextDocumentSyncKindIncremental`.
     pub sync_kind: i32,
 }
 
@@ -2313,7 +2329,7 @@ pub struct WillSaveTextDocumentParams {
     /// The document that will be saved.
     pub text_document: TextDocumentIdentifier,
 
-    /// The 'TextDocumentSaveReason'.
+    /// The '`TextDocumentSaveReason`'.
     pub reason: TextDocumentSaveReason,
 }
 
@@ -2417,6 +2433,7 @@ pub struct FileEvent {
 }
 
 impl FileEvent {
+    #[must_use]
     pub fn new(uri: Url, typ: FileChangeType) -> FileEvent {
         FileEvent { uri, typ }
     }
@@ -2432,7 +2449,7 @@ pub struct DidChangeWatchedFilesRegistrationOptions {
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct FileSystemWatcher {
-    /// The glob pattern to watch. See {@link GlobPattern glob pattern}
+    /// The glob pattern to watch. See {@link `GlobPattern` glob pattern}
     /// for more detail.
     ///
     /// @since 3.17.0 support for relative patterns.
@@ -2547,6 +2564,7 @@ pub struct PublishDiagnosticsParams {
 }
 
 impl PublishDiagnosticsParams {
+    #[must_use]
     pub fn new(
         uri: Url,
         diagnostics: Vec<Diagnostic>,
@@ -2567,7 +2585,7 @@ pub enum Documentation {
     MarkupContent(MarkupContent),
 }
 
-/// MarkedString can be used to render human readable text. It is either a
+/// `MarkedString` can be used to render human readable text. It is either a
 /// markdown string or a code-block that provides a language and a code snippet.
 /// The language identifier is semantically equal to the optional language
 /// identifier in fenced code blocks in GitHub issues.
@@ -2591,10 +2609,12 @@ pub struct LanguageString {
 }
 
 impl MarkedString {
+    #[must_use]
     pub fn from_markdown(markdown: String) -> MarkedString {
         MarkedString::String(markdown)
     }
 
+    #[must_use]
     pub fn from_language_code(language: String, code_block: String) -> MarkedString {
         MarkedString::LanguageString(LanguageString {
             language,
@@ -2616,7 +2636,7 @@ pub struct GotoDefinitionParams {
     pub partial_result_params: PartialResultParams,
 }
 
-/// GotoDefinition response can be single location, or multiple Locations or a link.
+/// `GotoDefinition` response can be single location, or multiple Locations or a link.
 #[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]
 #[serde(untagged)]
 pub enum GotoDefinitionResponse {

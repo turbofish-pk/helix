@@ -30,6 +30,7 @@ pub struct DiffProviderRegistry {
 impl DiffProviderRegistry {
     /// Get the given file from the VCS. This provides the unedited document as a "base"
     /// for a diff to be created.
+    #[must_use]
     pub fn get_diff_base(&self, file: &Path, trust_full: bool) -> Option<Vec<u8>> {
         self.providers
             .iter()

@@ -74,7 +74,7 @@ FLAGS:
     }
 
     if args.display_version {
-        println!("helix {}", VERSION_AND_GIT_HASH);
+        println!("helix {VERSION_AND_GIT_HASH}");
         std::process::exit(0);
     }
 
@@ -122,7 +122,7 @@ FLAGS:
         }
         Err(ConfigLoadError::Error(err)) => return Err(Error::new(err)),
         Err(ConfigLoadError::BadConfig(err)) => {
-            eprintln!("Bad config: {}", err);
+            eprintln!("Bad config: {err}");
             eprintln!("Press <ENTER> to continue with default config");
             use std::io::Read;
             let _ = std::io::stdin().read(&mut []);
@@ -134,8 +134,8 @@ FLAGS:
         helix_loader::workspace_trust::WorkspaceTrust::new((&config.editor.workspace_trust).into());
 
     let lang_loader =
-        helix_core::config::user_lang_loader(&workspace_trust).unwrap_or_else(|err| {
-            eprintln!("{}", err);
+        helix_core::config::user_lang_loader(config.editor.insecure).unwrap_or_else(|err| {
+            eprintln!("{err}");
             eprintln!("Press <ENTER> to continue with default language config");
             use std::io::Read;
             // This waits for an enter press.

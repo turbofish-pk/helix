@@ -265,6 +265,7 @@ fn reconfigure_highlights(config: &SyntaxConfig, recognized_names: &[String]) {
     });
 }
 
+#[must_use] 
 pub fn read_query(lang: &str, query_filename: &str) -> String {
     tree_house::read_query(lang, |language| {
         helix_loader::grammar::load_runtime_file(language, query_filename).unwrap_or_default()
@@ -538,10 +539,12 @@ impl Syntax {
         }
     }
 
+    #[must_use] 
     pub fn layer(&self, layer: Layer) -> &tree_house::LayerData {
         self.inner.layer(layer)
     }
 
+    #[must_use] 
     pub fn root_layer(&self) -> Layer {
         self.inner.root()
     }
@@ -549,6 +552,7 @@ impl Syntax {
     /// Finds the smallest injection layer which fully includes the range `start..=end`.
     ///
     /// This is the same as using the last item in the `layers_for_byte_range` iterator.
+    #[must_use] 
     pub fn layer_for_byte_range(&self, start: u32, end: u32) -> Layer {
         self.inner.layer_for_byte_range(start, end)
     }
@@ -566,26 +570,32 @@ impl Syntax {
         self.inner.layers_for_byte_range(start, end)
     }
 
+    #[must_use] 
     pub fn root_language(&self) -> Language {
         self.layer(self.root_layer()).language
     }
 
+    #[must_use] 
     pub fn tree(&self) -> &Tree {
         self.inner.tree()
     }
 
+    #[must_use] 
     pub fn tree_for_byte_range(&self, start: u32, end: u32) -> &Tree {
         self.inner.tree_for_byte_range(start, end)
     }
 
+    #[must_use] 
     pub fn named_descendant_for_byte_range(&self, start: u32, end: u32) -> Option<Node<'_>> {
         self.inner.named_descendant_for_byte_range(start, end)
     }
 
+    #[must_use] 
     pub fn descendant_for_byte_range(&self, start: u32, end: u32) -> Option<Node<'_>> {
         self.inner.descendant_for_byte_range(start, end)
     }
 
+    #[must_use] 
     pub fn walk(&self) -> TreeCursor<'_> {
         self.inner.walk()
     }
@@ -800,6 +810,7 @@ pub enum OverlayHighlights {
 }
 
 impl OverlayHighlights {
+    #[must_use] 
     pub fn single(highlight: Highlight, range: ops::Range<usize>) -> Self {
         Self::Homogeneous {
             highlight,
@@ -888,6 +899,7 @@ impl OverlayHighlighter {
     /// highlights.
     ///
     /// `usize::MAX` is returned when there are no more overlay highlights.
+    #[must_use] 
     pub fn next_event_offset(&self) -> usize {
         self.next_highlight_start.min(self.next_highlight_end)
     }
@@ -986,6 +998,7 @@ pub enum CapturedNode<'a> {
 }
 
 impl CapturedNode<'_> {
+    #[must_use] 
     pub fn start_byte(&self) -> usize {
         match self {
             Self::Single(n) => n.start_byte() as usize,
@@ -993,6 +1006,7 @@ impl CapturedNode<'_> {
         }
     }
 
+    #[must_use] 
     pub fn end_byte(&self) -> usize {
         match self {
             Self::Single(n) => n.end_byte() as usize,
@@ -1000,6 +1014,7 @@ impl CapturedNode<'_> {
         }
     }
 
+    #[must_use] 
     pub fn byte_range(&self) -> ops::Range<usize> {
         self.start_byte()..self.end_byte()
     }
@@ -1011,6 +1026,7 @@ pub struct TextObjectQuery {
 }
 
 impl TextObjectQuery {
+    #[must_use] 
     pub fn new(query: Query) -> Self {
         Self { query }
     }
@@ -1031,23 +1047,25 @@ impl TextObjectQuery {
     ///   (function)
     /// ) @capture
     /// ```
+    #[must_use] 
     pub fn capture_nodes<'a>(
         &'a self,
         capture_name: &str,
         node: &Node<'a>,
         slice: RopeSlice<'a>,
-    ) -> Option<impl Iterator<Item = CapturedNode<'a>>> {
+    ) -> Option<impl Iterator<Item = CapturedNode<'a>> + use<'a>> {
         self.capture_nodes_any(&[capture_name], node, slice)
     }
 
     /// Find the first capture that exists out of all given `capture_names`
     /// and return sub nodes that match this capture.
+    #[must_use] 
     pub fn capture_nodes_any<'a>(
         &'a self,
         capture_names: &[&str],
         node: &Node<'a>,
         slice: RopeSlice<'a>,
-    ) -> Option<impl Iterator<Item = CapturedNode<'a>>> {
+    ) -> Option<impl Iterator<Item = CapturedNode<'a>> + use<'a>> {
         let capture = capture_names
             .iter()
             .find_map(|cap| self.query.get_capture(cap))?;
@@ -1147,6 +1165,7 @@ fn pretty_print_tree_impl<W: fmt::Write>(
 }
 
 /// Finds the child of `node` which contains the given byte range.
+#[must_use] 
 pub fn child_for_byte_range<'a>(node: &Node<'a>, range: ops::Range<u32>) -> Option<Node<'a>> {
     for child in node.children() {
         let child_range = child.byte_range();

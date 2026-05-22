@@ -12,6 +12,7 @@ pub enum CharCategory {
 }
 
 #[inline]
+#[must_use] 
 pub fn categorize_char(ch: char) -> CharCategory {
     if char_is_line_ending(ch) {
         CharCategory::Eol
@@ -28,6 +29,7 @@ pub fn categorize_char(ch: char) -> CharCategory {
 
 /// Determine whether a character is a line ending.
 #[inline]
+#[must_use] 
 pub fn char_is_line_ending(ch: char) -> bool {
     LineEnding::from_char(ch).is_some()
 }
@@ -35,6 +37,7 @@ pub fn char_is_line_ending(ch: char) -> bool {
 /// Determine whether a character qualifies as (non-line-break)
 /// whitespace.
 #[inline]
+#[must_use] 
 pub fn char_is_whitespace(ch: char) -> bool {
     // TODO: this is a naive binary categorization of whitespace
     // characters.  For display, word wrapping, etc. we'll need a better
@@ -62,6 +65,7 @@ pub fn char_is_whitespace(ch: char) -> bool {
 }
 
 #[inline]
+#[must_use] 
 pub fn char_is_punctuation(ch: char) -> bool {
     use unicode_general_category::{get_general_category, GeneralCategory};
 
@@ -81,6 +85,7 @@ pub fn char_is_punctuation(ch: char) -> bool {
 }
 
 #[inline]
+#[must_use] 
 pub fn char_is_word(ch: char) -> bool {
     ch.is_alphanumeric() || ch == '_'
 }

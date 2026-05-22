@@ -5,8 +5,8 @@ pub use crate::commands::MappableCommand;
 pub use default::default;
 
 use arc_swap::{
-    access::{DynAccess, DynGuard},
     ArcSwap,
+    access::{DynAccess, DynGuard},
 };
 use helix_view::{document::Mode, info::Info, input::KeyEvent};
 use indexmap::IndexMap;
@@ -31,6 +31,7 @@ pub struct KeyTrieNode {
 }
 
 impl KeyTrieNode {
+    #[must_use] 
     pub fn new(name: &str, map: IndexMap<KeyEvent, KeyTrie>) -> Self {
         Self {
             name: name.to_string(),
@@ -54,6 +55,7 @@ impl KeyTrieNode {
         }
     }
 
+    #[must_use] 
     pub fn infobox(&self) -> Info {
         let mut body: Vec<(BTreeSet<KeyEvent>, &str)> = Vec::with_capacity(self.len());
         for (&key, trie) in self.iter() {
@@ -182,6 +184,7 @@ impl<'de> serde::de::Visitor<'de> for KeyTrieVisitor {
 }
 
 impl KeyTrie {
+    #[must_use] 
     pub fn reverse_map(&self) -> ReverseKeymap {
         // recursively visit all nodes in keymap
         fn map_node(cmd_map: &mut ReverseKeymap, node: &KeyTrie, keys: &mut Vec<KeyEvent>) {
@@ -209,16 +212,17 @@ impl KeyTrie {
         res
     }
 
+    #[must_use] 
     pub fn node(&self) -> Option<&KeyTrieNode> {
-        match *self {
-            KeyTrie::Node(ref node) => Some(node),
+        match self {
+            KeyTrie::Node(node) => Some(&node),
             KeyTrie::MappableCommand(_) | KeyTrie::Sequence(_) => None,
         }
     }
 
     pub fn node_mut(&mut self) -> Option<&mut KeyTrieNode> {
-        match *self {
-            KeyTrie::Node(ref mut node) => Some(node),
+        match self {
+            KeyTrie::Node(node) => Some(node),
             KeyTrie::MappableCommand(_) | KeyTrie::Sequence(_) => None,
         }
     }
@@ -231,6 +235,7 @@ impl KeyTrie {
     }
 
     /// Descend a trie following the given path of keys
+    #[must_use] 
     pub fn search(&self, keys: &[KeyEvent]) -> Option<&KeyTrie> {
         let mut trie = self;
         for key in keys {
@@ -271,6 +276,7 @@ pub struct Keymaps {
 }
 
 impl Keymaps {
+    #[must_use] 
     pub fn new(map: Box<dyn DynAccess<HashMap<Mode, KeyTrie>>>) -> Self {
         Self {
             map,
@@ -279,15 +285,18 @@ impl Keymaps {
         }
     }
 
+    #[must_use] 
     pub fn map(&self) -> DynGuard<HashMap<Mode, KeyTrie>> {
         self.map.load()
     }
 
     /// Returns list of keys waiting to be disambiguated in current mode.
+    #[must_use] 
     pub fn pending(&self) -> &[KeyEvent] {
         &self.state
     }
 
+    #[must_use] 
     pub fn sticky(&self) -> Option<&KeyTrieNode> {
         self.sticky.as_ref()
     }
@@ -318,16 +327,16 @@ impl Keymaps {
         }
 
         let first = self.state.first().unwrap_or(&key);
-        let trie_node = match self.sticky {
-            Some(ref trie) => Cow::Owned(KeyTrie::Node(trie.clone())),
+        let trie_node = match &self.sticky {
+            Some(trie) => Cow::Owned(KeyTrie::Node(trie.clone())),
             None => Cow::Borrowed(keymap),
         };
 
         let trie = match trie_node.search(&[*first]) {
-            Some(KeyTrie::MappableCommand(ref cmd)) => {
+            Some(KeyTrie::MappableCommand(cmd)) => {
                 return KeymapResult::Matched(cmd.clone());
             }
-            Some(KeyTrie::Sequence(ref cmds)) => {
+            Some(KeyTrie::Sequence(cmds)) => {
                 return KeymapResult::MatchedSequence(cmds.clone());
             }
             None => return KeymapResult::NotFound,
@@ -461,11 +470,13 @@ mod tests {
                 .len()
                 > 1
         );
-        assert!(!merged_keyamp
-            .get(&Mode::Insert)
-            .and_then(|key_trie| key_trie.node())
-            .unwrap()
-            .is_empty());
+        assert!(
+            !merged_keyamp
+                .get(&Mode::Insert)
+                .and_then(|key_trie| key_trie.node())
+                .unwrap()
+                .is_empty()
+        );
     }
 
     #[test]
@@ -582,7 +593,9 @@ name = "name"
 is_sticky = false
         "#;
         let result = toml::from_str::<KeyTrieNode>(invalid);
-        assert!(result.is_err_and(|error| error.message().contains("Invalid key code 'is_sticky'")));
+        assert!(
+            result.is_err_and(|error| error.message().contains("Invalid key code 'is_sticky'"))
+        );
     }
 
     #[test]

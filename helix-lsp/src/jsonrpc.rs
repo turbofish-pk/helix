@@ -23,6 +23,7 @@ pub enum ErrorCode {
 }
 
 impl ErrorCode {
+    #[must_use] 
     pub fn code(&self) -> i64 {
         match *self {
             ErrorCode::ParseError => -32700,
@@ -207,6 +208,7 @@ impl Params {
             .map_err(|err| Error::invalid_params(format!("Invalid params: {}.", err)))
     }
 
+    #[must_use] 
     pub fn is_none(&self) -> bool {
         self == &Params::None
     }

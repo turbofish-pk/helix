@@ -1,0 +1,4 @@
+- Bump Rust version to 2024 / 1.95
+- cargo update
+- cargo vendor
+- cargo clippy -- -D warnings -D clippy::pedantic

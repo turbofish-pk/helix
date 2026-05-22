@@ -50,10 +50,12 @@ impl SignatureHelp {
         }
     }
 
+    #[must_use] 
     pub fn active_signature(&self) -> usize {
         self.active_signature
     }
 
+    #[must_use] 
     pub fn lsp_signature(&self) -> Option<usize> {
         self.lsp_signature
     }
@@ -186,8 +188,8 @@ impl Component for SignatureHelp {
         let sig_text_para = Paragraph::new(&signature_text).wrap(Wrap { trim: false });
         let (sig_width, sig_height) = sig_text_para.required_size(max_text_width);
 
-        let (width, height) = match signature.signature_doc {
-            Some(ref doc) => {
+        let (width, height) = match &signature.signature_doc {
+            Some(doc) => {
                 let doc_md = Markdown::new(doc.clone(), Arc::clone(&self.config_loader));
                 let doc_text = doc_md.parse(None);
                 let (doc_width, doc_height) =

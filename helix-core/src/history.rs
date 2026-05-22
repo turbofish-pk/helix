@@ -110,17 +110,20 @@ impl History {
     }
 
     #[inline]
+    #[must_use]
     pub fn current_revision(&self) -> usize {
         self.current
     }
 
     #[inline]
+    #[must_use]
     pub const fn at_root(&self) -> bool {
         self.current == 0
     }
 
     /// Returns the changes since the given revision composed into a transaction.
     /// Returns None if there are no changes between the current and given revisions.
+    #[must_use]
     pub fn changes_since(&self, revision: usize) -> Option<Transaction> {
         let lca = self.lowest_common_ancestor(revision, self.current);
         let up = self.path_up(revision, lca);
@@ -155,6 +158,7 @@ impl History {
     }
 
     // Get the position of last change
+    #[must_use]
     pub fn last_edit_pos(&self) -> Option<usize> {
         if self.current == 0 {
             return None;
@@ -198,7 +202,7 @@ impl History {
         }
     }
 
-    /// List of nodes on the way from `n` to 'a`. Doesn't include `a`.
+    /// List of nodes on the way from `n` to `a`. Doesn't include `a`.
     /// Includes `n` unless `a == n`. `a` must be an ancestor of `n`.
     fn path_up(&self, mut n: usize, a: usize) -> Vec<usize> {
         let mut path = Vec::new();

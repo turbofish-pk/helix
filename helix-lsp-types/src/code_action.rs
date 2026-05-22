@@ -106,7 +106,7 @@ pub struct CodeActionKindLiteralSupport {
     pub value_set: Vec<String>,
 }
 
-/// Params for the CodeActionRequest
+/// Params for the `CodeActionRequest`
 #[derive(Debug, Eq, PartialEq, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CodeActionParams {
@@ -126,7 +126,7 @@ pub struct CodeActionParams {
     pub partial_result_params: PartialResultParams,
 }
 
-/// response for CodeActionRequest
+/// response for `CodeActionRequest`
 pub type CodeActionResponse = Vec<CodeActionOrCommand>;
 
 #[allow(clippy::large_enum_variant)] // TODO: In a separate PR attempt the `Box<CodeAction>` pattern.
@@ -213,10 +213,11 @@ impl CodeActionKind {
     /// @since 3.17.0
     pub const SOURCE_FIX_ALL: CodeActionKind = CodeActionKind::new("source.fixAll");
 
+    #[must_use]
     pub const fn new(tag: &'static str) -> Self {
         CodeActionKind(Cow::Borrowed(tag))
     }
-
+    #[must_use]
     pub fn as_str(&self) -> &str {
         &self.0
     }
@@ -348,7 +349,7 @@ pub struct CodeActionContext {
 #[derive(Debug, Eq, PartialEq, Clone, Deserialize, Serialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct CodeActionOptions {
-    /// CodeActionKinds that this server may return.
+    /// `CodeActionKinds` that this server may return.
     ///
     /// The list of kinds may be generic, such as `CodeActionKind.Refactor`, or the server
     /// may list out every specific kind they provide.

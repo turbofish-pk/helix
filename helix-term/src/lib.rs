@@ -101,7 +101,7 @@ fn filter_picker_entry(entry: &DirEntry, root: &Path, dedup_symlinks: bool) -> b
 
 /// Opens URL in external program.
 fn open_external_url_callback(
-    url: Url,
+    url: &Url,
 ) -> impl Future<Output = Result<job::Callback, anyhow::Error>> + Send + 'static {
     let commands = open::commands(url.as_str());
     async {
@@ -128,7 +128,7 @@ fn open_external_url_callback(
             );
         }
         Ok(job::Callback::Editor(Box::new(move |editor| {
-            editor.set_error("Opening URL in external program failed")
+            editor.set_error("Opening URL in external program failed");
         })))
     }
 }

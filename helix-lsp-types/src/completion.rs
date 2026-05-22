@@ -541,7 +541,8 @@ pub struct CompletionItem {
 }
 
 impl CompletionItem {
-    /// Create a CompletionItem with the minimum possible info (label and detail).
+    /// Create a `CompletionItem` with the minimum possible info (label and detail).
+    #[must_use]
     pub fn new_simple(label: String, detail: String) -> CompletionItem {
         CompletionItem {
             label,

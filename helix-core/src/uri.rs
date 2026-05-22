@@ -23,7 +23,7 @@ impl Uri {
             Uri::File(path) => helix_stdx::Url::from_file_path(path),
         }
     }
-
+    #[must_use]
     pub fn as_path(&self) -> Option<&Path> {
         match self {
             Self::File(path) => Some(path),
@@ -87,7 +87,7 @@ fn convert_url_to_uri(url: &helix_stdx::Url) -> Result<Uri, UrlConversionErrorKi
     if url.scheme() == "file" {
         url.to_file_path()
             .map(|path| Uri::File(helix_stdx::path::normalize(path).into()))
-            .map_err(|_| UrlConversionErrorKind::UnableToConvert)
+            .map_err(|()| UrlConversionErrorKind::UnableToConvert)
     } else {
         Err(UrlConversionErrorKind::UnsupportedScheme)
     }

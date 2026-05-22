@@ -1,13 +1,13 @@
 use helix_core::syntax::config::LanguageServerFeature;
 use helix_event::{cancelable_future, register_hook};
-use helix_lsp::{lsp, util::lsp_range_to_range, OffsetEncoding};
+use helix_lsp::{OffsetEncoding, lsp, util::lsp_range_to_range};
 use helix_view::{
+    DocumentId, Editor, ViewId,
     events::{
         ConfigDidChange, DocumentDidChange, DocumentDidOpen, LanguageServerExited,
         LanguageServerInitialized, SelectionDidChange,
     },
     handlers::Handlers,
-    DocumentId, Editor, ViewId,
 };
 
 use crate::job;
@@ -85,13 +85,13 @@ fn document_highlight_ranges(
 
     let mut merged: Vec<std::ops::Range<usize>> = Vec::with_capacity(ranges.len());
     for range in ranges {
-        if let Some(last) = merged.last_mut() {
-            if range.start <= last.end {
-                if range.end > last.end {
-                    last.end = range.end;
-                }
-                continue;
+        if let Some(last) = merged.last_mut()
+            && range.start <= last.end
+        {
+            if range.end > last.end {
+                last.end = range.end;
             }
+            continue;
         }
         merged.push(range);
     }

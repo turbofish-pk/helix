@@ -280,7 +280,7 @@ pub fn file_picker(editor: &Editor, root: PathBuf) -> FilePicker {
     let picker = Picker::new(columns, 0, [], data, move |cx, path: &PathBuf, action| {
         if let Err(e) = cx.editor.open(path, action) {
             let err = if let Some(err) = e.source() {
-                format!("{}", err)
+                format!("{err}")
             } else {
                 format!("unable to open \"{}\"", path.display())
             };
@@ -317,14 +317,14 @@ type FileExplorer = Picker<(PathBuf, bool), (PathBuf, Style)>;
 
 pub fn file_explorer(root: PathBuf, editor: &Editor) -> Result<FileExplorer, std::io::Error> {
     let directory_style = editor.theme.get("ui.text.directory");
-    let directory_content = directory_content(&root, editor)?;
+    let directory_content = directory_content(&root, editor);
 
     let columns = [PickerColumn::new(
         "path",
         |(path, is_dir): &(PathBuf, bool), (root, directory_style): &(PathBuf, Style)| {
             let name = path.strip_prefix(root).unwrap_or(path).to_string_lossy();
             if *is_dir {
-                Span::styled(format!("{}/", name), *directory_style).into()
+                Span::styled(format!("{name}/"), *directory_style).into()
             } else {
                 name.into()
             }
@@ -363,7 +363,7 @@ pub fn file_explorer(root: PathBuf, editor: &Editor) -> Result<FileExplorer, std
     Ok(picker)
 }
 
-fn directory_content(root: &Path, editor: &Editor) -> Result<Vec<(PathBuf, bool)>, std::io::Error> {
+fn directory_content(root: &Path, editor: &Editor) -> Vec<(PathBuf, bool)> {
     use ignore::WalkBuilder;
 
     let config = editor.config();
@@ -407,7 +407,7 @@ fn directory_content(root: &Path, editor: &Editor) -> Result<Vec<(PathBuf, bool)
         content.insert(0, (root.join(".."), true));
     }
 
-    Ok(content)
+    content
 }
 
 fn get_child_if_single_dir(path: &Path) -> Option<PathBuf> {
@@ -429,7 +429,7 @@ pub mod completers {
     use helix_core::syntax::config::LanguageServerFeature;
     use helix_view::document::SCRATCH_BUFFER_NAME;
     use helix_view::theme;
-    use helix_view::{editor::Config, Editor};
+    use helix_view::{Editor, editor::Config};
     use once_cell::sync::Lazy;
     use std::borrow::Cow;
     use std::collections::BTreeSet;
@@ -800,7 +800,7 @@ pub mod completers {
 
 #[cfg(test)]
 mod tests {
-    use std::fs::{create_dir, File};
+    use std::fs::{File, create_dir};
 
     use super::*;
 

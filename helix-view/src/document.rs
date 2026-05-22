@@ -1,8 +1,8 @@
-use anyhow::{anyhow, bail, Error};
-use arc_swap::access::DynAccess;
+use anyhow::{Error, anyhow, bail};
 use arc_swap::ArcSwap;
-use futures_util::future::BoxFuture;
+use arc_swap::access::DynAccess;
 use futures_util::FutureExt;
+use futures_util::future::BoxFuture;
 use helix_core::auto_pairs::AutoPairs;
 use helix_core::chars::char_is_word;
 use helix_core::command_line::Token;
@@ -20,8 +20,8 @@ use once_cell::sync::OnceCell;
 use thiserror;
 
 use ::parking_lot::Mutex;
-use serde::de::{self, Deserialize, Deserializer};
 use serde::Serialize;
+use serde::de::{self, Deserialize, Deserializer};
 use std::borrow::Cow;
 use std::cell::Cell;
 use std::collections::{HashMap, HashSet};
@@ -34,21 +34,21 @@ use std::sync::{Arc, Weak};
 use std::time::SystemTime;
 
 use helix_core::{
+    ChangeSet, Diagnostic, LineEnding, Range, Rope, RopeBuilder, Selection, Syntax, Transaction,
     editor_config::EditorConfig,
     encoding,
     history::{History, State, UndoKind},
-    indent::{auto_detect_indent_style, IndentStyle},
+    indent::{IndentStyle, auto_detect_indent_style},
     line_ending::auto_detect_line_ending,
     syntax::{self, config::LanguageConfiguration},
-    ChangeSet, Diagnostic, LineEnding, Range, Rope, RopeBuilder, Selection, Syntax, Transaction,
 };
 
 use crate::{
+    DocumentId, Editor, Theme, View, ViewId,
     editor::Config,
     events::{DocumentDidChange, SelectionDidChange},
     expansion,
     view::ViewPosition,
-    DocumentId, Editor, Theme, View, ViewId,
 };
 
 /// 8kB of buffer space for encoding and decoding `Rope`s.
@@ -1042,7 +1042,9 @@ impl Document {
                     if force {
                         std::fs::DirBuilder::new().recursive(true).create(parent)?;
                     } else {
-                        bail!("can't save file, parent directory does not exist (use :w! to create it)");
+                        bail!(
+                            "can't save file, parent directory does not exist (use :w! to create it)"
+                        );
                     }
                 }
             }
@@ -1256,12 +1258,18 @@ impl Document {
                 Ok(metadata) => match metadata.modified() {
                     Ok(mtime) => mtime,
                     Err(err) => {
-                        log::debug!("Could not fetch file system's mtime, falling back to current system time: {}", err);
+                        log::debug!(
+                            "Could not fetch file system's mtime, falling back to current system time: {}",
+                            err
+                        );
                         SystemTime::now()
                     }
                 },
                 Err(err) => {
-                    log::debug!("Could not fetch file system's mtime, falling back to current system time: {}", err);
+                    log::debug!(
+                        "Could not fetch file system's mtime, falling back to current system time: {}",
+                        err
+                    );
                     SystemTime::now()
                 }
             },
@@ -1524,11 +1532,11 @@ impl Document {
             }
         }
 
-        // TODO: all of that should likely just be hooks
-        // start computing the diff in parallel
-        if let Some(diff_handle) = &self.diff_handle {
-            diff_handle.update_document(self.text.clone(), false);
-        }
+        // // TODO: all of that should likely just be hooks
+        // // start computing the diff in parallel
+        // if let Some(diff_handle) = &self.diff_handle {
+        //     diff_handle.update_document(self.text.clone(), false);
+        // }
 
         // map diagnostics over changes too
         changes.update_positions(self.diagnostics.iter_mut().map(|diagnostic| {
@@ -1943,11 +1951,7 @@ impl Document {
         self.language_config().into_iter().flat_map(move |config| {
             config.language_servers.iter().filter_map(move |features| {
                 let ls = &**self.language_servers.get(&features.name)?;
-                if ls.is_initialized() {
-                    Some(ls)
-                } else {
-                    None
-                }
+                if ls.is_initialized() { Some(ls) } else { None }
             })
         })
     }
@@ -1993,7 +1997,7 @@ impl Document {
     pub fn set_diff_base(&mut self, diff_base: Vec<u8>) {
         if let Ok((diff_base, ..)) = from_reader(&mut diff_base.as_slice(), Some(self.encoding)) {
             if let Some(differ) = &self.diff_handle {
-                differ.update_diff_base(diff_base);
+                let _ = differ.update_diff_base(diff_base);
                 return;
             }
             self.diff_handle = Some(DiffHandle::new(diff_base, self.text.clone()))
@@ -2537,7 +2541,7 @@ mod test {
 
     #[test]
     fn changeset_to_changes_ignore_line_endings() {
-        use helix_lsp::{lsp, Client, OffsetEncoding};
+        use helix_lsp::{Client, OffsetEncoding, lsp};
         let text = Rope::from("hello\r\nworld");
         let mut doc = Document::from(
             text,
@@ -2576,7 +2580,7 @@ mod test {
 
     #[test]
     fn changeset_to_changes() {
-        use helix_lsp::{lsp, Client, OffsetEncoding};
+        use helix_lsp::{Client, OffsetEncoding, lsp};
         let text = Rope::from("hello");
         let mut doc = Document::from(
             text,

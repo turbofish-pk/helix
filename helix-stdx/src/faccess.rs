@@ -1,3 +1,4 @@
+#![allow(clippy::missing_errors_doc)]
 //! Functions for managine file metadata.
 //! From <https://github.com/Freaky/faccess>
 
@@ -9,6 +10,7 @@ use bitflags::bitflags;
 // Licensed under MIT from faccess
 bitflags! {
     /// Access mode flags for `access` function to test for.
+    #[derive(Clone, Copy)]
     pub struct AccessMode: u8 {
         /// Path exists
         const EXISTS  = 0b0001;
@@ -23,7 +25,7 @@ bitflags! {
 
 #[cfg(unix)]
 mod imp {
-    use super::*;
+    use super::{io, AccessMode, Path};
 
     use rustix::fs::Access;
     use std::os::unix::fs::{MetadataExt, PermissionsExt};
@@ -493,9 +495,10 @@ mod imp {
     }
 }
 
+#[must_use]
 pub fn readonly(p: &Path) -> bool {
     match imp::access(p, AccessMode::WRITE) {
-        Ok(_) => false,
+        Ok(()) => false,
         Err(err) if err.kind() == std::io::ErrorKind::NotFound => false,
         Err(_) => true,
     }

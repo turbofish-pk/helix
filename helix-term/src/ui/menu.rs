@@ -6,7 +6,7 @@ use tui::{buffer::Buffer as Surface, widgets::Table};
 
 pub use tui::widgets::{Cell, Row};
 
-use helix_view::{editor::SmartTabConfig, graphics::Rect, Editor};
+use helix_view::{Editor, editor::SmartTabConfig, graphics::Rect};
 use tui::layout::Constraint;
 
 pub trait Item: Sync + Send + 'static {
@@ -260,7 +260,7 @@ impl<T: Item + 'static> Component for Menu<T> {
         {
             return EventResult::Ignored(None);
         }
-
+        #[allow(clippy::unnested_or_patterns)]
         match event {
             // esc or ctrl-c aborts the completion and closes the menu
             key!(Esc) | ctrl!('c') => {
@@ -295,9 +295,8 @@ impl<T: Item + 'static> Component for Menu<T> {
                 if let Some(selection) = self.selection() {
                     (self.callback_fn)(cx.editor, Some(selection), MenuEvent::Validate);
                     return EventResult::Consumed(close_fn);
-                } else {
-                    return EventResult::Ignored(close_fn);
                 }
+                return EventResult::Ignored(close_fn);
             }
             // KeyEvent {
             //     code: KeyCode::Char(c),

@@ -1,3 +1,4 @@
+#![allow(clippy::missing_errors_doc, clippy::missing_panics_doc)]
 pub mod config;
 pub mod grammar;
 pub mod workspace_trust;
@@ -82,6 +83,7 @@ fn prioritize_runtime_dirs() -> Vec<PathBuf> {
 /// All directories should be checked when looking for files.
 ///
 /// Postcondition: returns at least one path (it might not exist).
+#[must_use]
 pub fn runtime_dirs() -> &'static [PathBuf] {
     &RUNTIME_DIRS
 }
@@ -116,7 +118,7 @@ pub fn runtime_file(rel_path: impl AsRef<Path>) -> PathBuf {
             .unwrap_or_default()
     })
 }
-
+#[must_use]
 pub fn config_dir() -> PathBuf {
     // TODO: allow env var override
     let strategy = choose_base_strategy().expect("Unable to find the config directory!");
@@ -124,7 +126,7 @@ pub fn config_dir() -> PathBuf {
     path.push("helix");
     path
 }
-
+#[must_use]
 pub fn cache_dir() -> PathBuf {
     // TODO: allow env var override
     let strategy = choose_base_strategy().expect("Unable to find the cache directory!");
@@ -132,7 +134,7 @@ pub fn cache_dir() -> PathBuf {
     path.push("helix");
     path
 }
-
+#[must_use]
 pub fn data_dir() -> PathBuf {
     let strategy = choose_base_strategy().expect("Unable to find the data directory!");
     let mut path = strategy.data_dir();
@@ -141,25 +143,25 @@ pub fn data_dir() -> PathBuf {
 }
 
 pub fn config_file() -> PathBuf {
-    CONFIG_FILE.get().map(|path| path.to_path_buf()).unwrap()
+    CONFIG_FILE.get().cloned().unwrap()
 }
 
 pub fn log_file() -> PathBuf {
-    LOG_FILE.get().map(|path| path.to_path_buf()).unwrap()
+    LOG_FILE.get().cloned().unwrap()
 }
-
+#[must_use]
 pub fn workspace_config_file() -> PathBuf {
     find_workspace().0.join(".helix").join("config.toml")
 }
-
+#[must_use]
 pub fn workspace_lang_config_file() -> PathBuf {
     find_workspace().0.join(".helix").join("languages.toml")
 }
-
+#[must_use]
 pub fn lang_config_file() -> PathBuf {
     config_dir().join("languages.toml")
 }
-
+#[must_use]
 pub fn default_log_file() -> PathBuf {
     cache_dir().join("helix.log")
 }
@@ -196,6 +198,7 @@ pub fn default_log_file() -> PathBuf {
 ///
 /// thus it overrides the third depth-level of b with values of a if they exist,
 /// but otherwise merges their values
+#[must_use]
 pub fn merge_toml_values(left: toml::Value, right: toml::Value, merge_depth: usize) -> toml::Value {
     use toml::Value;
 
@@ -204,7 +207,7 @@ pub fn merge_toml_values(left: toml::Value, right: toml::Value, merge_depth: usi
     }
 
     match (left, right) {
-        (Value::Array(mut left_items), Value::Array(right_items)) => {
+        (Value::Array( mut left_items), Value::Array(right_items)) => {
             if merge_depth > 0 {
                 left_items.reserve(right_items.len());
                 for rvalue in right_items {
@@ -224,7 +227,7 @@ pub fn merge_toml_values(left: toml::Value, right: toml::Value, merge_depth: usi
                 Value::Array(right_items)
             }
         }
-        (Value::Table(mut left_map), Value::Table(right_map)) => {
+        (Value::Table( mut left_map), Value::Table(right_map)) => {
             if merge_depth > 0 {
                 for (rname, rvalue) in right_map {
                     match left_map.remove(&rname) {
@@ -254,6 +257,7 @@ pub fn merge_toml_values(left: toml::Value, right: toml::Value, merge_depth: usi
 /// and returns the first directory that contains either `.git`, `.svn`, `.jj` or `.helix`.
 /// If no workspace was found returns (CWD, true).
 /// Otherwise (workspace, false) is returned
+#[must_use]
 pub fn find_workspace() -> (PathBuf, bool) {
     let current_dir = current_working_dir();
     find_workspace_in(current_dir)
@@ -279,10 +283,8 @@ fn default_config_file() -> PathBuf {
 }
 
 fn ensure_parent_dir(path: &Path) {
-    if let Some(parent) = path.parent() {
-        if !parent.exists() {
-            std::fs::create_dir_all(parent).ok();
-        }
+    if let Some(parent) = path.parent() && !parent.exists() {
+        std::fs::create_dir_all(parent).ok();
     }
 }
 

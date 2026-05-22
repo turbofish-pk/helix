@@ -57,6 +57,7 @@ pub struct Transport {
 }
 
 impl Transport {
+    #[must_use] 
     pub fn start(
         server_stdout: Box<dyn AsyncBufRead + Unpin + Send>,
         server_stdin: Box<dyn AsyncWrite + Unpin + Send>,
@@ -235,7 +236,7 @@ impl Transport {
                 client_tx.send(msg).expect("Failed to send");
                 Ok(())
             }
-            Payload::Event(ref event) => {
+            Payload::Event( ref event) => {
                 info!("[{}] <- DAP event {:?}", self.id, event);
                 client_tx.send(msg).expect("Failed to send");
                 Ok(())

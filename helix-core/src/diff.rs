@@ -138,6 +138,7 @@ impl<'a> imara_diff::TokenSource for RopeLines<'a> {
 
 /// Compares `old` and `new` to generate a [`Transaction`] describing
 /// the steps required to get from `old` to `new`.
+#[must_use] 
 pub fn compare_ropes(before: &Rope, after: &Rope) -> Transaction {
     let start = Instant::now();
     let res = ChangeSet::with_capacity(32);

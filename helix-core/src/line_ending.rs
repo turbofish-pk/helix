@@ -26,6 +26,7 @@ pub enum LineEnding {
 
 impl LineEnding {
     #[inline]
+    #[must_use]
     pub const fn len_chars(&self) -> usize {
         match self {
             Self::Crlf => 2,
@@ -34,6 +35,7 @@ impl LineEnding {
     }
 
     #[inline]
+    #[must_use]
     pub const fn as_str(&self) -> &'static str {
         match self {
             Self::Crlf => "\u{000D}\u{000A}",
@@ -54,6 +56,7 @@ impl LineEnding {
     }
 
     #[inline]
+    #[must_use]
     pub const fn from_char(ch: char) -> Option<LineEnding> {
         match ch {
             '\u{000A}' => Some(LineEnding::LF),
@@ -79,6 +82,7 @@ impl LineEnding {
     // or from_rope_slice, which would be weird.
     #[allow(clippy::should_implement_trait)]
     #[inline]
+    #[must_use]
     pub fn from_str(g: &str) -> Option<LineEnding> {
         match g {
             "\u{000D}\u{000A}" => Some(LineEnding::Crlf),
@@ -101,6 +105,7 @@ impl LineEnding {
     }
 
     #[inline]
+    #[must_use]
     pub fn from_rope_slice(g: &RopeSlice) -> Option<LineEnding> {
         if let Some(text) = g.as_str() {
             LineEnding::from_str(text)
@@ -115,6 +120,7 @@ impl LineEnding {
 }
 
 #[inline]
+#[must_use]
 pub fn str_is_line_ending(s: &str) -> bool {
     LineEnding::from_str(s).is_some()
 }
@@ -125,6 +131,7 @@ pub fn rope_is_line_ending(r: RopeSlice) -> bool {
 }
 
 /// Attempts to detect what line ending the passed document uses.
+#[must_use]
 pub fn auto_detect_line_ending(doc: &Rope) -> Option<LineEnding> {
     // Return first matched line ending. Not all possible line endings
     // are being matched, as they might be special-use only
@@ -140,6 +147,7 @@ pub fn auto_detect_line_ending(doc: &Rope) -> Option<LineEnding> {
 }
 
 /// Returns the passed line's line ending, if any.
+#[must_use]
 pub fn get_line_ending(line: &RopeSlice) -> Option<LineEnding> {
     // Last character as str.
     let g1 = line
@@ -161,6 +169,7 @@ pub fn get_line_ending(line: &RopeSlice) -> Option<LineEnding> {
 
 #[cfg(not(feature = "unicode-lines"))]
 /// Returns the passed line's line ending, if any.
+#[must_use]
 pub fn get_line_ending_of_str(line: &str) -> Option<LineEnding> {
     if line.ends_with("\u{000D}\u{000A}") {
         Some(LineEnding::Crlf)
@@ -196,6 +205,7 @@ pub fn get_line_ending_of_str(line: &str) -> Option<LineEnding> {
 }
 
 /// Returns the char index of the end of the given line, not including its line ending.
+#[must_use]
 pub fn line_end_char_index(slice: &RopeSlice, line: usize) -> usize {
     slice.line_to_char(line + 1)
         - get_line_ending(&slice.line(line))
@@ -203,6 +213,7 @@ pub fn line_end_char_index(slice: &RopeSlice, line: usize) -> usize {
             .unwrap_or(0)
 }
 
+#[must_use]
 pub fn line_end_byte_index(slice: &RopeSlice, line: usize) -> usize {
     slice.line_to_byte(line + 1)
         - get_line_ending(&slice.line(line))
@@ -211,14 +222,16 @@ pub fn line_end_byte_index(slice: &RopeSlice, line: usize) -> usize {
 }
 
 /// Fetches line `line_idx` from the passed rope slice, sans any line ending.
+#[must_use]
 pub fn line_without_line_ending<'a>(slice: &'a RopeSlice, line_idx: usize) -> RopeSlice<'a> {
     let start = slice.line_to_char(line_idx);
     let end = line_end_char_index(slice, line_idx);
     slice.slice(start..end)
 }
 
-/// Returns the char index of the end of the given RopeSlice, not including
+/// Returns the char index of the end of the given `RopeSlice`, not including
 /// any final line ending.
+#[must_use]
 pub fn rope_end_without_line_ending(slice: &RopeSlice) -> usize {
     slice.len_chars() - get_line_ending(slice).map(|le| le.len_chars()).unwrap_or(0)
 }
@@ -257,7 +270,12 @@ mod line_ending_tests {
             )),
             Some(LineEnding::LF)
         );
-        assert_eq!(auto_detect_line_ending(&Rope::from_str("a formfeed\u{000C} with a\u{000C} carriage return linefeed\u{000D}\u{000A} and a linefeed\u{000A}")), Some(LineEnding::Crlf));
+        assert_eq!(
+            auto_detect_line_ending(&Rope::from_str(
+                "a formfeed\u{000C} with a\u{000C} carriage return linefeed\u{000D}\u{000A} and a linefeed\u{000A}"
+            )),
+            Some(LineEnding::Crlf)
+        );
     }
 
     #[test]

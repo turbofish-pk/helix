@@ -1,18 +1,17 @@
+#![allow(clippy::missing_errors_doc, clippy::missing_panics_doc)]
 //! Functions for working with the host environment.
 use std::{
     borrow::Cow,
     ffi::{OsStr, OsString},
     path::{Path, PathBuf},
-    sync::RwLock,
+    sync::{self, LazyLock, RwLock},
 };
-
-use once_cell::sync::Lazy;
 
 // We keep the CWD as a static so that we can access it in places where we don't have access to the Editor
 static CWD: RwLock<Option<PathBuf>> = RwLock::new(None);
 
 /// Get the current working directory.
-/// This information is managed internally as the call to std::env::current_dir
+/// This information is managed internally as the call to `std::env::current_dir`
 /// might fail if the cwd has been deleted.
 pub fn current_working_dir() -> PathBuf {
     if let Some(path) = &*CWD.read().unwrap() {
@@ -27,11 +26,10 @@ pub fn current_working_dir() -> PathBuf {
     #[cfg(windows)]
     let pwd = pwd.or_else(|| std::env::var_os("CD"));
 
-    if let Some(pwd) = pwd.map(PathBuf::from) {
-        if pwd.canonicalize().ok().as_ref() == Some(&cwd) {
+    if let Some(pwd) = pwd.map(PathBuf::from)
+        && pwd.canonicalize().ok().as_ref() == Some(&cwd) {
             cwd = pwd;
         }
-    }
     let mut dst = CWD.write().unwrap();
     *dst = Some(cwd.clone());
 
@@ -48,6 +46,7 @@ pub fn set_current_working_dir(path: impl AsRef<Path>) -> std::io::Result<Option
 }
 
 /// Checks if the given environment variable is set.
+#[must_use]
 pub fn env_var_is_set(env_var_name: &str) -> bool {
     std::env::var_os(env_var_name).is_some()
 }
@@ -71,7 +70,7 @@ pub fn which<T: AsRef<OsStr>>(
 fn find_brace_end(src: &[u8]) -> Option<usize> {
     use regex_automata::meta::Regex;
 
-    static REGEX: Lazy<Regex> = Lazy::new(|| Regex::builder().build("[{}]").unwrap());
+    static REGEX: sync::LazyLock<Regex> = sync::LazyLock::new(|| Regex::builder().build("[{}]").unwrap());
     let mut depth = 0;
     for mat in REGEX.find_iter(src) {
         let pos = mat.start();
@@ -88,7 +87,7 @@ fn find_brace_end(src: &[u8]) -> Option<usize> {
 fn expand_impl(src: &OsStr, mut resolve: impl FnMut(&OsStr) -> Option<OsString>) -> Cow<'_, OsStr> {
     use regex_automata::meta::Regex;
 
-    static REGEX: Lazy<Regex> = Lazy::new(|| {
+    static REGEX: LazyLock<Regex> = LazyLock::new(|| {
         Regex::builder()
             .build_many(&[
                 r"\$\{([^\}:]+):-",
@@ -115,15 +114,16 @@ fn expand_impl(src: &OsStr, mut resolve: impl FnMut(&OsStr) -> Option<OsString>)
             continue;
         }
         let var = &bytes[captures.get_group(1).unwrap().range()];
-        let default = if pattern_id != 5 {
+        let default = if pattern_id == 5 {
+            &[]
+
+            } else {
             let Some(bracket_pos) = find_brace_end(&bytes[range.end..]) else {
                 break;
             };
             let default = &bytes[range.end..range.end + bracket_pos];
             range.end += bracket_pos + 1;
             default
-        } else {
-            &[]
         };
         // safety: this is a codepoint aligned substring of an osstr (always valid)
         let var = unsafe { OsStr::from_encoded_bytes_unchecked(var) };

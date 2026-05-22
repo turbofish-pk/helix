@@ -1,7 +1,7 @@
 //! Utility functions to traverse the unicode graphemes of a `Rope`'s text contents.
 //!
 //! Based on <https://github.com/cessen/led/blob/c4fa72405f510b7fd16052f90a598c429b3104a6/src/graphemes.rs>
-use ropey::{str_utils::byte_to_char_idx, RopeSlice};
+use ropey::{RopeSlice, str_utils::byte_to_char_idx};
 use unicode_segmentation::{GraphemeCursor, GraphemeIncomplete};
 use unicode_width::UnicodeWidthStr;
 
@@ -12,10 +12,11 @@ use std::ops::Deref;
 use std::ptr::NonNull;
 use std::{slice, str};
 
-use crate::chars::{char_is_whitespace, char_is_word};
 use crate::LineEnding;
+use crate::chars::{char_is_whitespace, char_is_word};
 
 #[inline]
+#[must_use]
 pub fn tab_width_at(visual_x: usize, tab_width: u16) -> usize {
     tab_width as usize - (visual_x % tab_width as usize)
 }
@@ -28,11 +29,13 @@ pub enum Grapheme<'a> {
 }
 
 impl<'a> Grapheme<'a> {
+    #[must_use]
     pub fn new_decoration(g: &'static str) -> Grapheme<'a> {
         assert_ne!(g, "\t");
         Grapheme::new(g.into(), 0, 0)
     }
 
+    #[must_use]
     pub fn new(g: GraphemeStr<'a>, visual_x: usize, tab_width: u16) -> Grapheme<'a> {
         match g {
             g if g == "\t" => Grapheme::Tab {
@@ -51,6 +54,7 @@ impl<'a> Grapheme<'a> {
 
     /// Returns the a visual width of this grapheme,
     #[inline]
+    #[must_use]
     pub fn width(&self) -> usize {
         match *self {
             // width is not cached because we are dealing with
@@ -243,7 +247,7 @@ pub fn ensure_grapheme_boundary_prev(slice: RopeSlice, char_idx: usize) -> usize
 }
 
 /// A highly compressed Cow<'a, str> that holds
-/// atmost u31::MAX bytes and is readonly
+/// atmost `u31::MAX` bytes and is readonly
 pub struct GraphemeStr<'a> {
     ptr: NonNull<u8>,
     len: u32,

@@ -20,6 +20,7 @@ pub enum TsFeature {
 }
 
 impl TsFeature {
+    #[must_use] 
     pub fn all() -> &'static [Self] {
         &[
             Self::Highlight,
@@ -30,6 +31,7 @@ impl TsFeature {
         ]
     }
 
+    #[must_use] 
     pub fn runtime_filename(&self) -> &'static str {
         match *self {
             Self::Highlight => "highlights.scm",
@@ -40,6 +42,7 @@ impl TsFeature {
         }
     }
 
+    #[must_use] 
     pub fn long_title(&self) -> &'static str {
         match *self {
             Self::Highlight => "Syntax Highlighting",
@@ -50,6 +53,7 @@ impl TsFeature {
         }
     }
 
+    #[must_use] 
     pub fn short_title(&self) -> &'static str {
         match *self {
             Self::Highlight => "Highlight",

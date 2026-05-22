@@ -139,6 +139,7 @@ pub enum CommentChange {
     },
 }
 
+#[must_use] 
 pub fn find_block_comments(
     tokens: &[BlockCommentToken],
     text: RopeSlice,
@@ -311,6 +312,7 @@ pub fn toggle_block_comments(
     transaction
 }
 
+#[must_use] 
 pub fn split_lines_of_selection(text: RopeSlice, selection: &Selection) -> Selection {
     let mut ranges = SmallVec::new();
     for range in selection.ranges() {

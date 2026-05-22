@@ -11,7 +11,7 @@ use helix_core::fuzzy::fuzzy_match;
 use helix_core::indent::MAX_INDENT;
 use helix_core::line_ending;
 use helix_stdx::path::home_dir;
-use helix_view::document::{read_to_string, DEFAULT_LANGUAGE_NAME};
+use helix_view::document::{DEFAULT_LANGUAGE_NAME, read_to_string};
 use helix_view::editor::{CloseError, ConfigEvent};
 use helix_view::expansion;
 use serde_json::Value;
@@ -516,7 +516,7 @@ fn insert_final_newline(doc: &mut Document, view_id: ViewId) {
     let text = doc.text();
     if text.len_chars() > 0 && line_ending::get_line_ending(&text.slice(..)).is_none() {
         let eof = Selection::point(text.len_chars());
-        let insert = Transaction::insert(text, &eof, doc.line_ending.as_str().into());
+        let insert = Transaction::insert(text, &eof, &doc.line_ending.as_str().into());
         doc.apply(&insert, view_id);
     }
 }
@@ -2325,15 +2325,15 @@ fn toggle_option(
     let pointer = format!("/{}", key.replace('.', "/"));
     let value = config.pointer_mut(&pointer).ok_or_else(key_error)?;
 
-    *value = match value {
-        Value::Bool(ref value) => {
+    *value = match &*value {
+        &Value::Bool(value) => {
             ensure!(
                 args.len() == 1,
                 "Bad arguments. For boolean configurations use: `:toggle {key}`"
             );
             Value::Bool(!value)
         }
-        Value::String(ref value) => {
+        Value::String(value) => {
             ensure!(
                 args.len() == 2,
                 "Bad arguments. For string configurations use: `:toggle {key} val1 val2 ...`",
@@ -2347,7 +2347,7 @@ fn toggle_option(
             Value::String(
                 values
                     .iter()
-                    .skip_while(|e| *e != value)
+                    .skip_while(|e| **e != *value)
                     .nth(1)
                     .map(AsRef::as_ref)
                     .unwrap_or_else(|| &values[0])
@@ -2933,7 +2933,7 @@ fn read(cx: &mut compositor::Context, args: Args, event: PromptEvent) -> anyhow:
         .map_err(|err| anyhow!("error reading file: {}", err))?;
     let contents = Tendril::from(contents);
     let selection = doc.selection(view.id);
-    let transaction = Transaction::insert(doc.text(), selection, contents);
+    let transaction = Transaction::insert(doc.text(), selection, &contents);
     doc.apply(&transaction, view.id);
     doc.append_changes_to_history(view);
     view.ensure_cursor_in_view(doc, scrolloff);
@@ -4091,7 +4091,10 @@ pub const TYPABLE_COMMAND_LIST: &[TypableCommand] = &[
         doc: "Allow language servers and local config for the current workspace.",
         fun: trust_workspace,
         completer: CommandCompleter::none(),
-        signature: Signature { positionals: (0, None), ..Signature::DEFAULT },
+        signature: Signature {
+            positionals: (0, None),
+            ..Signature::DEFAULT
+        },
     },
     TypableCommand {
         name: "workspace-untrust",

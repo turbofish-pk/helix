@@ -20,7 +20,8 @@ use tui::{
 pub use typed::*;
 
 use helix_core::{
-    char_idx_at_visual_offset,
+    Deletion, LineEnding, Position, Range, Rope, RopeReader, RopeSlice, Selection, SmallVec,
+    Syntax, Tendril, Transaction, char_idx_at_visual_offset,
     chars::char_is_word,
     command_line::{self, Args},
     comment,
@@ -32,7 +33,7 @@ use helix_core::{
     indent::{self, IndentStyle},
     line_ending::{get_line_ending_of_str, line_end_char_index},
     match_brackets,
-    movement::{self, move_vertically_visual, Direction},
+    movement::{self, Direction, move_vertically_visual},
     object, pos_at_coords,
     regex::{self, Regex},
     search::{self},
@@ -41,10 +42,10 @@ use helix_core::{
     text_annotations::{Overlay, TextAnnotations},
     textobject,
     unicode::width::UnicodeWidthChar,
-    visual_offset_from_block, Deletion, LineEnding, Position, Range, Rope, RopeReader, RopeSlice,
-    Selection, SmallVec, Syntax, Tendril, Transaction,
+    visual_offset_from_block,
 };
 use helix_view::{
+    Document, DocumentId, Editor, ViewId,
     document::{FormatterError, Mode, SCRATCH_BUFFER_NAME},
     editor::{Action, Motion},
     expansion,
@@ -54,10 +55,9 @@ use helix_view::{
     theme::Style,
     tree,
     view::View,
-    Document, DocumentId, Editor, ViewId,
 };
 
-use anyhow::{anyhow, bail, ensure, Context as _};
+use anyhow::{Context as _, anyhow, bail, ensure};
 use arc_swap::access::DynAccess;
 use insert::*;
 use movement::Movement;
@@ -66,7 +66,7 @@ use crate::{
     compositor::{self, Component, Compositor},
     filter_picker_entry,
     job::Callback,
-    ui::{self, overlay::overlaid, Picker, PickerColumn, Popup, Prompt, PromptEvent},
+    ui::{self, Picker, PickerColumn, Popup, Prompt, PromptEvent, overlay::overlaid},
 };
 
 use crate::job::{self, Jobs};
@@ -91,7 +91,7 @@ use once_cell::sync::Lazy;
 use serde::de::{self, Deserialize, Deserializer};
 
 use grep_regex::RegexMatcherBuilder;
-use grep_searcher::{sinks, BinaryDetection, SearcherBuilder};
+use grep_searcher::{BinaryDetection, SearcherBuilder, sinks};
 use ignore::{DirEntry, WalkBuilder, WalkState};
 
 pub type OnKeyCallback = Box<dyn FnOnce(&mut Context, KeyEvent)>;
@@ -162,6 +162,7 @@ impl Context<'_> {
 
     /// Returns 1 if no explicit count was provided
     #[inline]
+    #[must_use] 
     pub fn count(&self) -> usize {
         self.count.map_or(1, |v| v.get())
     }
@@ -198,7 +199,7 @@ where
     })
 }
 
-use helix_view::{align_view, Align};
+use helix_view::{Align, align_view};
 
 /// MappableCommands are commands that can be bound to keys, executable in
 /// normal, insert or select mode.
@@ -285,6 +286,7 @@ impl MappableCommand {
         }
     }
 
+    #[must_use] 
     pub fn name(&self) -> &str {
         match &self {
             Self::Typable { name, .. } => name,
@@ -293,6 +295,7 @@ impl MappableCommand {
         }
     }
 
+    #[must_use] 
     pub fn doc(&self) -> &str {
         match &self {
             Self::Typable { doc, .. } => doc,
@@ -1522,7 +1525,7 @@ fn open_url(cx: &mut Context, url: Url, action: Action) {
         .unwrap_or_default();
 
     if should_open_url_externally(&url) {
-        return cx.jobs.callback(crate::open_external_url_callback(url));
+        return cx.jobs.callback(crate::open_external_url_callback(&url));
     }
 
     let path = &rel_path.join(url.path());
@@ -1548,7 +1551,7 @@ fn open_url_in_callback(
 ) {
     if should_open_url_externally(&url) {
         tokio::spawn(async move {
-            match crate::open_external_url_callback(url).await {
+            match crate::open_external_url_callback(&url).await {
                 Ok(callback) => job::dispatch_callback(callback).await,
                 Err(err) => status::report(err).await,
             }
@@ -7079,11 +7082,7 @@ fn jump_to_label(cx: &mut Context, labels: Vec<Range>, behaviour: Movement) {
                         }
                     } else {
                         let to = primary_selection.to();
-                        if range.anchor > to {
-                            range.anchor
-                        } else {
-                            to
-                        }
+                        if range.anchor > to { range.anchor } else { to }
                     };
                     Range::new(anchor, range.head)
                 } else {

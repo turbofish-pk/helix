@@ -71,6 +71,7 @@ impl Job {
         }
     }
 
+    #[must_use] 
     pub fn wait_before_exiting(mut self) -> Self {
         self.wait = true;
         self

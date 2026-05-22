@@ -1,4 +1,4 @@
-use anyhow::{anyhow, bail, Context, Result};
+use anyhow::{Context, Result, anyhow, bail};
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -149,12 +149,12 @@ pub fn fetch_grammars(strict: bool) -> Result<()> {
     git_updated.sort_unstable_by(|a, b| a.0.cmp(&b.0));
 
     if git_up_to_date != 0 {
-        println!("{} up to date git grammars", git_up_to_date);
+        println!("{git_up_to_date} up to date git grammars");
     }
 
     if !non_git.is_empty() {
         println!("{} non git grammars", non_git.len());
-        println!("\t{:?}", non_git);
+        println!("\t{non_git:?}");
     }
 
     if !git_updated.is_empty() {
@@ -162,12 +162,13 @@ pub fn fetch_grammars(strict: bool) -> Result<()> {
         // We checked the vec is not empty, unwrapping will not panic
         let longest_id = git_updated.iter().map(|x| x.0.len()).max().unwrap();
         for (id, rev) in git_updated {
-            println!(
-                "\t{id:width$} now on {rev}",
-                id = id,
-                width = longest_id,
-                rev = rev
-            );
+            // println!(
+            //     "\t{id:width$} now on {rev}",
+            //     id = id,
+            //     width = longest_id,
+            //     rev = rev
+            // );
+            println!("\t{id:longest_id$} now on {rev}");
         }
     }
 
@@ -220,12 +221,12 @@ pub fn build_grammars(target: Option<String>, strict: bool) -> Result<()> {
     built.sort_unstable();
 
     if already_built != 0 {
-        println!("{} grammars already built", already_built);
+        println!("{already_built} grammars already built");
     }
 
     if !built.is_empty() {
         println!("{} grammars built now", built.len());
-        println!("\t{:?}", built);
+        println!("\t{built:?}");
     }
 
     if !errors.is_empty() {
@@ -402,7 +403,7 @@ impl VendoredGrammar {
         // Create the grammar directory if needed.
         fs::create_dir_all(&self.dir).context(format!(
             "Could not create grammar directory {:?}",
-            &self.dir
+            &self.dir.display()
         ))?;
 
         // Ensure directory is git initialized.
@@ -499,7 +500,7 @@ enum BuildStatus {
     Built,
 }
 
-fn build_grammar(grammar: GrammarConfiguration, target: Option<&str>) -> Result<BuildStatus> {
+fn build_grammar(grammar: &GrammarConfiguration, target: Option<&str>) -> Result<BuildStatus> {
     let grammar_dir = if let GrammarSource::Local { path } = &grammar.source {
         PathBuf::from(&path)
     } else {
@@ -514,16 +515,16 @@ fn build_grammar(grammar: GrammarConfiguration, target: Option<&str>) -> Result<
     let grammar_dir_entries = grammar_dir.read_dir().with_context(|| {
         format!(
             "Failed to read directory {:?}. Did you use 'hx --grammar fetch'?",
-            grammar_dir
+            grammar_dir.display()
         )
     })?;
 
     if grammar_dir_entries.count() == 0 {
         return Err(anyhow!(
             "Directory {:?} is empty. Did you use 'hx --grammar fetch'?",
-            grammar_dir
+            grammar_dir.display()
         ));
-    };
+    }
 
     let path = match &grammar.source {
         GrammarSource::Git {
@@ -536,10 +537,10 @@ fn build_grammar(grammar: GrammarConfiguration, target: Option<&str>) -> Result<
 
     build_tree_sitter_library(&path, grammar, target)
 }
-
+#[allow(clippy::too_many_lines)]
 fn build_tree_sitter_library(
     src_path: &Path,
-    grammar: GrammarConfiguration,
+    grammar: &GrammarConfiguration,
     target: Option<&str>,
 ) -> Result<BuildStatus> {
     let header_path = src_path;
@@ -733,10 +734,10 @@ fn needs_recompile(
     if mtime(parser_c_path)? > lib_mtime {
         return Ok(true);
     }
-    if let Some(scanner_path) = scanner_path {
-        if mtime(scanner_path)? > lib_mtime {
-            return Ok(true);
-        }
+    if let Some(scanner_path) = scanner_path
+        && mtime(scanner_path)? > lib_mtime
+    {
+        return Ok(true);
     }
     Ok(false)
 }

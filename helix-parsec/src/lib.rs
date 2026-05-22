@@ -1,3 +1,4 @@
+#![allow(clippy::missing_errors_doc)]
 //! Parser-combinator functions
 //!
 //! This module provides parsers and parser combinators which can be used
@@ -57,10 +58,10 @@ where
 /// This parser succeeds if the next characters in the input are equal to the given
 /// string literal.
 ///
-/// Note that [str::parse] interferes with calling [Parser::parse] on string literals
+/// Note that [`str::parse`] interferes with calling [`Parser::parse`] on string literals
 /// directly; this trait implementation works when used within any parser combinator
-/// but does not work on its own. To call [Parser::parse] on a parser for a string
-/// literal, use the [token] parser.
+/// but does not work on its own. To call [`Parser::parse`] on a parser for a string
+/// literal, use the [`token`] parser.
 ///
 /// # Examples
 ///
@@ -87,8 +88,8 @@ impl<'a> Parser<'a> for &'static str {
 /// A parser which matches the given string literally.
 ///
 /// This function is a convenience for interpreting string literals as parsers
-/// and is only necessary to avoid conflict with [str::parse]. See the documentation
-/// for the `&'static str` implementation of [Parser].
+/// and is only necessary to avoid conflict with [`str::parse`]. See the documentation
+/// for the `&'static str` implementation of [`Parser`].
 ///
 /// # Examples
 ///
@@ -98,6 +99,7 @@ impl<'a> Parser<'a> for &'static str {
 /// assert_eq!(Ok(("", "foo")), parser.parse("foo"));
 /// assert_eq!(Err("bar"), parser.parse("bar"));
 /// ```
+#[must_use]
 pub fn token<'a>(literal: &'static str) -> impl Parser<'a, Output = &'a str> {
     literal
 }
@@ -253,7 +255,7 @@ macro_rules! choice {
 /// A parser combinator which takes a parser as input and maps the output using the
 /// given transformation function.
 ///
-/// This corresponds to [Result::map]. The value is only mapped if the input parser
+/// This corresponds to [`Result::map`]. The value is only mapped if the input parser
 /// matches against input.
 ///
 /// # Examples
@@ -338,11 +340,10 @@ where
     F: Fn(&P::Output) -> bool,
 {
     move |input| {
-        if let Ok((next_input, value)) = parser.parse(input) {
-            if pred_fn(&value) {
+        if let Ok((next_input, value)) = parser.parse(input)
+            && pred_fn(&value) {
                 return Ok((next_input, value));
             }
-        }
         Err(input)
     }
 }
@@ -475,7 +476,7 @@ where
 /// A parser combinator which matches the given parser against the input one or
 /// more times.
 ///
-/// This parser combinator acts the same as [zero_or_more] but must match at
+/// This parser combinator acts the same as [`zero_or_more`] but must match at
 /// least once.
 ///
 /// # Examples

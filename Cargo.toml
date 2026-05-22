@@ -65,10 +65,10 @@ quickcheck = { version = "1", default-features = false }
 
 [workspace.package]
 version = "25.7.1"
-edition = "2021"
+edition = "2024"
 authors = ["Blaž Hrastnik <blaz@mxxn.io>"]
 categories = ["editor"]
 repository = "https://github.com/helix-editor/helix"
 homepage = "https://helix-editor.com"
 license = "MPL-2.0"
-rust-version = "1.90"
+rust-version = "1.95"

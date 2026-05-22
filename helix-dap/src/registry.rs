@@ -22,6 +22,7 @@ pub struct Registry {
 
 impl Registry {
     /// Creates a new DebuggerService instance
+    #[must_use] 
     pub fn new() -> Self {
         Self {
             inner: SlotMap::with_key(),

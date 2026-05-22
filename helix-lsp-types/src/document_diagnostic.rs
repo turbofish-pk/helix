@@ -53,6 +53,7 @@ pub struct DiagnosticOptions {
     pub work_done_progress_options: WorkDoneProgressOptions,
 }
 
+#[allow(clippy::ref_option)]
 fn serialize_option_arc_str<S: serde::Serializer>(
     val: &Option<Arc<str>>,
     serializer: S,
@@ -63,7 +64,7 @@ fn serialize_option_arc_str<S: serde::Serializer>(
 fn deserialize_option_arc_str<'de, D: serde::Deserializer<'de>>(
     deserializer: D,
 ) -> Result<Option<Arc<str>>, D::Error> {
-    Option::<String>::deserialize(deserializer).map(|opt| opt.map(|s| s.into()))
+    Option::<String>::deserialize(deserializer).map(|opt| opt.map(std::convert::Into::into))
 }
 
 /// Diagnostic registration options.

@@ -1,13 +1,14 @@
 use std::fmt::Display;
 
 use crate::{
+    Range, Selection, Syntax,
     graphemes::next_grapheme_boundary,
     match_brackets::{
         self, find_matching_bracket, find_matching_bracket_fuzzy, get_pair, is_close_bracket,
         is_open_bracket,
     },
     movement::Direction,
-    search, Range, Selection, Syntax,
+    search,
 };
 use ropey::RopeSlice;
 
@@ -298,7 +299,7 @@ fn find_nth_close_pair(
 
 /// Find position of surround characters around every cursor. Returns None
 /// if any positions overlap. Note that the positions are in a flat Vec.
-/// Use get_surround_pos().chunks(2) to get matching pairs of surround positions.
+/// Use `get_surround_pos().chunks(2)` to get matching pairs of surround positions.
 /// `ch` can be either closing or opening pair. If `ch` is None, surround pairs
 /// are automatically detected around each cursor (note that this may result
 /// in them selecting different surround characters for each selection).

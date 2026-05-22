@@ -65,7 +65,7 @@ pub struct WorkDoneProgressBegin {
     /// Optional, more detailed associated progress message. Contains
     /// complementary information to the `title`.
     ///
-    /// Examples: "3/25 files", "project/src/module2", "node_modules/some_dep".
+    /// Examples: "3/25 files", "project/src/module2", "`node_modules/some_dep`".
     /// If unset, the previous progress message (if any) is still valid.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub message: Option<String>,
@@ -91,7 +91,7 @@ pub struct WorkDoneProgressReport {
 
     /// Optional, more detailed associated progress message. Contains
     /// complementary information to the `title`.
-    /// Examples: "3/25 files", "project/src/module2", "node_modules/some_dep".
+    /// Examples: "3/25 files", "project/src/module2", "`node_modules/some_dep`".
     /// If unset, the previous progress message (if any) is still valid.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub message: Option<String>,
@@ -111,7 +111,7 @@ pub struct WorkDoneProgressReport {
 pub struct WorkDoneProgressEnd {
     /// Optional, more detailed associated progress message. Contains
     /// complementary information to the `title`.
-    /// Examples: "3/25 files", "project/src/module2", "node_modules/some_dep".
+    /// Examples: "3/25 files", "project/src/module2", "`node_modules/some_dep`".
     /// If unset, the previous progress message (if any) is still valid.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub message: Option<String>,

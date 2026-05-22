@@ -87,6 +87,7 @@ pub mod util {
     /// Converts a diagnostic in the document to [`lsp::Diagnostic`].
     ///
     /// Panics when [`pos_to_lsp_pos`] would for an invalid range on the diagnostic.
+    #[must_use] 
     pub fn diagnostic_to_lsp_diagnostic(
         doc: &Rope,
         diag: &helix_core::diagnostic::Diagnostic,
@@ -143,6 +144,7 @@ pub mod util {
     /// Converts [`lsp::Position`] to a position in the document.
     ///
     /// Returns `None` if position.line is out of bounds or an overflow occurs
+    #[must_use] 
     pub fn lsp_pos_to_pos(
         doc: &Rope,
         pos: lsp::Position,
@@ -220,6 +222,7 @@ pub mod util {
     /// Converts position in the document to [`lsp::Position`].
     ///
     /// Panics when `pos` is out of `doc` bounds or operation overflows.
+    #[must_use] 
     pub fn pos_to_lsp_pos(
         doc: &Rope,
         pos: usize,
@@ -251,6 +254,7 @@ pub mod util {
     }
 
     /// Converts a range in the document to [`lsp::Range`].
+    #[must_use] 
     pub fn range_to_lsp_range(
         doc: &Rope,
         range: Range,
@@ -262,6 +266,7 @@ pub mod util {
         lsp::Range::new(start, end)
     }
 
+    #[must_use] 
     pub fn lsp_range_to_range(
         doc: &Rope,
         mut range: lsp::Range,
@@ -328,6 +333,7 @@ pub mod util {
 
     /// Creates a [Transaction] from the [lsp::TextEdit] in a completion response.
     /// The transaction applies the edit to all cursors.
+    #[must_use] 
     pub fn generate_transaction_from_completion_edit(
         doc: &Rope,
         selection: &Selection,
@@ -408,6 +414,7 @@ pub mod util {
         (transaction, snippet)
     }
 
+    #[must_use] 
     pub fn generate_transaction_from_edits(
         doc: &Rope,
         mut edits: Vec<lsp::TextEdit>,
@@ -766,6 +773,7 @@ pub enum ProgressStatus {
 }
 
 impl ProgressStatus {
+    #[must_use] 
     pub fn progress(&self) -> Option<&lsp::WorkDoneProgress> {
         match &self {
             ProgressStatus::Created => None,
@@ -781,11 +789,13 @@ impl ProgressStatus {
 pub struct LspProgressMap(HashMap<LanguageServerId, HashMap<lsp::ProgressToken, ProgressStatus>>);
 
 impl LspProgressMap {
+    #[must_use] 
     pub fn new() -> Self {
         Self::default()
     }
 
     /// Returns a map of all tokens corresponding to the language server with `id`.
+    #[must_use] 
     pub fn progress_map(
         &self,
         id: LanguageServerId,
@@ -793,11 +803,13 @@ impl LspProgressMap {
         self.0.get(&id)
     }
 
+    #[must_use] 
     pub fn is_progressing(&self, id: LanguageServerId) -> bool {
         self.0.get(&id).map(|it| !it.is_empty()).unwrap_or_default()
     }
 
     /// Returns last progress status for a given server with `id` and `token`.
+    #[must_use] 
     pub fn progress(
         &self,
         id: LanguageServerId,
@@ -806,6 +818,7 @@ impl LspProgressMap {
         self.0.get(&id).and_then(|values| values.get(token))
     }
 
+    #[must_use] 
     pub fn title(&self, id: LanguageServerId, token: &lsp::ProgressToken) -> Option<&String> {
         self.progress(id, token).and_then(|p| match p {
             ProgressStatus::Created => None,

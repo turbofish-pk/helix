@@ -30,6 +30,7 @@ impl Snippet {
         Ok(Snippet::new(parsed_snippet))
     }
 
+    #[must_use] 
     pub fn new(elements: Vec<parser::SnippetElement>) -> Snippet {
         let mut res = Snippet {
             elements: Vec::new(),
@@ -42,6 +43,7 @@ impl Snippet {
         res
     }
 
+    #[must_use] 
     pub fn elements(&self) -> &[SnippetElement] {
         &self.elements
     }
@@ -321,6 +323,7 @@ impl Transform {
         })
     }
 
+    #[must_use] 
     pub fn apply(&self, mut doc: RopeSlice<'_>, range: Range) -> Tendril {
         let mut buf = Tendril::new();
         let it = self.regex.captures_iter(doc.regex_input_at(range));
@@ -332,17 +335,17 @@ impl Transform {
             buf.extend(doc.byte_slice(last_match..m.start).chunks());
             last_match = m.end;
             for fmt in &*self.replacement {
-                match *fmt {
-                    FormatItem::Text(ref text) => {
-                        buf.push_str(text);
+                match fmt {
+                    FormatItem::Text(text) => {
+                        buf.push_str(&text);
                     }
                     FormatItem::Capture(i) => {
-                        if let Some(cap) = cap.get_group(i) {
+                        if let Some(cap) = cap.get_group(*i) {
                             buf.extend(doc.byte_slice(cap.range()).chunks());
                         }
                     }
                     FormatItem::CaseChange(i, change) => {
-                        if let Some(cap) = cap.get_group(i).filter(|i| !i.is_empty()) {
+                        if let Some(cap) = cap.get_group(*i).filter(|i| !i.is_empty()) {
                             let mut chars = doc.byte_slice(cap.range()).chars();
                             match change {
                                 CaseChange::Upcase => to_upper_case_with(chars, &mut buf),
@@ -357,11 +360,11 @@ impl Transform {
                             }
                         }
                     }
-                    FormatItem::Conditional(i, ref if_, ref else_) => {
-                        if cap.get_group(i).is_none_or(|mat| mat.is_empty()) {
+                    FormatItem::Conditional(i, if_, else_) => {
+                        if cap.get_group(*i).is_none_or(|mat| mat.is_empty()) {
                             buf.push_str(else_)
                         } else {
-                            buf.push_str(if_)
+                            buf.push_str(&if_)
                         }
                     }
                 }

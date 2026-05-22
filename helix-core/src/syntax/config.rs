@@ -109,6 +109,7 @@ pub struct LanguageConfiguration {
 }
 
 impl LanguageConfiguration {
+    #[must_use] 
     pub fn language(&self) -> Language {
         // This value must be set by `super::Loader::new`.
         self.language.unwrap()
@@ -378,6 +379,7 @@ pub struct LanguageServerFeatures {
 }
 
 impl LanguageServerFeatures {
+    #[must_use] 
     pub fn has_feature(&self, feature: LanguageServerFeature) -> bool {
         (self.only.is_empty() || self.only.contains(&feature)) && !self.excluded.contains(&feature)
     }

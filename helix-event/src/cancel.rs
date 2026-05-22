@@ -12,7 +12,7 @@ pub async fn cancelable_future<T>(
 ) -> Option<T> {
     tokio::select! {
         biased;
-        _ = cancel.borrow().canceled() => {
+        () = cancel.borrow().canceled() => {
             None
         }
         res = future => {
@@ -40,6 +40,7 @@ struct Shared {
 }
 
 impl Shared {
+#[allow(clippy::cast_possible_truncation)]
     fn generation(&self) -> u32 {
         self.state.load(Relaxed) as u32
     }
@@ -53,6 +54,7 @@ impl Shared {
     /// regard to the generation counter (doesn't use `fetch_add`)
     /// so the calling code must ensure it cannot execute concurrently
     /// to maintain correctness (but not safety)
+#[allow(clippy::cast_possible_truncation)]
     fn inc_generation(&self, num_running: u32) -> (u32, u32) {
         let state = self.state.load(Relaxed);
         let generation = state as u32;
@@ -63,13 +65,14 @@ impl Shared {
         }
         let new_generation = generation.saturating_add(1);
         self.state.store(
-            new_generation as u64 | ((num_running as u64) << 32),
+            u64::from(new_generation) | (u64::from(num_running) << 32),
             Relaxed,
         );
         self.notify.notify_waiters();
         (new_generation, prev_running)
     }
 
+#[allow(clippy::cast_possible_truncation)]
     fn inc_running(&self, generation: u32) {
         let mut state = self.state.load(Relaxed);
         loop {
@@ -90,7 +93,7 @@ impl Shared {
             }
         }
     }
-
+#[allow(clippy::cast_possible_truncation)]
     fn dec_running(&self, generation: u32) {
         let mut state = self.state.load(Relaxed);
         loop {
@@ -129,6 +132,7 @@ pub struct TaskController {
 }
 
 impl TaskController {
+    #[must_use]
     pub fn new() -> Self {
         TaskController::default()
     }
@@ -141,6 +145,7 @@ impl TaskController {
 
     /// Checks whether there are any task handles
     /// that haven't been dropped (or canceled) yet.
+    #[must_use]
     pub fn is_running(&self) -> bool {
         self.shared.num_running() != 0
     }
@@ -166,7 +171,7 @@ impl Drop for TaskController {
 /// cancellation very quickly (single atomic read) in blocking code.
 /// The handle can be cheaply cloned (reference counted).
 ///
-/// The TaskController can check whether a task is "running" by inspecting the
+/// The `TaskController` can check whether a task is "running" by inspecting the
 /// refcount of the (current) tasks handles. Therefore, if that information
 /// is important, ensure that the handle is not dropped until the task fully
 /// completes.
@@ -197,10 +202,10 @@ impl TaskHandle {
     pub async fn canceled(&self) {
         let notified = self.shared.notify.notified();
         if !self.is_canceled() {
-            notified.await
+            notified.await;
         }
     }
-
+#[must_use]
     pub fn is_canceled(&self) -> bool {
         self.generation != self.shared.generation()
     }

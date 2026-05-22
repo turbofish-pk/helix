@@ -53,7 +53,7 @@ pub async fn report(msg: impl Into<StatusMessage>) {
 
 pub fn report_blocking(msg: impl Into<StatusMessage>) {
     let messages = MESSAGES.wait();
-    send_blocking(messages, msg.into())
+    send_blocking(messages, msg.into());
 }
 
 /// Must be called once during editor startup exactly once

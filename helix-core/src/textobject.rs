@@ -2,13 +2,13 @@ use std::fmt::Display;
 
 use ropey::RopeSlice;
 
-use crate::chars::{categorize_char, char_is_whitespace, CharCategory};
+use crate::Range;
+use crate::chars::{CharCategory, categorize_char, char_is_whitespace};
 use crate::graphemes::{next_grapheme_boundary, prev_grapheme_boundary};
 use crate::line_ending::rope_is_line_ending;
 use crate::movement::Direction;
 use crate::syntax;
-use crate::Range;
-use crate::{surround, Syntax};
+use crate::{Syntax, surround};
 
 fn find_word_boundary(slice: RopeSlice, mut pos: usize, direction: Direction, long: bool) -> usize {
     use CharCategory::{Eol, Whitespace};
@@ -160,7 +160,7 @@ pub fn textobject_paragraph(
         while lines.next_if(|&e| e).is_some() {
             line += 1;
         }
-        count_done += done as usize;
+        count_done += usize::from(done);
     }
 
     // search one paragraph backwards for last paragraph
@@ -198,6 +198,7 @@ pub fn textobject_paragraph(
     Range::new(anchor, head)
 }
 
+#[must_use]
 pub fn textobject_pair_surround(
     syntax: Option<&Syntax>,
     slice: RopeSlice,
@@ -209,6 +210,7 @@ pub fn textobject_pair_surround(
     textobject_pair_surround_impl(syntax, slice, range, textobject, Some(ch), count)
 }
 
+#[must_use]
 pub fn textobject_pair_surround_closest(
     syntax: Option<&Syntax>,
     slice: RopeSlice,
@@ -231,25 +233,23 @@ fn textobject_pair_surround_impl(
         Some(ch) => surround::find_nth_pairs_pos(syntax, slice, ch, range, count),
         None => surround::find_nth_closest_pairs_pos(syntax, slice, range, count),
     };
-    pair_pos
-        .map(|(anchor, head)| match textobject {
-            TextObject::Inside => {
-                if anchor < head {
-                    Range::new(next_grapheme_boundary(slice, anchor), head)
-                } else {
-                    Range::new(anchor, next_grapheme_boundary(slice, head))
-                }
+    pair_pos.map_or(range, |(anchor, head)| match textobject {
+        TextObject::Inside => {
+            if anchor < head {
+                Range::new(next_grapheme_boundary(slice, anchor), head)
+            } else {
+                Range::new(anchor, next_grapheme_boundary(slice, head))
             }
-            TextObject::Around => {
-                if anchor < head {
-                    Range::new(anchor, next_grapheme_boundary(slice, head))
-                } else {
-                    Range::new(next_grapheme_boundary(slice, anchor), head)
-                }
+        }
+        TextObject::Around => {
+            if anchor < head {
+                Range::new(anchor, next_grapheme_boundary(slice, head))
+            } else {
+                Range::new(next_grapheme_boundary(slice, anchor), head)
             }
-            TextObject::Movement => unreachable!(),
-        })
-        .unwrap_or(range)
+        }
+        TextObject::Movement => unreachable!(),
+    })
 }
 
 /// Transform the given range to select text objects based on tree-sitter.

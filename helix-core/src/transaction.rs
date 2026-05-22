@@ -1,7 +1,8 @@
+#[allow(clippy::too_many_lines)]
 use ropey::RopeSlice;
 use smallvec::SmallVec;
 
-use crate::{chars::char_is_word, Range, Rope, Selection, Tendril};
+use crate::{Range, Rope, Selection, Tendril, chars::char_is_word};
 use std::{borrow::Cow, iter::once};
 
 /// (from, to, replacement)
@@ -21,6 +22,7 @@ pub enum Operation {
 
 impl Operation {
     /// The number of characters affected by the operation.
+    #[must_use]
     pub fn len_chars(&self) -> usize {
         match self {
             Self::Retain(n) | Self::Delete(n) => *n,
@@ -64,6 +66,7 @@ impl Assoc {
         }
     }
 
+    #[must_use]
     pub fn sticky(self) -> bool {
         matches!(self, Assoc::BeforeSticky | Assoc::AfterSticky)
     }
@@ -78,6 +81,7 @@ pub struct ChangeSet {
 }
 
 impl ChangeSet {
+    #[must_use]
     pub fn with_capacity(capacity: usize) -> Self {
         Self {
             changes: Vec::with_capacity(capacity),
@@ -99,13 +103,14 @@ impl ChangeSet {
     // TODO: from iter
 
     #[doc(hidden)] // used by lsp to convert to LSP changes
+    #[must_use]
     pub fn changes(&self) -> &[Operation] {
         &self.changes
     }
 
-    // Changeset builder operations: delete/insert/retain
+    // `Changeset` builder operations: delete/insert/retain
     pub(crate) fn delete(&mut self, n: usize) {
-        use Operation::*;
+        use Operation::Delete;
         if n == 0 {
             return;
         }
@@ -120,7 +125,7 @@ impl ChangeSet {
     }
 
     pub(crate) fn insert(&mut self, fragment: Tendril) {
-        use Operation::*;
+        use Operation::{Delete, Insert};
 
         if fragment.is_empty() {
             return;
@@ -142,7 +147,7 @@ impl ChangeSet {
     }
 
     pub(crate) fn retain(&mut self, n: usize) {
-        use Operation::*;
+        use Operation::Retain;
         if n == 0 {
             return;
         }
@@ -160,6 +165,7 @@ impl ChangeSet {
     /// Combine two changesets together.
     /// In other words,  If `this` goes `docA` → `docB` and `other` represents `docB` → `docC`, the
     /// returned value will represent the change `docA` → `docC`.
+    #[must_use]
     pub fn compose(self, other: Self) -> Self {
         assert!(self.len_after == other.len);
 
@@ -183,8 +189,8 @@ impl ChangeSet {
         let mut changes = Self::with_capacity(len); // TODO: max(a, b), shrink_to_fit() afterwards
 
         loop {
+            use Operation::{Delete, Insert, Retain};
             use std::cmp::Ordering;
-            use Operation::*;
             match (head_a, head_b) {
                 // we are done
                 (None, None) => {
@@ -283,7 +289,7 @@ impl ChangeSet {
                         head_b = changes_b.next();
                     }
                 },
-            };
+            }
         }
 
         // starting len should still equal original starting len
@@ -303,12 +309,15 @@ impl ChangeSet {
     /// provides a basic form of [operational
     /// transformation](https://en.wikipedia.org/wiki/Operational_transformation),
     /// and can be used for collaborative editing.
+    #[must_use]
     pub fn map(self, _other: Self) -> Self {
         unimplemented!()
     }
 
     /// Returns a new changeset that reverts this one. Useful for `undo` implementation.
     /// The document parameter expects the original document before this change was applied.
+    #[allow(clippy::too_many_lines)]
+    #[must_use]
     pub fn invert(&self, original_doc: &Rope) -> Self {
         assert!(original_doc.len_chars() == self.len);
 
@@ -317,7 +326,7 @@ impl ChangeSet {
         let mut pos = 0;
 
         for change in &self.changes {
-            use Operation::*;
+            use Operation::{Delete, Insert, Retain};
             match change {
                 Retain(n) => {
                     changes.retain(*n);
@@ -347,7 +356,7 @@ impl ChangeSet {
         let mut pos = 0;
 
         for change in &self.changes {
-            use Operation::*;
+            use Operation::{Delete, Insert, Retain};
             match change {
                 Retain(n) => {
                     pos += n;
@@ -367,6 +376,7 @@ impl ChangeSet {
 
     /// `true` when the set is empty.
     #[inline]
+    #[must_use]
     pub fn is_empty(&self) -> bool {
         self.changes.is_empty() || self.changes == [Operation::Retain(self.len)]
     }
@@ -386,7 +396,7 @@ impl ChangeSet {
     /// again `O(MN)`.  For lists that are often/mostly sorted (like the end of diagnostic ranges)
     /// performance is usally close to `O(N + M)`
     pub fn update_positions<'a>(&self, positions: impl Iterator<Item = (&'a mut usize, Assoc)>) {
-        use Operation::*;
+        use Operation::{Delete, Insert, Retain};
 
         let mut positions = positions.peekable();
 
@@ -506,7 +516,7 @@ impl ChangeSet {
         }
         let out_of_bounds: Vec<_> = positions.collect();
 
-        panic!("Positions {out_of_bounds:?} are out of range for changeset len {old_pos}!",)
+        panic!("Positions {out_of_bounds:?} are out of range for changeset len {old_pos}!")
     }
 
     /// Map a position through the changes.
@@ -515,20 +525,23 @@ impl ChangeSet {
     /// position close to the character before, and will place it before insertions over that
     /// range, or at that point. `After` will move it forward, placing it at the end of such
     /// insertions.
+    #[must_use]
     pub fn map_pos(&self, mut pos: usize, assoc: Assoc) -> usize {
         self.update_positions(once((&mut pos, assoc)));
         pos
     }
 
+    #[must_use]
     pub fn changes_iter(&self) -> ChangeIterator<'_> {
         ChangeIterator::new(self)
     }
 
+    #[must_use]
     pub fn from_change(doc: &Rope, change: Change) -> Self {
         Self::from_changes(doc, std::iter::once(change))
     }
 
-    /// Generate a ChangeSet from a set of changes.
+    /// Generate a `ChangeSet` from a set of changes.
     pub fn from_changes<I>(doc: &Rope, changes: I) -> Self
     where
         I: Iterator<Item = Change>,
@@ -578,6 +591,7 @@ pub struct Transaction {
 
 impl Transaction {
     /// Create a new, empty transaction.
+    #[must_use]
     pub fn new(doc: &Rope) -> Self {
         Self {
             changes: ChangeSet::new(doc.slice(..)),
@@ -586,11 +600,13 @@ impl Transaction {
     }
 
     /// Changes made to the buffer.
+    #[must_use]
     pub fn changes(&self) -> &ChangeSet {
         &self.changes
     }
 
     /// When set, explicitly updates the selection.
+    #[must_use]
     pub fn selection(&self) -> Option<&Selection> {
         self.selection.as_ref()
     }
@@ -606,6 +622,7 @@ impl Transaction {
     }
 
     /// Generate a transaction that reverts this one.
+    #[must_use]
     pub fn invert(&self, original: &Rope) -> Self {
         let changes = self.changes.invert(original);
 
@@ -615,6 +632,7 @@ impl Transaction {
         }
     }
 
+    #[must_use]
     pub fn compose(mut self, other: Self) -> Self {
         self.changes = self.changes.compose(other.changes);
         // Other selection takes precedence
@@ -622,6 +640,7 @@ impl Transaction {
         self
     }
 
+    #[must_use]
     pub fn with_selection(mut self, selection: Selection) -> Self {
         self.selection = Some(selection);
         self
@@ -680,7 +699,7 @@ impl Transaction {
                 continue;
             }
             if last > from {
-                from = last
+                from = last;
             }
             debug_assert!(
                 from <= to,
@@ -697,6 +716,7 @@ impl Transaction {
         Self::from(changeset)
     }
 
+    #[must_use]
     pub fn insert_at_eof(mut self, text: Tendril) -> Transaction {
         self.changes.insert(text);
         self
@@ -762,10 +782,10 @@ impl Transaction {
 
         let transaction = Transaction::change_by_selection(doc, selection, |start_range| {
             let ((from, to, replacement), end_range) = f(start_range);
-            let mut change_size = to as isize - from as isize;
+            let mut change_size = to.cast_signed() - from.cast_signed();
 
             if let Some(ref text) = replacement {
-                change_size = text.chars().count() as isize - change_size;
+                change_size = text.chars().count().cast_signed() - change_size;
             } else {
                 change_size = -change_size;
             }
@@ -778,20 +798,14 @@ impl Transaction {
             };
 
             let offset_range = Range::new(
-                (new_range.anchor as isize + offset) as usize,
-                (new_range.head as isize + offset) as usize,
+                (new_range.anchor.cast_signed() + offset) as usize,
+                (new_range.head.cast_signed() + offset) as usize,
             );
 
             end_ranges.push(offset_range);
             offset += change_size;
 
-            log::trace!(
-                "from: {}, to: {}, replacement: {:?}, offset: {}",
-                from,
-                to,
-                replacement,
-                offset
-            );
+            log::trace!("from: {from}, to: {to}, replacement: {replacement:?}, offset: {offset}");
 
             (from, to, replacement)
         });
@@ -844,12 +858,7 @@ impl Transaction {
             );
 
             log::trace!(
-                "delete from: {}, to: {}, offset: {}, new_range: {:?}, offset_range: {:?}",
-                from,
-                to,
-                offset,
-                new_range,
-                offset_range
+                "delete from: {from}, to: {to}, offset: {offset}, new_range: {new_range:?}, offset_range: {offset_range:?}"
             );
 
             end_ranges.push(offset_range);
@@ -863,12 +872,14 @@ impl Transaction {
     }
 
     /// Insert text at each selection head.
-    pub fn insert(doc: &Rope, selection: &Selection, text: Tendril) -> Self {
+    #[must_use]
+    pub fn insert(doc: &Rope, selection: &Selection, text: &Tendril) -> Self {
         Self::change_by_selection(doc, selection, |range| {
             (range.head, range.head, Some(text.clone()))
         })
     }
 
+    #[must_use]
     pub fn changes_iter(&self) -> ChangeIterator<'_> {
         self.changes.changes_iter()
     }
@@ -899,7 +910,7 @@ impl Iterator for ChangeIterator<'_> {
     type Item = Change;
 
     fn next(&mut self) -> Option<Self::Item> {
-        use Operation::*;
+        use Operation::{Delete, Insert, Retain};
 
         loop {
             match self.iter.next()? {
@@ -1118,19 +1129,19 @@ mod test {
             doc: "".into(),
             selection: Selection::point(0),
         };
-        let t1 = Transaction::insert(&state.doc, &state.selection, Tendril::from("h"));
+        let t1 = Transaction::insert(&state.doc, &state.selection, &Tendril::from("h"));
         t1.apply(&mut state.doc);
         state.selection = state.selection.clone().map(t1.changes());
-        let t2 = Transaction::insert(&state.doc, &state.selection, Tendril::from("e"));
+        let t2 = Transaction::insert(&state.doc, &state.selection, &Tendril::from("e"));
         t2.apply(&mut state.doc);
         state.selection = state.selection.clone().map(t2.changes());
-        let t3 = Transaction::insert(&state.doc, &state.selection, Tendril::from("l"));
+        let t3 = Transaction::insert(&state.doc, &state.selection, &Tendril::from("l"));
         t3.apply(&mut state.doc);
         state.selection = state.selection.clone().map(t3.changes());
-        let t4 = Transaction::insert(&state.doc, &state.selection, Tendril::from("l"));
+        let t4 = Transaction::insert(&state.doc, &state.selection, &Tendril::from("l"));
         t4.apply(&mut state.doc);
         state.selection = state.selection.clone().map(t4.changes());
-        let t5 = Transaction::insert(&state.doc, &state.selection, Tendril::from("o"));
+        let t5 = Transaction::insert(&state.doc, &state.selection, &Tendril::from("o"));
         t5.apply(&mut state.doc);
         state.selection = state.selection.clone().map(t5.changes());
 

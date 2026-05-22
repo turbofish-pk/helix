@@ -6,12 +6,12 @@ use helix_stdx::Range;
 use ropey::{Rope, RopeSlice};
 use smallvec::SmallVec;
 
-use crate::indent::{normalize_indentation, IndentStyle};
+use crate::indent::{IndentStyle, normalize_indentation};
 use crate::movement::Direction;
-use crate::snippets::elaborate;
 use crate::snippets::TabstopIdx;
+use crate::snippets::elaborate;
 use crate::snippets::{Snippet, SnippetElement, Transform};
-use crate::{selection, Selection, Tendril, Transaction};
+use crate::{Selection, Tendril, Transaction, selection};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum TabstopKind {
@@ -48,7 +48,7 @@ impl Tabstop {
                 .map(|&range| {
                     let mut range = selection::Range::new(range.start, range.end);
                     if direction == Direction::Backward {
-                        range = range.flip()
+                        range = range.flip();
                     }
                     range
                 })
@@ -65,6 +65,7 @@ pub struct RenderedSnippet {
 }
 
 impl RenderedSnippet {
+    #[must_use]
     pub fn first_selection(&self, direction: Direction, primary_idx: usize) -> Selection {
         self.tabstops[0].selection(direction, primary_idx, self.ranges.len())
     }
@@ -84,6 +85,7 @@ impl IndexMut<TabstopIdx> for RenderedSnippet {
 }
 
 impl Snippet {
+    #[must_use]
     pub fn prepare_render(&self) -> RenderedSnippet {
         let tabstops =
             self.tabstops()
@@ -210,12 +212,12 @@ impl SnippetRender<'_> {
     }
 
     fn render_element(&mut self, element: &SnippetElement) {
-        match *element {
-            SnippetElement::Tabstop { idx } => self.render_tabstop(idx),
+        match element {
+            SnippetElement::Tabstop { idx } => self.render_tabstop(*idx),
             SnippetElement::Variable {
-                ref name,
-                ref default,
-                ref transform,
+                name,
+                default,
+                transform,
             } => {
                 // TODO: allow resolve_var access to the doc and make it return rope slice
                 // so we can access selections and other document content without allocating
@@ -235,7 +237,7 @@ impl SnippetRender<'_> {
                     self.render_elements(default)
                 }
             }
-            SnippetElement::Text(ref text) => self.push_multiline_str(text),
+            SnippetElement::Text(text) => self.push_multiline_str(text),
         }
     }
 

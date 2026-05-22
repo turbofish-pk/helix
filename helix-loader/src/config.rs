@@ -1,8 +1,10 @@
+#![allow(clippy::missing_errors_doc)]
 use std::str::from_utf8;
 
 use crate::workspace_trust::{TrustQuery, WorkspaceTrust};
 
 /// Default built-in languages.toml.
+#[must_use]
 pub fn default_lang_config() -> toml::Value {
     let default_config = include_bytes!("../../languages.toml");
     toml::from_str(from_utf8(default_config).unwrap())

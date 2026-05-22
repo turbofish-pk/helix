@@ -42,10 +42,12 @@ impl SemanticTokenType {
     /// @since 3.17.0
     pub const DECORATOR: SemanticTokenType = SemanticTokenType::new("decorator");
 
+    #[must_use]
     pub const fn new(tag: &'static str) -> Self {
         SemanticTokenType(Cow::Borrowed(tag))
     }
 
+    #[must_use]
     pub fn as_str(&self) -> &str {
         &self.0
     }
@@ -83,10 +85,12 @@ impl SemanticTokenModifier {
     pub const DOCUMENTATION: SemanticTokenModifier = SemanticTokenModifier::new("documentation");
     pub const DEFAULT_LIBRARY: SemanticTokenModifier = SemanticTokenModifier::new("defaultLibrary");
 
+    #[must_use]
     pub const fn new(tag: &'static str) -> Self {
         SemanticTokenModifier(Cow::Borrowed(tag))
     }
 
+    #[must_use]
     pub fn as_str(&self) -> &str {
         &self.0
     }
@@ -110,10 +114,12 @@ pub struct TokenFormat(Cow<'static, str>);
 impl TokenFormat {
     pub const RELATIVE: TokenFormat = TokenFormat::new("relative");
 
+    #[must_use]
     pub const fn new(tag: &'static str) -> Self {
         TokenFormat(Cow::Borrowed(tag))
     }
 
+    #[must_use]
     pub fn as_str(&self) -> &str {
         &self.0
     }
@@ -182,7 +188,7 @@ impl SemanticToken {
         S: serde::Serializer,
     {
         let mut seq = serializer.serialize_seq(Some(tokens.len() * 5))?;
-        for token in tokens.iter() {
+        for token in tokens {
             seq.serialize_element(&token.delta_line)?;
             seq.serialize_element(&token.delta_start)?;
             seq.serialize_element(&token.length)?;
@@ -208,6 +214,7 @@ impl SemanticToken {
         Ok(Option::<Wrapper>::deserialize(deserializer)?.map(|wrapper| wrapper.tokens))
     }
 
+    #[allow(clippy::ref_option)]
     fn serialize_tokens_opt<S>(
         data: &Option<Vec<SemanticToken>>,
         serializer: S,
@@ -222,7 +229,7 @@ impl SemanticToken {
             tokens: Vec<SemanticToken>,
         }
 
-        let opt = data.as_ref().map(|t| Wrapper { tokens: t.to_vec() });
+        let opt = data.as_ref().map(|t| Wrapper { tokens: t.clone() });
 
         opt.serialize(serializer)
     }

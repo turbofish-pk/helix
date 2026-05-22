@@ -1,7 +1,7 @@
 //! When typing the opening character of one of the possible pairs defined below,
 //! this module provides the functionality to insert the paired closing character.
 
-use crate::{graphemes, movement::Direction, Change, Deletion, Range, Rope, Tendril};
+use crate::{Change, Deletion, Range, Rope, Tendril, graphemes, movement::Direction};
 use std::collections::HashMap;
 
 // Heavily based on https://github.com/codemirror/closebrackets/
@@ -28,11 +28,13 @@ pub struct Pair {
 
 impl Pair {
     /// true if open == close
+    #[must_use]
     pub fn same(&self) -> bool {
         self.open == self.close
     }
 
     /// true if all of the pair's conditions hold for the given document and range
+    #[must_use]
     pub fn should_close(&self, doc: &Rope, range: &Range) -> bool {
         let mut should_close = Self::next_is_not_alpha(doc, range);
 
@@ -43,12 +45,14 @@ impl Pair {
         should_close
     }
 
+    #[must_use]
     pub fn next_is_not_alpha(doc: &Rope, range: &Range) -> bool {
         let cursor = range.cursor(doc.slice(..));
         let next_char = doc.get_char(cursor);
         next_char.map(|c| !c.is_alphanumeric()).unwrap_or(true)
     }
 
+    #[must_use]
     pub fn prev_is_not_alpha(doc: &Rope, range: &Range) -> bool {
         let cursor = range.cursor(doc.slice(..));
         let prev_char = prev_char(doc, cursor);
@@ -72,7 +76,7 @@ impl From<(&char, &char)> for Pair {
 }
 
 impl AutoPairs {
-    /// Make a new AutoPairs set with the given pairs and default conditions.
+    /// Make a new `AutoPairs` set with the given pairs and default conditions.
     pub fn new<'a, V, A>(pairs: V) -> Self
     where
         V: IntoIterator<Item = A> + 'a,
@@ -93,6 +97,7 @@ impl AutoPairs {
         Self(auto_pairs)
     }
 
+    #[must_use]
     pub fn get(&self, ch: char) -> Option<&Pair> {
         self.0.get(&ch)
     }
@@ -166,6 +171,7 @@ pub fn hook_delete(doc: &Rope, range: &Range, pairs: &AutoPairs) -> Option<(Dele
     handle_delete(doc, range)
 }
 
+#[must_use]
 pub fn handle_delete(doc: &Rope, range: &Range) -> Option<(Deletion, Range)> {
     let text = doc.slice(..);
     let cursor = range.cursor(text);

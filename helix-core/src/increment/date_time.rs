@@ -3,10 +3,10 @@ use once_cell::sync::Lazy;
 use regex::Regex;
 use std::fmt::Write;
 
-/// Increment a Date or DateTime
+/// Increment a `Date` or `DateTime`
 ///
-/// If just a Date is selected the day will be incremented.
-/// If a DateTime is selected the second will be incremented.
+/// If just a `Date` is selected the day will be incremented.
+/// If a `DateTime` is selected the second will be incremented.
 pub fn increment(selected_text: &str, amount: i64) -> Option<String> {
     if selected_text.is_empty() {
         return None;

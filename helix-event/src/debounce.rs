@@ -42,14 +42,12 @@ async fn run<Hook: AsyncHook>(mut hook: Hook, mut rx: mpsc::Receiver<Hook::Event
         let event = match deadline {
             Some(deadline_) => {
                 let res = tokio::time::timeout_at(deadline_, rx.recv()).await;
-                match res {
-                    Ok(event) => event,
-                    Err(_) => {
+                if let Ok(event) = res { event} else {
                         hook.finish_debounce();
                         deadline = None;
                         continue;
                     }
-                }
+
             }
             None => rx.recv().await,
         };

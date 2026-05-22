@@ -1,7 +1,7 @@
 use std::io;
 
-use ropey::iter::Chunks;
 use ropey::RopeSlice;
+use ropey::iter::Chunks;
 
 pub struct RopeReader<'a> {
     current_chunk: &'a [u8],
@@ -9,6 +9,7 @@ pub struct RopeReader<'a> {
 }
 
 impl<'a> RopeReader<'a> {
+    #[must_use]
     pub fn new(rope: RopeSlice<'a>) -> RopeReader<'a> {
         RopeReader {
             current_chunk: &[],
