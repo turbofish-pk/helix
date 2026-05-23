@@ -27,7 +27,7 @@ impl GutterType {
     ) -> GutterFn<'doc> {
         match self {
             GutterType::Diagnostics => {
-                diagnostics_or_breakpoints(editor, doc, view, theme, is_focused)
+                diagnostics(editor, doc, view, theme, is_focused)
             }
             GutterType::LineNumbers => line_numbers(editor, doc, view, theme, is_focused),
             GutterType::Spacer => padding(editor, doc, view, theme, is_focused),
@@ -273,43 +273,7 @@ pub fn breakpoints<'doc>(
     )
 }
 
-fn execution_pause_indicator<'doc>(
-    editor: &'doc Editor,
-    doc: &'doc Document,
-    theme: &Theme,
-    is_focused: bool,
-) -> GutterFn<'doc> {
-    let style = theme.get("ui.debug.active");
-    let current_stack_frame = editor.current_stack_frame();
-    let frame_line = current_stack_frame.map(|frame| frame.line.saturating_sub(1));
-    let frame_source_path = current_stack_frame.map(|frame| {
-        frame
-            .source
-            .as_ref()
-            .and_then(|source| source.path.as_deref())
-    });
-
-    let should_display_for_current_doc =
-        doc.path().is_some() && frame_source_path.unwrap_or(None) == doc.path();
-
-    Box::new(
-        move |line: usize, _selected: bool, first_visual_line: bool, out: &mut String| {
-            if !first_visual_line
-                || !is_focused
-                || line != frame_line?
-                || !should_display_for_current_doc
-            {
-                return None;
-            }
-
-            let sym = "▶";
-            write!(out, "{}", sym).unwrap();
-            Some(style)
-        },
-    )
-}
-
-pub fn diagnostics_or_breakpoints<'doc>(
+pub fn diagnostics<'doc>(
     editor: &'doc Editor,
     doc: &'doc Document,
     view: &View,
@@ -317,14 +281,9 @@ pub fn diagnostics_or_breakpoints<'doc>(
     is_focused: bool,
 ) -> GutterFn<'doc> {
     let mut diagnostics = diagnostic(editor, doc, view, theme, is_focused);
-    let mut breakpoints = breakpoints(editor, doc, view, theme, is_focused);
-    let mut execution_pause_indicator = execution_pause_indicator(editor, doc, theme, is_focused);
-
-    Box::new(move |line, selected, first_visual_line: bool, out| {
-        execution_pause_indicator(line, selected, first_visual_line, out)
-            .or_else(|| breakpoints(line, selected, first_visual_line, out))
-            .or_else(|| diagnostics(line, selected, first_visual_line, out))
-    })
+    Box::new(move |line, selected, first_visual_line: bool, out|
+        diagnostics(line, selected, first_visual_line, out)
+    )
 }
 
 pub fn code_action_hint<'doc>(

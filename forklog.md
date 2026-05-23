@@ -2,3 +2,4 @@
 - cargo update
 - cargo vendor
 - cargo clippy -- -D warnings -D clippy::pedantic
+- prune helix-dap, helix-dap-types

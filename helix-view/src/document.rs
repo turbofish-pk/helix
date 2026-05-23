@@ -2593,7 +2593,7 @@ mod test {
 
         // insert
 
-        let transaction = Transaction::insert(doc.text(), doc.selection(view), " world".into());
+        let transaction = Transaction::insert(doc.text(), doc.selection(view), &" world".into());
         let old_doc = doc.text().clone();
         doc.apply(&transaction, view);
         let changes = Client::changeset_to_changes(
