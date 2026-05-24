@@ -383,7 +383,7 @@ impl Tree {
                         Layout::Horizontal => {
                             let len = container.children.len();
 
-                            let height = area.height / len as u16;
+                            let height = area.height /  u16::try_from(len).unwrap();
 
                             let mut child_y = area.y;
 
@@ -407,7 +407,7 @@ impl Tree {
                         }
                         Layout::Vertical => {
                             let len = container.children.len();
-                            let len_u16 = len as u16;
+                            let len_u16 =  u16::try_from(len).unwrap();
 
                             let inner_gap = 1u16;
                             let total_gap = inner_gap * len_u16.saturating_sub(2);

@@ -1,6 +1,6 @@
 use std::borrow::Cow;
 
-use helix_view::{graphics::Rect, Editor};
+use helix_view::{Editor, graphics::Rect};
 use tui::{
     buffer::Buffer as Surface,
     widgets::{Block, Widget as _},
@@ -8,7 +8,7 @@ use tui::{
 
 use crate::compositor::{Component, Context, Event, EventResult};
 
-use super::{menu::Item, Menu, PromptEvent, Text};
+use super::{Menu, PromptEvent, Text, menu::Item};
 
 pub struct Select<T: Item> {
     message: Text,
@@ -68,7 +68,7 @@ impl<T: Item> Component for Select<T> {
 
         // Limit the text width to 80% of the screen or 80 columns, whichever is
         // smaller.
-        let max_width = 80.min(((area.width as u32) * 80u32 / 100) as u16);
+        let max_width = 80.min(u16::try_from(area.width as u32 * 80u32 / 100).unwrap());
         let (message_width, message_height) =
             super::text::required_size(&self.message.contents, max_width);
         let (_, menu_height) = self

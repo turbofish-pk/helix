@@ -1,5 +1,5 @@
 //! Input event handling, currently backed by termina.
-use anyhow::{anyhow, Error};
+use anyhow::{Error, anyhow};
 use helix_core::unicode::{segmentation::UnicodeSegmentation, width::UnicodeWidthStr};
 use serde::de::{self, Deserialize, Deserializer};
 use std::fmt;
@@ -405,13 +405,12 @@ impl std::str::FromStr for KeyEvent {
                         code: KeyCode::Char('-'),
                         modifiers: KeyModifiers::empty(),
                     });
-                } else {
-                    let suggestion = format!("{}-{}", s.trim_end_matches('-'), keys::MINUS);
-                    return Err(anyhow!(
-                        "Key '-' cannot be used with modifiers, use '{}' instead",
-                        suggestion
-                    ));
                 }
+                let suggestion = format!("{}-{}", s.trim_end_matches('-'), keys::MINUS);
+                return Err(anyhow!(
+                    "Key '-' cannot be used with modifiers, use '{}' instead",
+                    suggestion
+                ));
             }
             invalid => return Err(anyhow!("Invalid key code '{}'", invalid)),
         };

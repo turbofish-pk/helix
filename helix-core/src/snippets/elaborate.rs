@@ -2,20 +2,20 @@ use std::mem::swap;
 use std::ops::Index;
 use std::sync::Arc;
 
-use anyhow::{anyhow, Result};
-use helix_stdx::rope::RopeSliceExt;
+use anyhow::{Result, anyhow};
 use helix_stdx::Range;
+use helix_stdx::rope::RopeSliceExt;
 use regex_cursor::engines::meta::Builder as RegexBuilder;
 use regex_cursor::engines::meta::Regex;
 use regex_cursor::regex_automata::util::syntax::Config as RegexConfig;
 use ropey::RopeSlice;
 
+use crate::Tendril;
 use crate::case_conversion::to_lower_case_with;
 use crate::case_conversion::to_upper_case_with;
 use crate::case_conversion::{to_camel_case_with, to_pascal_case_with};
 use crate::snippets::parser::{self, CaseChange, FormatItem};
-use crate::snippets::{TabstopIdx, LAST_TABSTOP_IDX};
-use crate::Tendril;
+use crate::snippets::{LAST_TABSTOP_IDX, TabstopIdx};
 
 #[derive(Debug)]
 pub struct Snippet {
@@ -30,7 +30,7 @@ impl Snippet {
         Ok(Snippet::new(parsed_snippet))
     }
 
-    #[must_use] 
+    #[must_use]
     pub fn new(elements: Vec<parser::SnippetElement>) -> Snippet {
         let mut res = Snippet {
             elements: Vec::new(),
@@ -43,7 +43,7 @@ impl Snippet {
         res
     }
 
-    #[must_use] 
+    #[must_use]
     pub fn elements(&self) -> &[SnippetElement] {
         &self.elements
     }
@@ -186,8 +186,10 @@ impl Snippet {
         if idx == LAST_TABSTOP_IDX && !default.is_empty() {
             // Older versions of clangd for example may send a snippet like `${0:placeholder}`
             // which is considered by VSCode to be a misuse of the `$0` tabstop.
-            log::warn!("Discarding placeholder text for the `$0` tabstop ({default:?}). \
-                The `$0` tabstop signifies the final cursor position and should not include placeholder text.");
+            log::warn!(
+                "Discarding placeholder text for the `$0` tabstop ({default:?}). \
+                The `$0` tabstop signifies the final cursor position and should not include placeholder text."
+            );
             default.clear();
         }
         let default = self.elaborate(default, Some(idx));
@@ -323,7 +325,7 @@ impl Transform {
         })
     }
 
-    #[must_use] 
+    #[must_use]
     pub fn apply(&self, mut doc: RopeSlice<'_>, range: Range) -> Tendril {
         let mut buf = Tendril::new();
         let it = self.regex.captures_iter(doc.regex_input_at(range));
@@ -337,7 +339,7 @@ impl Transform {
             for fmt in &*self.replacement {
                 match fmt {
                     FormatItem::Text(text) => {
-                        buf.push_str(&text);
+                        buf.push_str(text);
                     }
                     FormatItem::Capture(i) => {
                         if let Some(cap) = cap.get_group(*i) {
@@ -364,7 +366,7 @@ impl Transform {
                         if cap.get_group(*i).is_none_or(|mat| mat.is_empty()) {
                             buf.push_str(else_)
                         } else {
-                            buf.push_str(&if_)
+                            buf.push_str(if_)
                         }
                     }
                 }

@@ -48,7 +48,9 @@ impl<T: Item> Menu<T> {
         editor_data: <T as Item>::Data,
         callback_fn: impl Fn(&mut Editor, Option<&T>, MenuEvent) + 'static,
     ) -> Self {
-        let matches = (0..options.len() as u32).map(|i| (i, 0)).collect();
+        let matches = (0..u32::try_from(options.len()).unwrap())
+            .map(|i| (i, 0))
+            .collect();
         Self {
             options,
             editor_data,
@@ -168,10 +170,13 @@ impl<T: Item> Menu<T> {
 
         self.widths = max_lens
             .into_iter()
-            .map(|len| Constraint::Length(len as u16))
+            .map(|len| Constraint::Length(u16::try_from(len).unwrap()))
             .collect();
 
-        self.size = (width as u16, height as u16);
+        self.size = (
+            u16::try_from(width).unwrap(),
+            u16::try_from(height).unwrap(),
+        );
 
         // adjust scroll offsets if size changed
         self.adjust_scroll();
@@ -367,7 +372,8 @@ impl<T: Item + 'static> Component for Menu<T> {
         use tui::widgets::TableState;
 
         table.render_table(
-            area.clip_left(Self::LEFT_PADDING as u16).clip_right(1),
+            area.clip_left(u16::try_from(Self::LEFT_PADDING).unwrap())
+                .clip_right(1),
             surface,
             &mut TableState {
                 offset: scroll,
@@ -378,17 +384,18 @@ impl<T: Item + 'static> Component for Menu<T> {
 
         let render_borders = cx.editor.menu_border();
 
-        if !render_borders {
-            if let Some(cursor) = self.cursor {
-                let offset_from_top = cursor - scroll;
-                let left = &mut surface[(area.left(), area.y + offset_from_top as u16)];
-                left.set_style(selected);
-                let right = &mut surface[(
-                    area.right().saturating_sub(1),
-                    area.y + offset_from_top as u16,
-                )];
-                right.set_style(selected);
-            }
+        if !render_borders && let Some(cursor) = self.cursor {
+            let offset_from_top = cursor - scroll;
+            let left = &mut surface[(
+                area.left(),
+                area.y + u16::try_from(offset_from_top).unwrap(),
+            )];
+            left.set_style(selected);
+            let right = &mut surface[(
+                area.right().saturating_sub(1),
+                area.y + u16::try_from(offset_from_top).unwrap(),
+            )];
+            right.set_style(selected);
         }
 
         let fits = len <= win_height;
@@ -401,7 +408,7 @@ impl<T: Item + 'static> Component for Menu<T> {
 
             let mut cell;
             for i in 0..win_height {
-                cell = &mut surface[(area.right() - 1, area.top() + i as u16)];
+                cell = &mut surface[(area.right() - 1, area.top() + u16::try_from(i).unwrap())];
 
                 let half_block = if render_borders { "▌" } else { "▐" };
 

@@ -49,14 +49,14 @@ impl Pair {
     pub fn next_is_not_alpha(doc: &Rope, range: &Range) -> bool {
         let cursor = range.cursor(doc.slice(..));
         let next_char = doc.get_char(cursor);
-        next_char.map(|c| !c.is_alphanumeric()).unwrap_or(true)
+        !next_char.is_some_and(char::is_alphanumeric)
     }
 
     #[must_use]
     pub fn prev_is_not_alpha(doc: &Rope, range: &Range) -> bool {
         let cursor = range.cursor(doc.slice(..));
         let prev_char = prev_char(doc, cursor);
-        prev_char.map(|c| !c.is_alphanumeric()).unwrap_or(true)
+        !prev_char.is_some_and(char::is_alphanumeric)
     }
 }
 
@@ -84,7 +84,7 @@ impl AutoPairs {
     {
         let mut auto_pairs = HashMap::new();
 
-        for pair in pairs.into_iter() {
+        for pair in pairs {
             let auto_pair = pair.into();
 
             auto_pairs.insert(auto_pair.open, auto_pair);
@@ -121,7 +121,7 @@ pub fn hook_insert(
     ch: char,
     pairs: &AutoPairs,
 ) -> Option<(Change, Range)> {
-    log::trace!("autopairs hook range: {:#?}", range);
+    log::trace!("autopairs hook range: {range:#?}");
 
     if let Some(pair) = pairs.get(ch) {
         if pair.same() {
@@ -141,7 +141,7 @@ pub fn hook_insert(
 
 #[must_use]
 pub fn hook_delete(doc: &Rope, range: &Range, pairs: &AutoPairs) -> Option<(Deletion, Range)> {
-    log::trace!("autopairs delete hook range: {:#?}", range);
+    log::trace!("autopairs delete hook range: {range:#?}");
 
     let text = doc.slice(..);
     let cursor = range.cursor(text);
@@ -153,12 +153,13 @@ pub fn hook_delete(doc: &Rope, range: &Range, pairs: &AutoPairs) -> Option<(Dele
     if doc.len_chars() >= 4 && prev.is_whitespace() && cur.is_whitespace() {
         let second_prev = doc.get_char(graphemes::nth_prev_grapheme_boundary(text, cursor, 2))?;
         let second_next = doc.get_char(graphemes::next_grapheme_boundary(text, cursor))?;
-        log::debug!("second_prev: {}, second_next: {}", second_prev, second_next);
+        log::debug!("second_prev: {second_prev}, second_next: {second_next}");
 
-        if let Some(pair) = pairs.get(second_prev) {
-            if pair.open == second_prev && pair.close == second_next {
-                return handle_delete(doc, range);
-            }
+        if let Some(pair) = pairs.get(second_prev)
+            && pair.open == second_prev
+            && pair.close == second_next
+        {
+            return handle_delete(doc, range);
         }
     }
 
@@ -306,7 +307,7 @@ fn get_next_range(doc: &Rope, start_range: &Range, len_inserted: usize) -> Range
         // other end of the grapheme to get to where the new characters
         // are inserted, then move the head to where it should be
         let prev_bound = graphemes::prev_grapheme_boundary(doc_slice, start_range.head);
-        log::trace!("prev_bound: {}, len_inserted: {}", prev_bound, len_inserted);
+        log::trace!("prev_bound: {prev_bound}, len_inserted: {len_inserted}");
 
         prev_bound + len_inserted
     };

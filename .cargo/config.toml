@@ -15,8 +15,8 @@ rustflags = ["--cfg", "tokio_unstable", "-C", "target-feature=-crt-static"]
 xtask = "run --package xtask --"
 integration-test = "test --features integration --profile integration --workspace --test integration"
 
-[source.crates-io]
-replace-with = "vendored-sources"
+# [source.crates-io]
+# replace-with = "vendored-sources"
 
-[source.vendored-sources]
-directory = "vendor"
+# [source.vendored-sources]
+# directory = "vendor"

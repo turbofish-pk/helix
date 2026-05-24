@@ -180,7 +180,7 @@ pub fn softwrapped_dimensions(text: RopeSlice, text_fmt: &TextFormat) -> (usize,
     let last_pos =
         visual_offset_from_block(text, 0, usize::MAX, text_fmt, &TextAnnotations::default()).0;
     if last_pos.row == 0 {
-        (1, last_pos.col as u16)
+        (1, u16::try_from(last_pos.col).unwrap())
     } else {
         (last_pos.row + 1, text_fmt.viewport_width)
     }
@@ -220,9 +220,8 @@ pub fn visual_offset_from_anchor(
             if let Some(anchor_line) = anchor_line {
                 last_pos.row -= anchor_line;
                 return Ok((last_pos, block_start));
-            } else {
-                found_pos = Some(last_pos);
             }
+            found_pos = Some(last_pos);
         }
         if formatter.next_char_pos() > anchor && anchor_line.is_none() {
             if let Some(mut found_pos) = found_pos {
@@ -232,15 +231,14 @@ pub fn visual_offset_from_anchor(
                 } else {
                     Err(VisualOffsetError::PosBeforeAnchorRow)
                 };
-            } else {
-                anchor_line = Some(last_pos.row);
             }
+            anchor_line = Some(last_pos.row);
         }
 
-        if let Some(anchor_line) = anchor_line {
-            if grapheme.visual_pos.row >= anchor_line + max_rows {
-                return Err(VisualOffsetError::PosAfterMaxRow);
-            }
+        if let Some(anchor_line) = anchor_line
+            && grapheme.visual_pos.row >= anchor_line + max_rows
+        {
+            return Err(VisualOffsetError::PosAfterMaxRow);
         }
     }
 

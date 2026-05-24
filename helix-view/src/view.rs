@@ -1,20 +1,19 @@
 use crate::{
-    align_view,
+    Align, Document, DocumentId, Theme, ViewId, align_view,
     annotations::diagnostics::InlineDiagnostics,
     document::{DocumentColorSwatches, DocumentInlayHints},
     editor::{GutterConfig, GutterType},
     graphics::Rect,
     handlers::diagnostics::DiagnosticsHandler,
-    Align, Document, DocumentId, Theme, ViewId,
 };
 
 use helix_core::{
+    Position, RopeSlice, Selection, Transaction,
+    VisualOffsetError::{PosAfterMaxRow, PosBeforeAnchorRow},
     char_idx_at_visual_offset,
     doc_formatter::TextFormat,
     text_annotations::TextAnnotations,
-    visual_offset_from_anchor, visual_offset_from_block, Position, RopeSlice, Selection,
-    Transaction,
-    VisualOffsetError::{PosAfterMaxRow, PosBeforeAnchorRow},
+    visual_offset_from_anchor, visual_offset_from_block,
 };
 
 use std::{
@@ -228,7 +227,7 @@ impl View {
             .gutters
             .layout
             .iter()
-            .map(|gutter| gutter.width(self, doc) as u16)
+            .map(|gutter| u16::try_from(gutter.width(self, doc)).unwrap())
             .sum();
         if total_width < self.area.width {
             total_width
@@ -493,20 +492,19 @@ impl View {
         };
         let config = doc.config.load();
 
-        if config.lsp.display_color_swatches {
-            if let Some(DocumentColorSwatches {
+        if config.lsp.display_color_swatches
+            && let Some(DocumentColorSwatches {
                 color_swatches,
                 colors,
                 color_swatches_padding,
             }) = &doc.color_swatches
-            {
-                for (color_swatch, color) in color_swatches.iter().zip(colors) {
-                    text_annotations
-                        .add_inline_annotations(std::slice::from_ref(color_swatch), Some(*color));
-                }
-
-                text_annotations.add_inline_annotations(color_swatches_padding, None);
+        {
+            for (color_swatch, color) in color_swatches.iter().zip(colors) {
+                text_annotations
+                    .add_inline_annotations(std::slice::from_ref(color_swatch), Some(*color));
             }
+
+            text_annotations.add_inline_annotations(color_swatches_padding, None);
         }
 
         let width = self.inner_width(doc);
@@ -716,7 +714,7 @@ mod tests {
 
     use super::*;
     use arc_swap::ArcSwap;
-    use helix_core::{syntax, Rope};
+    use helix_core::{Rope, syntax};
 
     // 1 diagnostic + 1 spacer + 3 linenr (< 1000 lines) + 1 spacer + 1 diff
     const DEFAULT_GUTTER_OFFSET: u16 = 7;

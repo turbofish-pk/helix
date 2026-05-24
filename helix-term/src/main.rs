@@ -1,8 +1,11 @@
 use anyhow::{Context, Error, Result};
 use helix_loader::VERSION_AND_GIT_HASH;
-use helix_term::application::Application;
-use helix_term::args::Args;
-use helix_term::config::{Config, ConfigLoadError};
+use helix_term::{
+    application::Application,
+    args::Args,
+    config::{Config, ConfigLoadError},
+};
+use std::io::Read;
 
 fn setup_logging(verbosity: u64) -> Result<()> {
     let level = match verbosity {
@@ -124,7 +127,7 @@ FLAGS:
         Err(ConfigLoadError::BadConfig(err)) => {
             eprintln!("Bad config: {err}");
             eprintln!("Press <ENTER> to continue with default config");
-            use std::io::Read;
+
             let _ = std::io::stdin().read(&mut []);
             Config::default()
         }
@@ -137,7 +140,7 @@ FLAGS:
         helix_core::config::user_lang_loader(config.editor.insecure).unwrap_or_else(|err| {
             eprintln!("{err}");
             eprintln!("Press <ENTER> to continue with default language config");
-            use std::io::Read;
+
             // This waits for an enter press.
             let _ = std::io::stdin().read(&mut []);
             helix_core::config::default_lang_loader()

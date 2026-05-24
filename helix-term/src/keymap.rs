@@ -31,7 +31,7 @@ pub struct KeyTrieNode {
 }
 
 impl KeyTrieNode {
-    #[must_use] 
+    #[must_use]
     pub fn new(name: &str, map: IndexMap<KeyEvent, KeyTrie>) -> Self {
         Self {
             name: name.to_string(),
@@ -45,17 +45,17 @@ impl KeyTrieNode {
     /// subnodes for same key. In that case the merge is recursive.
     pub fn merge(&mut self, mut other: Self) {
         for (key, trie) in std::mem::take(&mut other.map) {
-            if let Some(KeyTrie::Node(node)) = self.map.get_mut(&key) {
-                if let KeyTrie::Node(other_node) = trie {
-                    node.merge(other_node);
-                    continue;
-                }
+            if let Some(KeyTrie::Node(node)) = self.map.get_mut(&key)
+                && let KeyTrie::Node(other_node) = trie
+            {
+                node.merge(other_node);
+                continue;
             }
             self.map.insert(key, trie);
         }
     }
 
-    #[must_use] 
+    #[must_use]
     pub fn infobox(&self) -> Info {
         let mut body: Vec<(BTreeSet<KeyEvent>, &str)> = Vec::with_capacity(self.len());
         for (&key, trie) in self.iter() {
@@ -184,7 +184,7 @@ impl<'de> serde::de::Visitor<'de> for KeyTrieVisitor {
 }
 
 impl KeyTrie {
-    #[must_use] 
+    #[must_use]
     pub fn reverse_map(&self) -> ReverseKeymap {
         // recursively visit all nodes in keymap
         fn map_node(cmd_map: &mut ReverseKeymap, node: &KeyTrie, keys: &mut Vec<KeyEvent>) {
@@ -212,10 +212,10 @@ impl KeyTrie {
         res
     }
 
-    #[must_use] 
+    #[must_use]
     pub fn node(&self) -> Option<&KeyTrieNode> {
         match self {
-            KeyTrie::Node(node) => Some(&node),
+            KeyTrie::Node(node) => Some(node),
             KeyTrie::MappableCommand(_) | KeyTrie::Sequence(_) => None,
         }
     }
@@ -235,7 +235,7 @@ impl KeyTrie {
     }
 
     /// Descend a trie following the given path of keys
-    #[must_use] 
+    #[must_use]
     pub fn search(&self, keys: &[KeyEvent]) -> Option<&KeyTrie> {
         let mut trie = self;
         for key in keys {
@@ -276,7 +276,7 @@ pub struct Keymaps {
 }
 
 impl Keymaps {
-    #[must_use] 
+    #[must_use]
     pub fn new(map: Box<dyn DynAccess<HashMap<Mode, KeyTrie>>>) -> Self {
         Self {
             map,
@@ -285,18 +285,18 @@ impl Keymaps {
         }
     }
 
-    #[must_use] 
+    #[must_use]
     pub fn map(&self) -> DynGuard<HashMap<Mode, KeyTrie>> {
         self.map.load()
     }
 
     /// Returns list of keys waiting to be disambiguated in current mode.
-    #[must_use] 
+    #[must_use]
     pub fn pending(&self) -> &[KeyEvent] {
         &self.state
     }
 
-    #[must_use] 
+    #[must_use]
     pub fn sticky(&self) -> Option<&KeyTrieNode> {
         self.sticky.as_ref()
     }

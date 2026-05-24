@@ -10,13 +10,13 @@ use std::sync::Arc;
 use pulldown_cmark::{CodeBlockKind, Event, HeadingLevel, Options, Parser, Tag, TagEnd};
 
 use helix_core::{
-    syntax::{self, HighlightEvent, OverlayHighlights},
     RopeSlice, Syntax,
+    syntax::{self, HighlightEvent, OverlayHighlights},
 };
 use helix_view::{
+    Theme,
     graphics::{Margin, Rect, Style},
     theme::Modifier,
-    Theme,
 };
 
 fn styled_multiline_text<'a>(text: &str, style: Style) -> Text<'a> {
@@ -65,14 +65,14 @@ pub fn highlighted_code_block<'a>(
     let mut overlay_highlighter = syntax::OverlayHighlighter::new(additional_highlight_spans);
     let mut pos = 0;
 
-    while pos < ropeslice.len_bytes() as u32 {
+    while pos < u32::try_from(ropeslice.len_bytes()).unwrap() {
         if pos == syntax_highlighter.next_event_offset() {
             let (event, new_highlights) = syntax_highlighter.advance();
             if event == HighlightEvent::Refresh {
                 syntax_highlight_stack.clear();
             }
             syntax_highlight_stack.extend(new_highlights);
-        } else if pos == overlay_highlighter.next_event_offset() as u32 {
+        } else if pos == u32::try_from(overlay_highlighter.next_event_offset()).unwrap() {
             let (event, new_highlights) = overlay_highlighter.advance();
             if event == HighlightEvent::Refresh {
                 overlay_highlight_stack.clear();
@@ -83,9 +83,9 @@ pub fn highlighted_code_block<'a>(
         let start = pos;
         pos = syntax_highlighter
             .next_event_offset()
-            .min(overlay_highlighter.next_event_offset() as u32);
+            .min(u32::try_from(overlay_highlighter.next_event_offset()).unwrap());
         if pos == u32::MAX {
-            pos = ropeslice.len_bytes() as u32;
+            pos = u32::try_from(ropeslice.len_bytes()).unwrap();
         }
         if pos == start {
             continue;
@@ -355,10 +355,10 @@ impl Markdown {
         }
 
         // if last line is empty, remove it
-        if let Some(line) = lines.last() {
-            if line.0.is_empty() {
-                lines.pop();
-            }
+        if let Some(line) = lines.last()
+            && line.0.is_empty()
+        {
+            lines.pop();
         }
 
         Text::from(lines)
@@ -373,7 +373,7 @@ impl Component for Markdown {
 
         let par = Paragraph::new(&text)
             .wrap(Wrap { trim: false })
-            .scroll((cx.scroll.unwrap_or_default() as u16, 0));
+            .scroll((u16::try_from(cx.scroll.unwrap_or_default()).unwrap(), 0));
 
         let margin = Margin::all(1);
         par.render(area.inner(margin), surface);

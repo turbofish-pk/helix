@@ -243,20 +243,19 @@ pub fn show_signature_help(
     // otherwise the last one (in case there is less signatures than before)
     let active_signature = old_popup
         .as_ref()
-        .map(|popup| {
+        .map_or(lsp_signature.unwrap_or_default(), |popup| {
             let old_lsp_sig = popup.contents().lsp_signature();
             let old_sig = popup
                 .contents()
                 .active_signature()
                 .min(signatures.len() - 1);
 
-            if old_lsp_sig != lsp_signature {
-                lsp_signature.unwrap_or(old_sig)
-            } else {
+            if old_lsp_sig == lsp_signature {
                 old_sig
+            } else {
+                lsp_signature.unwrap_or(old_sig)
             }
-        })
-        .unwrap_or(lsp_signature.unwrap_or_default());
+        });
 
     let contents = SignatureHelp::new(
         language.to_string(),
@@ -279,8 +278,8 @@ pub fn show_signature_help(
         .completion
         .as_mut()
         .map(|completion| completion.area(size, editor))
-        .filter(|area| area.intersects(popup.area(size, editor)))
-        .is_some()
+        .as_ref()
+        .is_some_and(|area| area.intersects(popup.area(size, editor)))
     {
         return;
     }
@@ -291,7 +290,7 @@ pub fn show_signature_help(
 fn signature_help_post_insert_char_hook(
     tx: &Sender<SignatureHelpEvent>,
     PostInsertChar { cx, .. }: &mut PostInsertChar<'_, '_>,
-) -> () {
+) {
     if !cx.editor.config().lsp.auto_signature_help {
         return;
     }

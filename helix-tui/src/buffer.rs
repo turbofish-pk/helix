@@ -188,10 +188,10 @@ impl Buffer {
     where
         S: AsRef<str>,
     {
-        let height = lines.len() as u16;
+        let height = u16::try_from(lines.len()).unwrap();
         let width = lines
             .iter()
-            .map(|i| i.as_ref().width() as u16)
+            .map(|i| u16::try_from(i.as_ref().width()).unwrap())
             .max()
             .unwrap_or_default();
         let mut buffer = Buffer::empty(Rect {
@@ -316,8 +316,8 @@ impl Buffer {
             self.content.len()
         );
         (
-            (self.area.x as usize + (i % self.area.width as usize)) as u16,
-            (self.area.y as usize + (i / self.area.width as usize)) as u16,
+            u16::try_from(self.area.x as usize + i % self.area.width as usize).unwrap(),
+            u16::try_from(self.area.y as usize + i / self.area.width as usize).unwrap(),
         )
     }
 
@@ -523,7 +523,7 @@ impl Buffer {
             }
         } else {
             let mut start_index = self.index_of(x, y);
-            let mut index = self.index_of(max_offset as u16, y);
+            let mut index = self.index_of(u16::try_from(max_offset).unwrap(), y);
 
             let content_width = string.width();
             let truncated = content_width > width;
@@ -552,7 +552,7 @@ impl Buffer {
                 x_offset += width;
             }
         }
-        (x_offset as u16, y)
+        (u16::try_from(x_offset).unwrap(), y)
     }
 
     /// Print at most the first `width` characters of a [Spans]  if enough space is available
@@ -595,7 +595,7 @@ impl Buffer {
                 x_offset += width;
             }
         }
-        (x_offset as u16, y)
+        (u16::try_from(x_offset).unwrap(), y)
     }
 
     /// Print at most the first `width` characters of a [Spans] if enough space is available
@@ -758,8 +758,8 @@ impl Buffer {
         let mut to_skip: usize = 0;
         for (i, (current, previous)) in next_buffer.iter().zip(previous_buffer.iter()).enumerate() {
             if (current != previous || invalidated > 0) && to_skip == 0 {
-                let x = (i % width as usize) as u16;
-                let y = (i / width as usize) as u16;
+                let x = u16::try_from(i % width as usize).unwrap();
+                let y = u16::try_from(i / width as usize).unwrap();
                 updates.push((x, y, &next_buffer[i]));
             }
 

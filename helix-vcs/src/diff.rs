@@ -5,7 +5,7 @@ use helix_core::Rope;
 use helix_event::RenderLockGuard;
 use imara_diff::Algorithm;
 use parking_lot::{RwLock, RwLockReadGuard};
-use tokio::sync::mpsc::{unbounded_channel, UnboundedSender};
+use tokio::sync::mpsc::{UnboundedSender, unbounded_channel};
 use tokio::task::JoinHandle;
 use tokio::time::Instant;
 
@@ -44,7 +44,7 @@ pub struct DiffHandle {
 }
 
 impl DiffHandle {
-    #[must_use] 
+    #[must_use]
     pub fn new(diff_base: Rope, doc: Rope) -> DiffHandle {
         DiffHandle::new_with_handle(diff_base, doc).0
     }
@@ -73,7 +73,7 @@ impl DiffHandle {
     }
 
     /// Load the actual diff
-    #[must_use] 
+    #[must_use]
     pub fn load(&self) -> Diff<'_> {
         Diff {
             diff: self.diff.read(),
@@ -84,7 +84,7 @@ impl DiffHandle {
     /// Updates the document associated with this redraw handle
     /// This function is only intended to be called from within the rendering loop
     /// if called from elsewhere it may fail to acquire the render lock and panic
-    #[must_use] 
+    #[must_use]
     pub fn update_document(&self, doc: Rope, block: bool) -> bool {
         let lock = helix_event::lock_frame();
         let timeout = if block {
@@ -96,7 +96,7 @@ impl DiffHandle {
     }
 
     /// Updates the base text of the diff. Returns if the update was successful.
-    #[must_use] 
+    #[must_use]
     pub fn update_diff_base(&self, diff_base: Rope) -> bool {
         self.update_document_impl(diff_base, !self.inverted, None)
     }
@@ -169,7 +169,7 @@ impl Diff<'_> {
     }
 
     pub fn len(&self) -> u32 {
-        self.diff.hunks.len() as u32
+        u32::try_from(self.diff.hunks.len()).unwrap()
     }
 
     pub fn is_empty(&self) -> bool {
@@ -192,14 +192,14 @@ impl Diff<'_> {
         match res {
             // Search found a hunk that starts exactly at this line, return the next hunk if it exists.
             Ok(pos) if pos + 1 == self.diff.hunks.len() => None,
-            Ok(pos) => Some(pos as u32 + 1),
+            Ok(pos) => Some(u32::try_from(pos).unwrap() + 1),
 
             // No hunk starts exactly at this line, so the search returns
             // the position where a hunk starting at this line should be inserted.
             // That position is exactly the position of the next hunk or the end
             // of the list if no such hunk exists
             Err(pos) if pos == self.diff.hunks.len() => None,
-            Err(pos) => Some(pos as u32),
+            Err(pos) => Some(u32::try_from(pos).unwrap()),
         }
     }
 
@@ -221,13 +221,15 @@ impl Diff<'_> {
             // which represents a pure removal.
             // Removals are technically empty but are still shown as single line hunks
             // and as such we must jump to the previous hunk (if it exists) if we are already inside the removal
-            Ok(pos) if !hunk_range(&self.diff.hunks[pos]).is_empty() => Some(pos as u32),
+            Ok(pos) if !hunk_range(&self.diff.hunks[pos]).is_empty() => {
+                Some(u32::try_from(pos).unwrap())
+            }
 
             // No hunk ends exactly at this line, so the search returns
             // the position where a hunk ending at this line should be inserted.
             // That position before this one is exactly the position of the previous hunk
             Err(0) | Ok(0) => None,
-            Err(pos) | Ok(pos) => Some(pos as u32 - 1),
+            Err(pos) | Ok(pos) => Some(u32::try_from(pos).unwrap() - 1),
         }
     }
 
@@ -262,7 +264,7 @@ impl Diff<'_> {
 
         match res {
             // Search found a hunk that starts exactly at this line, return it
-            Ok(pos) => Some(pos as u32),
+            Ok(pos) => Some(u32::try_from(pos).unwrap()),
 
             // No hunk starts exactly at this line, so the search returns
             // the position where a hunk starting at this line should be inserted.
@@ -271,7 +273,7 @@ impl Diff<'_> {
             Err(pos) => {
                 let hunk = hunk_range(&self.diff.hunks[pos - 1]);
                 if hunk.end > line || include_removal && hunk.start == line && hunk.is_empty() {
-                    Some(pos as u32 - 1)
+                    Some(u32::try_from(pos).unwrap() - 1)
                 } else {
                     None
                 }

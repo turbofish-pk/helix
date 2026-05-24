@@ -219,13 +219,13 @@ impl Completion {
                             let language_server = language_server!(item);
 
                             // resolve item if not yet resolved
-                            if !item.resolved {
-                                if let Some(resolved_item) = Self::resolve_completion_item(
+                            if !item.resolved
+                                && let Some(resolved_item) = Self::resolve_completion_item(
                                     language_server,
                                     item.item.clone(),
-                                ) {
-                                    item.item = resolved_item;
-                                }
+                                )
+                            {
+                                item.item = resolved_item;
                             };
 
                             let encoding = language_server.offset_encoding();
@@ -266,15 +266,15 @@ impl Completion {
                     });
 
                     // TODO: add additional _edits to completion_changes?
-                    if let Some((additional_edits, offset_encoding)) = additional_edits {
-                        if !additional_edits.is_empty() {
-                            let transaction = util::generate_transaction_from_edits(
-                                doc.text(),
-                                additional_edits,
-                                offset_encoding, // TODO: should probably transcode in Client
-                            );
-                            doc.apply(&transaction, view.id);
-                        }
+                    if let Some((additional_edits, offset_encoding)) = additional_edits
+                        && !additional_edits.is_empty()
+                    {
+                        let transaction = util::generate_transaction_from_edits(
+                            doc.text(),
+                            additional_edits,
+                            offset_encoding, // TODO: should probably transcode in Client
+                        );
+                        doc.apply(&transaction, view.id);
                     }
                     // we could have just inserted a trigger char (like a `crate::` completion for rust
                     // so we want to retrigger immediately when accepting a completion.
@@ -342,7 +342,7 @@ impl Completion {
                 let new_score = pattern.score(Utf32Str::new(text, &mut buf), &mut matcher);
                 match new_score {
                     Some(new_score) => {
-                        *score = new_score as u32 / 2;
+                        *score = u32::from(new_score) / 2;
                         true
                     }
                     None => false,
@@ -354,7 +354,7 @@ impl Completion {
                 let text = option.filter_text();
                 pattern
                     .score(Utf32Str::new(text, &mut buf), &mut matcher)
-                    .map(|score| (i as u32, score as u32 / 3))
+                    .map(|score| (u32::try_from(i).unwrap(), u32::from(score) / 3))
             }));
         }
         // Nucleo is meant as an FZF-like fuzzy matcher and only hides matches that are truly
@@ -366,7 +366,7 @@ impl Completion {
         //
         // The score computation is a heuristic derived from Nucleo internal constants that may
         // move upstream in the future. I want to test this out here to settle on a good number.
-        let min_score = (7 + pattern.needle_text().len() as u32 * 14) / 3;
+        let min_score = (7 + u32::try_from(pattern.needle_text().len()).unwrap() * 14) / 3;
         matches.sort_unstable_by_key(|&(i, score)| {
             let option = &options[i as usize];
             (
@@ -440,7 +440,7 @@ impl Completion {
         menu.ensure_cursor_in_bounds();
     }
 
-    #[must_use] 
+    #[must_use]
     pub fn is_empty(&self) -> bool {
         self.popup.contents().is_empty()
     }
@@ -486,7 +486,7 @@ impl Component for Completion {
         let Some(coords) = cx.editor.cursor().0 else {
             return;
         };
-        let cursor_pos = coords.row as u16;
+        let cursor_pos = u16::try_from(coords.row).unwrap();
         let doc = doc!(cx.editor);
         let language = doc.language_name().unwrap_or("");
 
@@ -609,8 +609,8 @@ fn lsp_item_to_transaction(
             return (Transaction::new(doc.text()), None);
         };
 
-        let start_offset = range.anchor as i128 - primary_cursor as i128;
-        let end_offset = range.head as i128 - primary_cursor as i128;
+        let start_offset = range.anchor as i128 - i128::try_from(primary_cursor).unwrap();
+        let end_offset = range.head as i128 - i128::try_from(primary_cursor).unwrap();
 
         (Some((start_offset, end_offset)), edit.new_text)
     } else {

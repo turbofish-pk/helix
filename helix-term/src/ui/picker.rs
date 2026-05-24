@@ -217,7 +217,7 @@ impl<T, D> Column<T, D> {
         }
     }
 
-    #[must_use] 
+    #[must_use]
     pub fn without_filtering(mut self) -> Self {
         self.filter = false;
         self
@@ -277,7 +277,8 @@ impl<T: 'static + Send + Sync, D: 'static + Send + Sync> Picker<T, D> {
         editor_data: D,
     ) -> (Nucleo<T>, Injector<T, D>) {
         let columns: Arc<[_]> = columns.into_iter().collect();
-        let matcher_columns = columns.iter().filter(|col| col.filter).count() as u32;
+        let matcher_columns =
+            u32::try_from(columns.iter().filter(|col| col.filter).count()).unwrap();
         assert!(matcher_columns > 0);
         let matcher = Nucleo::new(
             Config::DEFAULT,
@@ -309,10 +310,13 @@ impl<T: 'static + Send + Sync, D: 'static + Send + Sync> Picker<T, D> {
         F: Fn(&mut Context, &T, Action) + 'static,
     {
         let columns: Arc<[_]> = columns.into_iter().collect();
-        let matcher_columns = columns
-            .iter()
-            .filter(|col: &&Column<T, D>| col.filter)
-            .count() as u32;
+        let matcher_columns = u32::try_from(
+            columns
+                .iter()
+                .filter(|col: &&Column<T, D>| col.filter)
+                .count(),
+        )
+        .unwrap();
         assert!(matcher_columns > 0);
         let matcher = Nucleo::new(
             Config::DEFAULT,
@@ -369,7 +373,7 @@ impl<T: 'static + Send + Sync, D: 'static + Send + Sync> Picker<T, D> {
 
         let widths = columns
             .iter()
-            .map(|column| Constraint::Length(column.name.chars().count() as u16))
+            .map(|column| Constraint::Length(u16::try_from(column.name.chars().count()).unwrap()))
             .collect();
 
         let query = PickerQuery::new(columns.iter().map(|col| &col.name).cloned(), default_column);
@@ -397,7 +401,7 @@ impl<T: 'static + Send + Sync, D: 'static + Send + Sync> Picker<T, D> {
         }
     }
 
-    #[must_use] 
+    #[must_use]
     pub fn injector(&self) -> Injector<T, D> {
         Injector {
             dst: self.matcher.injector(),
@@ -409,7 +413,7 @@ impl<T: 'static + Send + Sync, D: 'static + Send + Sync> Picker<T, D> {
         }
     }
 
-    #[must_use] 
+    #[must_use]
     pub fn truncate_start(mut self, truncate_start: bool) -> Self {
         self.truncate_start = truncate_start;
         self
@@ -426,13 +430,13 @@ impl<T: 'static + Send + Sync, D: 'static + Send + Sync> Picker<T, D> {
         self
     }
 
-    #[must_use] 
+    #[must_use]
     pub fn with_history_register(mut self, history_register: Option<char>) -> Self {
         self.prompt.with_history_register(history_register);
         self
     }
 
-    #[must_use] 
+    #[must_use]
     pub fn with_initial_cursor(mut self, cursor: u32) -> Self {
         self.cursor = cursor;
         self
@@ -454,7 +458,7 @@ impl<T: 'static + Send + Sync, D: 'static + Send + Sync> Picker<T, D> {
         self
     }
 
-    #[must_use] 
+    #[must_use]
     pub fn with_default_action(mut self, action: Action) -> Self {
         self.default_action = action;
         self
@@ -503,7 +507,7 @@ impl<T: 'static + Send + Sync, D: 'static + Send + Sync> Picker<T, D> {
             .saturating_sub(1);
     }
 
-    #[must_use] 
+    #[must_use]
     pub fn selection(&self) -> Option<&T> {
         self.matcher
             .snapshot()
@@ -721,13 +725,13 @@ impl<T: 'static + Send + Sync, D: 'static + Send + Sync> Picker<T, D> {
         );
 
         let area = inner.clip_left(1).with_height(1);
-        let line_area = area.clip_right(count.len() as u16 + 1);
+        let line_area = area.clip_right(u16::try_from(count.len()).unwrap() + 1);
 
         // render the prompt first since it will clear its background
         self.prompt.render(line_area, surface, cx);
 
         surface.set_stringn(
-            (area.x + area.width).saturating_sub(count.len() as u16 + 1),
+            (area.x + area.width).saturating_sub(u16::try_from(count.len()).unwrap() + 1),
             area.y,
             &count,
             (count.len()).min(area.width as usize),
@@ -828,8 +832,8 @@ impl<T: 'static + Send + Sync, D: 'static + Send + Sync> Picker<T, D> {
                         .unwrap_or_default()
                 };
 
-                if width as u16 > *max_width {
-                    *max_width = width as u16;
+                if u16::try_from(width).unwrap() > *max_width {
+                    *max_width = u16::try_from(width).unwrap();
                 }
 
                 cell
@@ -915,7 +919,7 @@ impl<T: 'static + Send + Sync, D: 'static + Send + Sync> Picker<T, D> {
                             let style = if *is_dir { directory } else { text };
                             surface.set_stringn(
                                 inner.x,
-                                inner.y + i as u16,
+                                inner.y + u16::try_from(i).unwrap(),
                                 path,
                                 inner.width as usize,
                                 style,
@@ -925,7 +929,11 @@ impl<T: 'static + Send + Sync, D: 'static + Send + Sync> Picker<T, D> {
                     }
 
                     let alt_text = preview.placeholder();
-                    let x = inner.x + inner.width.saturating_sub(alt_text.len() as u16) / 2;
+                    let x = inner.x
+                        + inner
+                            .width
+                            .saturating_sub(u16::try_from(alt_text.len()).unwrap())
+                            / 2;
                     let y = inner.y + inner.height / 2;
                     surface.set_stringn(x, y, alt_text, inner.width as usize, text);
                     return;
@@ -969,16 +977,15 @@ impl<T: 'static + Send + Sync, D: 'static + Send + Sync> Picker<T, D> {
                 .language_config()
                 .and_then(|config| config.rainbow_brackets)
                 .unwrap_or(config.rainbow_brackets)
-            {
-                if let Some(overlay) = EditorView::doc_rainbow_highlights(
+                && let Some(overlay) = EditorView::doc_rainbow_highlights(
                     doc,
                     offset.anchor,
                     area.height,
                     &cx.editor.theme,
                     &loader,
-                ) {
-                    overlay_highlights.push(overlay);
-                }
+                )
+            {
+                overlay_highlights.push(overlay);
             }
 
             EditorView::doc_diagnostics_highlights_into(
@@ -1136,14 +1143,13 @@ impl<I: 'static + Send + Sync, D: 'static + Send + Sync> Component for Picker<I,
                     if let Some(option) = self.selection() {
                         (self.callback_fn)(ctx, option, self.default_action);
                     }
-                    if let Some(history_register) = self.prompt.history_register() {
-                        if let Err(err) = ctx
+                    if let Some(history_register) = self.prompt.history_register()
+                        && let Err(err) = ctx
                             .editor
                             .registers
                             .push(history_register, self.primary_query().to_string())
-                        {
-                            ctx.editor.set_error(err.to_string());
-                        }
+                    {
+                        ctx.editor.set_error(err.to_string());
                     }
                     return close_fn(self);
                 }

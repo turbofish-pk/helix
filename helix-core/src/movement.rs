@@ -72,7 +72,7 @@ pub fn move_vertically_visual(
     let (visual_pos, block_off) = visual_offset_from_block(slice, pos, pos, text_fmt, annotations);
     let new_col = range
         .old_visual_position
-        .map_or(visual_pos.col as u32, |(_, col)| col);
+        .map_or(u32::try_from(visual_pos.col).unwrap(), |(_, col)| col);
 
     // Compute the new position.
     let mut row_off = match dir {
@@ -120,10 +120,14 @@ pub fn move_vertically(
 
     // Compute the current position's 2d coordinates.
     let visual_pos = visual_offset_from_block(slice, line_start, pos, text_fmt, annotations).0;
-    let (mut new_row, new_col) = range
-        .old_visual_position
-        .map_or((visual_pos.row as u32, visual_pos.col as u32), |pos| pos);
-    new_row = new_row.max(visual_pos.row as u32);
+    let (mut new_row, new_col) = range.old_visual_position.map_or(
+        (
+            u32::try_from(visual_pos.row).unwrap(),
+            u32::try_from(visual_pos.col).unwrap(),
+        ),
+        |pos| pos,
+    );
+    new_row = new_row.max(u32::try_from(visual_pos.row).unwrap());
     let line_idx = slice.char_to_line(pos);
 
     // Compute the new position.
@@ -656,8 +660,8 @@ pub fn move_parent_node_end(
     movement: Movement,
 ) -> Selection {
     selection.transform(|range| {
-        let start_from = text.char_to_byte(range.from()) as u32;
-        let start_to = text.char_to_byte(range.to()) as u32;
+        let start_from = u32::try_from(text.char_to_byte(range.from())).unwrap();
+        let start_to = u32::try_from(text.char_to_byte(range.to())).unwrap();
 
         let mut node = match syntax.named_descendant_for_byte_range(start_from, start_to) {
             Some(node) => node,

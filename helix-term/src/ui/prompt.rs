@@ -133,7 +133,7 @@ impl Prompt {
         self
     }
 
-    #[must_use] 
+    #[must_use]
     pub fn line(&self) -> &String {
         &self.line
     }
@@ -414,7 +414,7 @@ impl Prompt {
         let max_len = self
             .completion
             .iter()
-            .map(|(_, completion)| completion.content.len() as u16)
+            .map(|(_, completion)| u16::try_from(completion.content.len()).unwrap())
             .max()
             .unwrap_or(BASE_WIDTH)
             .max(BASE_WIDTH);
@@ -422,7 +422,7 @@ impl Prompt {
         let cols = std::cmp::max(1, area.width / max_len);
         let col_width = (area.width.saturating_sub(cols)) / cols;
 
-        let height = (self.completion.len() as u16)
+        let height = (u16::try_from(self.completion.len()).unwrap())
             .div_ceil(cols)
             .min(10) // at most 10 rows (or less)
             .min(area.height.saturating_sub(1));
@@ -517,7 +517,7 @@ impl Prompt {
         surface.set_string(area.x, area.y + line, &self.prompt, prompt_color);
 
         self.line_area = area
-            .clip_left(self.prompt.len() as u16)
+            .clip_left(u16::try_from(self.prompt.len()).unwrap())
             .clip_top(line)
             .clip_right(2);
 
@@ -690,15 +690,12 @@ impl Component for Prompt {
                     let input = if self.line.is_empty() {
                         &last_item
                     } else {
-                        if last_item != self.line {
-                            // store in history
-                            if let Some(register) = self.history_register {
-                                if let Err(err) =
-                                    cx.editor.registers.push(register, self.line.clone())
-                                {
-                                    cx.editor.set_error(err.to_string());
-                                }
-                            };
+                        // store in history
+                        if last_item != self.line
+                            && let Some(register) = self.history_register
+                            && let Err(err) = cx.editor.registers.push(register, self.line.clone())
+                        {
+                            cx.editor.set_error(err.to_string());
                         }
 
                         &self.line
@@ -772,7 +769,7 @@ impl Component for Prompt {
 
     fn cursor(&self, area: Rect, editor: &Editor) -> (Option<Position>, CursorKind) {
         let area = area
-            .clip_left(self.prompt.len() as u16)
+            .clip_left(u16::try_from(self.prompt.len()).unwrap())
             .clip_right(if self.prompt.is_empty() { 2 } else { 0 });
 
         let mut col = area.left() as usize + self.line[self.anchor..self.cursor].width();

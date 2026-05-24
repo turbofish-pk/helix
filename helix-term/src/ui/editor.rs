@@ -59,7 +59,7 @@ pub enum InsertEvent {
 }
 
 impl EditorView {
-    #[must_use] 
+    #[must_use]
     pub fn new(keymaps: Keymaps) -> Self {
         Self {
             keymaps,
@@ -119,12 +119,10 @@ impl EditorView {
             .language_config()
             .and_then(|config| config.rainbow_brackets)
             .unwrap_or(config.rainbow_brackets)
-        {
-            if let Some(overlay) =
+            && let Some(overlay) =
                 Self::doc_rainbow_highlights(doc, view_offset.anchor, inner.height, theme, &loader)
-            {
-                overlays.push(overlay);
-            }
+        {
+            overlays.push(overlay);
         }
 
         if let Some(overlay) = Self::doc_document_link_highlights(doc, theme) {
@@ -134,10 +132,10 @@ impl EditorView {
         Self::doc_diagnostics_highlights_into(doc, theme, &mut overlays);
 
         if is_focused {
-            if config.lsp.auto_document_highlight {
-                if let Some(overlay) = Self::doc_document_highlights(doc, view, theme) {
-                    overlays.push(overlay);
-                }
+            if config.lsp.auto_document_highlight
+                && let Some(overlay) = Self::doc_document_highlights(doc, view, theme)
+            {
+                overlays.push(overlay);
             }
             if let Some(tabstops) = Self::tabstop_highlights(doc, theme) {
                 overlays.push(tabstops);
@@ -258,7 +256,9 @@ impl EditorView {
             .iter()
             // View might be horizontally scrolled, convert from absolute distance
             // from the 1st column to relative distance from left of viewport
-            .filter_map(|ruler| ruler.checked_sub(1 + view_offset.horizontal_offset as u16))
+            .filter_map(|ruler| {
+                ruler.checked_sub(1 + u16::try_from(view_offset.horizontal_offset).unwrap())
+            })
             .filter(|ruler| ruler < &viewport.width)
             .map(|ruler| viewport.clip_left(ruler).with_width(1))
             .for_each(|area| surface.set_style(area, ruler_theme))
@@ -292,7 +292,7 @@ impl EditorView {
         let text = doc.text().slice(..);
         let row = text.char_to_line(anchor.min(text.len_chars()));
         let range = Self::viewport_byte_range(text, row, height);
-        let range = range.start as u32..range.end as u32;
+        let range = u32::try_from(range.start).unwrap()..u32::try_from(range.end).unwrap();
 
         let highlighter = syntax.highlighter(text, loader, range);
         Some(highlighter)
@@ -326,10 +326,12 @@ impl EditorView {
         let visible_range = Self::viewport_byte_range(text, row, height);
         let start = syntax::child_for_byte_range(
             &syntax.tree().root_node(),
-            visible_range.start as u32..visible_range.end as u32,
+            u32::try_from(visible_range.start).unwrap()..u32::try_from(visible_range.end).unwrap(),
         )
-        .map_or(visible_range.start as u32, |node| node.start_byte());
-        let range = start..visible_range.end as u32;
+        .map_or(u32::try_from(visible_range.start).unwrap(), |node| {
+            node.start_byte()
+        });
+        let range = start..u32::try_from(visible_range.end).unwrap();
 
         Some(syntax.rainbow_highlights(text, theme.rainbow_length(), loader, range))
     }
@@ -751,7 +753,7 @@ impl EditorView {
                         Rect {
                             x,
                             y,
-                            width: width as u16,
+                            width: u16::try_from(width).unwrap(),
                             height: 1,
                         },
                         gutter_style,
@@ -761,7 +763,7 @@ impl EditorView {
             };
             decoration_manager.add_decoration(gutter_decoration);
 
-            offset += width as u16;
+            offset += u16::try_from(width).unwrap();
         }
     }
 
@@ -897,10 +899,10 @@ impl EditorView {
 
             // if the cursor is horizontally in the view
             if col >= view_offset.horizontal_offset
-                && inner_area.width > (col - view_offset.horizontal_offset) as u16
+                && inner_area.width > u16::try_from(col - view_offset.horizontal_offset).unwrap()
             {
                 let area = Rect::new(
-                    inner_area.x + (col - view_offset.horizontal_offset) as u16,
+                    inner_area.x + u16::try_from(col - view_offset.horizontal_offset).unwrap(),
                     view.area.y,
                     1,
                     view.area.height,
@@ -973,10 +975,10 @@ impl EditorView {
         if let Some(keyresult) = self.handle_keymap_event(Mode::Insert, cx, event) {
             match keyresult {
                 KeymapResult::NotFound => {
-                    if !self.on_next_key(OnKeyCallbackKind::Fallback, cx, event) {
-                        if let Some(ch) = event.char() {
-                            commands::insert::insert_char(cx, ch)
-                        }
+                    if !self.on_next_key(OnKeyCallbackKind::Fallback, cx, event)
+                        && let Some(ch) = event.char()
+                    {
+                        commands::insert::insert_char(cx, ch)
                     }
                 }
                 KeymapResult::Cancelled(pending) => {
@@ -1360,7 +1362,9 @@ impl EditorView {
                     } else {
                         let (view, doc) = current!(cxt.editor);
 
-                        if let Some(pos) = view.pos_at_visual_coords(doc, pos.row as u16, 0, true) {
+                        if let Some(pos) =
+                            view.pos_at_visual_coords(doc, u16::try_from(pos.row).unwrap(), 0, true)
+                        {
                             doc.set_selection(view_id, Selection::point(pos));
                         }
                     }
@@ -1505,17 +1509,17 @@ impl Component for EditorView {
                                     }
                                 };
 
-                                if let Some(callback) = res {
-                                    if callback.is_some() {
-                                        // assume close_fn
-                                        if let Some(cb) = self.clear_completion(cx.editor) {
-                                            if consumed {
-                                                cx.on_next_key_callback =
-                                                    Some((cb, OnKeyCallbackKind::Fallback))
-                                            } else {
-                                                self.on_next_key =
-                                                    Some((cb, OnKeyCallbackKind::Fallback));
-                                            }
+                                if let Some(callback) = res
+                                    && callback.is_some()
+                                {
+                                    // assume close_fn
+                                    if let Some(cb) = self.clear_completion(cx.editor) {
+                                        if consumed {
+                                            cx.on_next_key_callback =
+                                                Some((cb, OnKeyCallbackKind::Fallback))
+                                        } else {
+                                            self.on_next_key =
+                                                Some((cb, OnKeyCallbackKind::Fallback));
                                         }
                                     }
                                 }
@@ -1628,11 +1632,11 @@ impl Component for EditorView {
             self.render_view(cx.editor, doc, view, area, surface, is_focused);
         }
 
-        if config.auto_info {
-            if let Some(mut info) = cx.editor.autoinfo.take() {
-                info.render(area, surface, cx);
-                cx.editor.autoinfo = Some(info)
-            }
+        if config.auto_info
+            && let Some(mut info) = cx.editor.autoinfo.take()
+        {
+            info.render(area, surface, cx);
+            cx.editor.autoinfo = Some(info)
         }
 
         let key_width = 15u16; // for showing pending keys

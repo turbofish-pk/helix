@@ -41,18 +41,18 @@ pub enum GraphemeSource {
 
 impl GraphemeSource {
     /// Returns whether this grapheme is virtual inline text
-    #[must_use] 
+    #[must_use]
     pub fn is_virtual(self) -> bool {
         matches!(self, GraphemeSource::VirtualText { .. })
     }
 
-    #[must_use] 
+    #[must_use]
     pub fn is_eof(self) -> bool {
         // all doc chars except the EOF char have non-zero codepoints
         matches!(self, GraphemeSource::Document { codepoints: 0 })
     }
 
-    #[must_use] 
+    #[must_use]
     pub fn doc_chars(self) -> usize {
         match self {
             GraphemeSource::Document { codepoints } => codepoints as usize,
@@ -73,27 +73,27 @@ pub struct FormattedGrapheme<'a> {
 }
 
 impl FormattedGrapheme<'_> {
-    #[must_use] 
+    #[must_use]
     pub fn is_virtual(&self) -> bool {
         self.source.is_virtual()
     }
 
-    #[must_use] 
+    #[must_use]
     pub fn doc_chars(&self) -> usize {
         self.source.doc_chars()
     }
 
-    #[must_use] 
+    #[must_use]
     pub fn is_whitespace(&self) -> bool {
         self.raw.is_whitespace()
     }
 
-    #[must_use] 
+    #[must_use]
     pub fn width(&self) -> usize {
         self.raw.width()
     }
 
-    #[must_use] 
+    #[must_use]
     pub fn is_word_boundary(&self) -> bool {
         self.raw.is_word_boundary()
     }
@@ -213,7 +213,7 @@ impl<'t> DocumentFormatter<'t> {
     /// This is usually just a normal line break.
     /// However very long lines are always wrapped at constant intervals that can be cheaply calculated
     /// to avoid pathological behaviour.
-    #[must_use] 
+    #[must_use]
     pub fn new_at_prev_checkpoint(
         text: RopeSlice<'t>,
         text_fmt: &'t TextFormat,
@@ -248,10 +248,9 @@ impl<'t> DocumentFormatter<'t> {
         loop {
             if let Some(&mut (ref mut annotation, highlight)) =
                 self.inline_annotation_graphemes.as_mut()
+                && let Some(grapheme) = annotation.next()
             {
-                if let Some(grapheme) = annotation.next() {
-                    return Some((grapheme, highlight));
-                }
+                return Some((grapheme, highlight));
             }
 
             if let Some((annotation, highlight)) =
@@ -272,7 +271,7 @@ impl<'t> DocumentFormatter<'t> {
             if let Some((grapheme, highlight)) = self.next_inline_annotation_grapheme(char_pos) {
                 (grapheme.into(), GraphemeSource::VirtualText { highlight })
             } else if let Some(grapheme) = self.graphemes.next() {
-                let codepoints = grapheme.len_chars() as u32;
+                let codepoints = u32::try_from(grapheme.len_chars()).unwrap();
 
                 let overlay = self.annotations.overlay_at(char_pos);
                 let grapheme = match overlay {
@@ -303,8 +302,8 @@ impl<'t> DocumentFormatter<'t> {
     fn wrap_word(&mut self) -> usize {
         // softwrap this word to the next line
         let indent_carry_over = if let Some(indent) = self.indent_level {
-            if indent as u16 <= self.text_fmt.max_indent_retain {
-                indent as u16
+            if u16::try_from(indent).unwrap() <= self.text_fmt.max_indent_retain {
+                u16::try_from(indent).unwrap()
             } else {
                 0
             }
@@ -429,12 +428,12 @@ impl<'t> DocumentFormatter<'t> {
     }
 
     /// returns the char index at the end of the last yielded grapheme
-    #[must_use] 
+    #[must_use]
     pub fn next_char_pos(&self) -> usize {
         self.char_pos
     }
     /// returns the visual position at the end of the last yielded grapheme
-    #[must_use] 
+    #[must_use]
     pub fn next_visual_pos(&self) -> Position {
         self.visual_pos
     }

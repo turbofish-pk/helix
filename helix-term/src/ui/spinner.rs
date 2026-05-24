@@ -8,7 +8,7 @@ pub struct ProgressSpinners {
 }
 
 impl ProgressSpinners {
-    #[must_use] 
+    #[must_use]
     pub fn get(&self, id: LanguageServerId) -> Option<&Spinner> {
         self.inner.get(&id)
     }
@@ -35,7 +35,7 @@ pub struct Spinner {
 impl Spinner {
     /// Creates a new spinner with `frames` and `interval`.
     /// Expects the frames count and interval to be greater than 0.
-    #[must_use] 
+    #[must_use]
     pub fn new(frames: Vec<&'static str>, interval: u64) -> Self {
         let count = frames.len();
         assert!(count > 0);
@@ -49,7 +49,7 @@ impl Spinner {
         }
     }
 
-    #[must_use] 
+    #[must_use]
     pub fn dots(interval: u64) -> Self {
         Self::new(vec!["⣾", "⣽", "⣻", "⢿", "⡿", "⣟", "⣯", "⣷"], interval)
     }
@@ -58,13 +58,13 @@ impl Spinner {
         self.start = Some(Instant::now());
     }
 
-    #[must_use] 
+    #[must_use]
     pub fn frame(&self) -> Option<&str> {
         let idx = (self
             .start
             .map(|time| Instant::now().duration_since(time))?
             .as_millis()
-            / self.interval as u128) as usize
+            / u128::from(self.interval)) as usize
             % self.count;
 
         self.frames.get(idx).copied()
@@ -74,7 +74,7 @@ impl Spinner {
         self.start = None;
     }
 
-    #[must_use] 
+    #[must_use]
     pub fn is_stopped(&self) -> bool {
         self.start.is_none()
     }

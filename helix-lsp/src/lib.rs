@@ -81,13 +81,13 @@ pub mod util {
     use super::*;
     use helix_core::line_ending::{line_end_byte_index, line_end_char_index};
     use helix_core::snippets::{RenderedSnippet, Snippet, SnippetRenderCtx};
-    use helix_core::{chars, RopeSlice};
-    use helix_core::{diagnostic::NumberOrString, Range, Rope, Selection, Tendril, Transaction};
+    use helix_core::{Range, Rope, Selection, Tendril, Transaction, diagnostic::NumberOrString};
+    use helix_core::{RopeSlice, chars};
 
     /// Converts a diagnostic in the document to [`lsp::Diagnostic`].
     ///
     /// Panics when [`pos_to_lsp_pos`] would for an invalid range on the diagnostic.
-    #[must_use] 
+    #[must_use]
     pub fn diagnostic_to_lsp_diagnostic(
         doc: &Rope,
         diag: &helix_core::diagnostic::Diagnostic,
@@ -144,7 +144,7 @@ pub mod util {
     /// Converts [`lsp::Position`] to a position in the document.
     ///
     /// Returns `None` if position.line is out of bounds or an overflow occurs
-    #[must_use] 
+    #[must_use]
     pub fn lsp_pos_to_pos(
         doc: &Rope,
         pos: lsp::Position,
@@ -222,7 +222,7 @@ pub mod util {
     /// Converts position in the document to [`lsp::Position`].
     ///
     /// Panics when `pos` is out of `doc` bounds or operation overflows.
-    #[must_use] 
+    #[must_use]
     pub fn pos_to_lsp_pos(
         doc: &Rope,
         pos: usize,
@@ -234,27 +234,27 @@ pub mod util {
                 let line_start = doc.line_to_byte(line);
                 let col = doc.char_to_byte(pos) - line_start;
 
-                lsp::Position::new(line as u32, col as u32)
+                lsp::Position::new(u32::try_from(line).unwrap(), u32::try_from(col).unwrap())
             }
             OffsetEncoding::Utf16 => {
                 let line = doc.char_to_line(pos);
                 let line_start = doc.char_to_utf16_cu(doc.line_to_char(line));
                 let col = doc.char_to_utf16_cu(pos) - line_start;
 
-                lsp::Position::new(line as u32, col as u32)
+                lsp::Position::new(u32::try_from(line).unwrap(), u32::try_from(col).unwrap())
             }
             OffsetEncoding::Utf32 => {
                 let line = doc.char_to_line(pos);
                 let line_start = doc.line_to_char(line);
                 let col = pos - line_start;
 
-                lsp::Position::new(line as u32, col as u32)
+                lsp::Position::new(u32::try_from(line).unwrap(), u32::try_from(col).unwrap())
             }
         }
     }
 
     /// Converts a range in the document to [`lsp::Range`].
-    #[must_use] 
+    #[must_use]
     pub fn range_to_lsp_range(
         doc: &Rope,
         range: Range,
@@ -266,7 +266,7 @@ pub mod util {
         lsp::Range::new(start, end)
     }
 
-    #[must_use] 
+    #[must_use]
     pub fn lsp_range_to_range(
         doc: &Rope,
         mut range: lsp::Range,
@@ -333,7 +333,7 @@ pub mod util {
 
     /// Creates a [Transaction] from the [lsp::TextEdit] in a completion response.
     /// The transaction applies the edit to all cursors.
-    #[must_use] 
+    #[must_use]
     pub fn generate_transaction_from_completion_edit(
         doc: &Rope,
         selection: &Selection,
@@ -414,7 +414,7 @@ pub mod util {
         (transaction, snippet)
     }
 
-    #[must_use] 
+    #[must_use]
     pub fn generate_transaction_from_edits(
         doc: &Rope,
         mut edits: Vec<lsp::TextEdit>,
@@ -773,7 +773,7 @@ pub enum ProgressStatus {
 }
 
 impl ProgressStatus {
-    #[must_use] 
+    #[must_use]
     pub fn progress(&self) -> Option<&lsp::WorkDoneProgress> {
         match &self {
             ProgressStatus::Created => None,
@@ -789,13 +789,13 @@ impl ProgressStatus {
 pub struct LspProgressMap(HashMap<LanguageServerId, HashMap<lsp::ProgressToken, ProgressStatus>>);
 
 impl LspProgressMap {
-    #[must_use] 
+    #[must_use]
     pub fn new() -> Self {
         Self::default()
     }
 
     /// Returns a map of all tokens corresponding to the language server with `id`.
-    #[must_use] 
+    #[must_use]
     pub fn progress_map(
         &self,
         id: LanguageServerId,
@@ -803,13 +803,13 @@ impl LspProgressMap {
         self.0.get(&id)
     }
 
-    #[must_use] 
+    #[must_use]
     pub fn is_progressing(&self, id: LanguageServerId) -> bool {
         self.0.get(&id).map(|it| !it.is_empty()).unwrap_or_default()
     }
 
     /// Returns last progress status for a given server with `id` and `token`.
-    #[must_use] 
+    #[must_use]
     pub fn progress(
         &self,
         id: LanguageServerId,
@@ -818,7 +818,7 @@ impl LspProgressMap {
         self.0.get(&id).and_then(|values| values.get(token))
     }
 
-    #[must_use] 
+    #[must_use]
     pub fn title(&self, id: LanguageServerId, token: &lsp::ProgressToken) -> Option<&String> {
         self.progress(id, token).and_then(|p| match p {
             ProgressStatus::Created => None,
@@ -927,17 +927,18 @@ fn start_client(
     let root_path = root.clone().unwrap_or_else(|| workspace.clone());
     let root_uri = root.and_then(|root| lsp::Url::from_file_path(root).ok());
 
-    if let Some(globset) = &ls_config.required_root_patterns {
-        if !root_path
+    if let Some(globset) = &ls_config.required_root_patterns
+        && !root_path
             .read_dir()?
             .flatten()
             .map(|entry| entry.file_name())
             .any(|entry| globset.is_match(entry))
-        {
-            // TODO: also show the globset that should be matched: https://github.com/BurntSushi/ripgrep/issues/3274
-            warn!("The lsp {name:?} tried to start at {root_path:?} but failed to match it's 'required_root_patterns'");
-            return Err(StartupError::NoRequiredRootFound);
-        }
+    {
+        // TODO: also show the globset that should be matched: https://github.com/BurntSushi/ripgrep/issues/3274
+        warn!(
+            "The lsp {name:?} tried to start at {root_path:?} but failed to match it's 'required_root_patterns'"
+        );
+        return Err(StartupError::NoRequiredRootFound);
     }
 
     let (client, incoming, initialize_notify) = Client::start(
@@ -1048,7 +1049,7 @@ pub fn find_lsp_workspace(
 
 #[cfg(test)]
 mod tests {
-    use super::{lsp, util::*, OffsetEncoding};
+    use super::{OffsetEncoding, lsp, util::*};
     use helix_core::Rope;
 
     #[test]

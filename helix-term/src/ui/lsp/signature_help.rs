@@ -50,12 +50,12 @@ impl SignatureHelp {
         }
     }
 
-    #[must_use] 
+    #[must_use]
     pub fn active_signature(&self) -> usize {
         self.active_signature
     }
 
-    #[must_use] 
+    #[must_use]
     pub fn lsp_signature(&self) -> Option<usize> {
         self.lsp_signature
     }
@@ -135,7 +135,7 @@ impl Component for SignatureHelp {
 
         let sig_text_para = Paragraph::new(&sig_text)
             .wrap(Wrap { trim: false })
-            .scroll((cx.scroll.unwrap_or_default() as u16, 0));
+            .scroll((u16::try_from(cx.scroll.unwrap_or_default()).unwrap(), 0));
         let (_, sig_text_height) = sig_text_para.required_size(area.width);
         let sig_text_area = area.with_height(sig_text_height.min(area.height));
         let sig_text_area = sig_text_area.intersection(surface.area);
@@ -163,7 +163,7 @@ impl Component for SignatureHelp {
             .clip_bottom(u16::from(cx.editor.popup_border()));
         let sig_doc_para = Paragraph::new(&sig_doc)
             .wrap(Wrap { trim: false })
-            .scroll((cx.scroll.unwrap_or_default() as u16, 0));
+            .scroll((u16::try_from(cx.scroll.unwrap_or_default()).unwrap(), 0));
         sig_doc_para.render(sig_doc_area, surface);
     }
 
@@ -208,6 +208,9 @@ impl Component for SignatureHelp {
             0
         };
 
-        Some((width + PADDING + sig_index_width as u16, height + PADDING))
+        Some((
+            width + PADDING + u16::try_from(sig_index_width).unwrap(),
+            height + PADDING,
+        ))
     }
 }

@@ -1,42 +1,43 @@
 use crate::{
+    Call, Error, LanguageServerId, OffsetEncoding, Result,
     file_operations::FileOperationsInterest,
     find_lsp_workspace, jsonrpc,
+    lsp::{
+        self, CodeActionCapabilityResolveSupport, DidChangeWorkspaceFoldersParams, OneOf,
+        PositionEncodingKind, SignatureHelp, Url, WorkspaceFolder, WorkspaceFoldersChangeEvent,
+        notification::DidChangeWorkspaceFolders,
+    },
     transport::{Payload, Transport},
-    Call, Error, LanguageServerId, OffsetEncoding, Result,
 };
+
 use log::info;
 
-use crate::lsp::{
-    self, notification::DidChangeWorkspaceFolders, CodeActionCapabilityResolveSupport,
-    DidChangeWorkspaceFoldersParams, OneOf, PositionEncodingKind, SignatureHelp, Url,
-    WorkspaceFolder, WorkspaceFoldersChangeEvent,
-};
 use helix_core::{
-    find_workspace,
+    ChangeSet, Rope, find_workspace,
     syntax::config::{LanguageServerFeature, RootMarkers},
-    ChangeSet, Rope,
 };
 use helix_loader::VERSION_AND_GIT_HASH;
 use helix_stdx::path;
 use parking_lot::Mutex;
 use serde::Deserialize;
 use serde_json::Value;
-use std::{collections::HashMap, path::PathBuf};
 use std::{
+    collections::HashMap,
     ffi::OsStr,
+    future::Future,
+    path::{Path, PathBuf},
+    process::Stdio,
     sync::{
+        Arc, OnceLock,
         atomic::{AtomicU64, Ordering},
-        Arc,
     },
 };
-use std::{future::Future, sync::OnceLock};
-use std::{path::Path, process::Stdio};
 use tokio::{
     io::{BufReader, BufWriter},
     process::{Child, Command},
     sync::{
-        mpsc::{channel, UnboundedReceiver, UnboundedSender},
         Notify, OnceCell,
+        mpsc::{UnboundedReceiver, UnboundedSender, channel},
     },
 };
 
@@ -419,9 +420,11 @@ impl Client {
                 "utf-16" => Some(OffsetEncoding::Utf16),
                 "utf-32" => Some(OffsetEncoding::Utf32),
                 encoding => {
-                    log::error!("Server provided invalid position encoding {encoding}, defaulting to utf-16");
+                    log::error!(
+                        "Server provided invalid position encoding {encoding}, defaulting to utf-16"
+                    );
                     None
-                },
+                }
             })
             .unwrap_or_default()
     }
@@ -440,7 +443,7 @@ impl Client {
     fn call<R: lsp::request::Request>(
         &self,
         params: R::Params,
-    ) -> impl Future<Output = Result<R::Result>>+ use<R>
+    ) -> impl Future<Output = Result<R::Result>> + use<R>
     where
         R::Params: serde::Serialize,
     {
@@ -450,7 +453,7 @@ impl Client {
     fn call_with_ref<R: lsp::request::Request>(
         &self,
         params: &R::Params,
-    ) -> impl Future<Output = Result<R::Result>>+ use<R>
+    ) -> impl Future<Output = Result<R::Result>> + use<R>
     where
         R::Params: serde::Serialize,
     {
@@ -461,7 +464,7 @@ impl Client {
         &self,
         params: &R::Params,
         timeout_secs: u64,
-    ) -> impl Future<Output = Result<R::Result>>+ use<R>
+    ) -> impl Future<Output = Result<R::Result>> + use<R>
     where
         R::Params: serde::Serialize,
     {
@@ -968,7 +971,7 @@ impl Client {
         })
     }
 
-    #[must_use] 
+    #[must_use]
     pub fn changeset_to_changes(
         old_text: &Rope,
         new_text: &Rope,
@@ -995,7 +998,7 @@ impl Client {
             pos: lsp::Position,
             text: RopeSlice,
             offset_encoding: OffsetEncoding,
-            ) -> lsp::Position {
+        ) -> lsp::Position {
             let lsp::Position {
                 mut line,
                 mut character,
@@ -1013,8 +1016,8 @@ impl Client {
                     character = 0;
                 } else {
                     character += match offset_encoding {
-                        OffsetEncoding::Utf8 => ch.len_utf8() as u32,
-                        OffsetEncoding::Utf16 => ch.len_utf16() as u32,
+                        OffsetEncoding::Utf8 => u32::try_from(ch.len_utf8()).unwrap(),
+                        OffsetEncoding::Utf16 => u32::try_from(ch.len_utf16()).unwrap(),
                         OffsetEncoding::Utf32 => 1,
                     };
                 }
@@ -1347,7 +1350,7 @@ impl Client {
         text_document: lsp::TextDocumentIdentifier,
         options: lsp::FormattingOptions,
         work_done_token: Option<lsp::ProgressToken>,
-    ) -> Option<impl Future<Output = Result<Option<Vec<lsp::TextEdit>>>>+ use<>> {
+    ) -> Option<impl Future<Output = Result<Option<Vec<lsp::TextEdit>>>> + use<>> {
         let capabilities = self.capabilities.get().unwrap();
 
         // Return early if the server does not support formatting.
@@ -1373,7 +1376,7 @@ impl Client {
         range: lsp::Range,
         options: lsp::FormattingOptions,
         work_done_token: Option<lsp::ProgressToken>,
-    ) -> Option<impl Future<Output = Result<Option<Vec<lsp::TextEdit>>>>+ use<>> {
+    ) -> Option<impl Future<Output = Result<Option<Vec<lsp::TextEdit>>>> + use<>> {
         let capabilities = self.capabilities.get().unwrap();
 
         // Return early if the server does not support range formatting.
@@ -1450,15 +1453,15 @@ impl Client {
 
     fn goto_request<
         T: lsp::request::Request<
-            Params = lsp::GotoDefinitionParams,
-            Result = Option<lsp::GotoDefinitionResponse>,
-        >,
+                Params = lsp::GotoDefinitionParams,
+                Result = Option<lsp::GotoDefinitionResponse>,
+            >,
     >(
         &self,
         text_document: lsp::TextDocumentIdentifier,
         position: lsp::Position,
         work_done_token: Option<lsp::ProgressToken>,
-    ) -> impl Future<Output = Result<T::Result>>+ use<T> {
+    ) -> impl Future<Output = Result<T::Result>> + use<T> {
         let params = lsp::GotoDefinitionParams {
             text_document_position_params: lsp::TextDocumentPositionParams {
                 text_document,
@@ -1478,7 +1481,7 @@ impl Client {
         text_document: lsp::TextDocumentIdentifier,
         position: lsp::Position,
         work_done_token: Option<lsp::ProgressToken>,
-    ) -> Option<impl Future<Output = Result<Option<lsp::GotoDefinitionResponse>>>+ use<>> {
+    ) -> Option<impl Future<Output = Result<Option<lsp::GotoDefinitionResponse>>> + use<>> {
         let capabilities = self.capabilities.get().unwrap();
 
         // Return early if the server does not support goto-definition.
@@ -1649,7 +1652,8 @@ impl Client {
     pub fn call_hierarchy_incoming(
         &self,
         item: lsp::CallHierarchyItem,
-    ) -> Option<impl Future<Output = Result<Option<Vec<lsp::CallHierarchyIncomingCall>>>> + use<>> {
+    ) -> Option<impl Future<Output = Result<Option<Vec<lsp::CallHierarchyIncomingCall>>>> + use<>>
+    {
         let capabilities = self.capabilities.get().unwrap();
 
         match capabilities.call_hierarchy_provider {
@@ -1672,7 +1676,8 @@ impl Client {
     pub fn call_hierarchy_outgoing(
         &self,
         item: lsp::CallHierarchyItem,
-    ) -> Option<impl Future<Output = Result<Option<Vec<lsp::CallHierarchyOutgoingCall>>>> + use<>> {
+    ) -> Option<impl Future<Output = Result<Option<Vec<lsp::CallHierarchyOutgoingCall>>>> + use<>>
+    {
         let capabilities = self.capabilities.get().unwrap();
 
         match capabilities.call_hierarchy_provider {
@@ -1792,7 +1797,7 @@ impl Client {
     pub fn command(
         &self,
         command: lsp::Command,
-    ) -> Option<impl Future<Output = Result<Option<Value>>>+ use<>> {
+    ) -> Option<impl Future<Output = Result<Option<Value>>> + use<>> {
         let capabilities = self.capabilities.get().unwrap();
 
         // Return early if the language server does not support executing commands.

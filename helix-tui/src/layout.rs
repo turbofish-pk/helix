@@ -3,8 +3,8 @@
 use std::cell::RefCell;
 use std::collections::HashMap;
 
-use cassowary::strength::{REQUIRED, WEAK};
 use cassowary::WeightedRelation::*;
+use cassowary::strength::{REQUIRED, WEAK};
 use cassowary::{Constraint as CassowaryConstraint, Expression, Solver, Variable};
 
 use helix_view::graphics::{Margin, Rect};
@@ -42,7 +42,7 @@ impl Constraint {
             Constraint::Percentage(p) => length * p / 100,
             Constraint::Ratio(num, den) => {
                 let r = num * u32::from(length) / den;
-                r as u16
+                u16::try_from(r).unwrap()
             }
             Constraint::Length(l) => length.min(l),
             Constraint::Max(m) => length.min(m),

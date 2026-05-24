@@ -402,7 +402,7 @@ impl Table<'_> {
             );
             let mut col = table_area.left();
             if has_selection {
-                col += (highlight_symbol.width() as u16).min(table_area.width);
+                col += (u16::try_from(highlight_symbol.width()).unwrap()).min(table_area.width);
             }
             for (width, cell) in columns_widths.iter().zip(header.cells.iter()) {
                 render_cell(
@@ -485,13 +485,23 @@ impl Table<'_> {
 fn render_cell(buf: &mut Buffer, cell: &Cell, area: Rect, truncate: bool) {
     buf.set_style(area, cell.style);
     for (i, spans) in cell.content.lines.iter().enumerate() {
-        if i as u16 >= area.height {
+        if u16::try_from(i).unwrap() >= area.height {
             break;
         }
         if truncate {
-            buf.set_spans_truncated(area.x, area.y + i as u16, spans, area.width);
+            buf.set_spans_truncated(
+                area.x,
+                area.y + u16::try_from(i).unwrap(),
+                spans,
+                area.width,
+            );
         } else {
-            buf.set_spans(area.x, area.y + i as u16, spans, area.width);
+            buf.set_spans(
+                area.x,
+                area.y + u16::try_from(i).unwrap(),
+                spans,
+                area.width,
+            );
         }
     }
 }

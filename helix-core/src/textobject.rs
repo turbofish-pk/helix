@@ -35,13 +35,12 @@ fn find_word_boundary(slice: RopeSlice, mut pos: usize, direction: Direction, lo
             category => {
                 if !long && category != prev_category && pos != 0 && pos != slice.len_chars() {
                     return pos;
-                } else {
-                    match direction {
-                        Direction::Forward => pos += 1,
-                        Direction::Backward => pos = pos.saturating_sub(1),
-                    }
-                    prev_category = category;
                 }
+                match direction {
+                    Direction::Forward => pos += 1,
+                    Direction::Backward => pos = pos.saturating_sub(1),
+                }
+                prev_category = category;
             }
         }
     }
@@ -439,8 +438,8 @@ mod test {
         for (before, expected) in tests {
             let (s, selection) = crate::test::print(before);
             let text = Rope::from(s.as_str());
-            let selection = selection
-                .transform(|r| textobject_paragraph(text.slice(..), r, TextObject::Inside, 1));
+            let selection =
+                selection.transform(|r| textobject_paragraph(text.slice(..), r, Inside, 1));
             let actual = crate::test::plain(s.as_ref(), &selection);
             assert_eq!(actual, expected, "\nbefore: `{:?}`", before);
         }
@@ -462,8 +461,8 @@ mod test {
         for (before, expected) in tests {
             let (s, selection) = crate::test::print(before);
             let text = Rope::from(s.as_str());
-            let selection = selection
-                .transform(|r| textobject_paragraph(text.slice(..), r, TextObject::Inside, 2));
+            let selection =
+                selection.transform(|r| textobject_paragraph(text.slice(..), r, Inside, 2));
             let actual = crate::test::plain(s.as_ref(), &selection);
             assert_eq!(actual, expected, "\nbefore: `{:?}`", before);
         }
@@ -493,8 +492,8 @@ mod test {
         for (before, expected) in tests {
             let (s, selection) = crate::test::print(before);
             let text = Rope::from(s.as_str());
-            let selection = selection
-                .transform(|r| textobject_paragraph(text.slice(..), r, TextObject::Around, 1));
+            let selection =
+                selection.transform(|r| textobject_paragraph(text.slice(..), r, Around, 1));
             let actual = crate::test::plain(s.as_ref(), &selection);
             assert_eq!(actual, expected, "\nbefore: `{:?}`", before);
         }

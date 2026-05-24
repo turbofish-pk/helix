@@ -160,9 +160,9 @@ impl Context<'_> {
 
     /// Returns 1 if no explicit count was provided
     #[inline]
-    #[must_use] 
+    #[must_use]
     pub fn count(&self) -> usize {
-        self.count.map_or(1, |v| v.get())
+        self.count.map_or(1, NonZeroUsize::get)
     }
 
     /// Waits on all pending jobs, and then tries to flush all pending write
@@ -284,7 +284,7 @@ impl MappableCommand {
         }
     }
 
-    #[must_use] 
+    #[must_use]
     pub fn name(&self) -> &str {
         match &self {
             Self::Typable { name, .. } => name,
@@ -293,7 +293,7 @@ impl MappableCommand {
         }
     }
 
-    #[must_use] 
+    #[must_use]
     pub fn doc(&self) -> &str {
         match &self {
             Self::Typable { doc, .. } => doc,
@@ -1019,13 +1019,13 @@ fn trim_selections(cx: &mut Context) {
         .selection(view.id)
         .iter()
         .filter_map(|range| {
-            if range.is_empty() || range.slice(text).chars().all(|ch| ch.is_whitespace()) {
+            if range.is_empty() || range.slice(text).chars().all(char::is_whitespace) {
                 return None;
             }
             let mut start = range.from();
             let mut end = range.to();
-            start = movement::skip_while(text, start, |x| x.is_whitespace()).unwrap_or(start);
-            end = movement::backwards_skip_while(text, end, |x| x.is_whitespace()).unwrap_or(end);
+            start = movement::skip_while(text, start, char::is_whitespace).unwrap_or(start);
+            end = movement::backwards_skip_while(text, end, char::is_whitespace).unwrap_or(end);
             Some(Range::new(start, end).with_direction(range.direction()))
         })
         .collect();
@@ -1154,7 +1154,7 @@ fn goto_window(cx: &mut Context, align: Align) {
         .min(view_offset.vertical_offset + last_visual_line.saturating_sub(scrolloff));
 
     let pos = view
-        .pos_at_visual_coords(doc, visual_line as u16, 0, false)
+        .pos_at_visual_coords(doc, u16::try_from(visual_line).unwrap(), 0, false)
         .expect("visual_line was constrained to the view area");
 
     let text = doc.text().slice(..);
@@ -1398,10 +1398,10 @@ fn goto_file_impl(cx: &mut Context, action: Action) {
                     if lsp_targets_seen.insert(target.clone()) {
                         lsp_targets.push(target);
                     }
-                } else if unresolved_links.insert((link.start, link.end, link.language_server_id)) {
-                    if let Some(request) = resolve_document_link_request(cx.editor, link) {
-                        resolve_requests.push(request);
-                    }
+                } else if unresolved_links.insert((link.start, link.end, link.language_server_id))
+                    && let Some(request) = resolve_document_link_request(cx.editor, link)
+                {
+                    resolve_requests.push(request);
                 }
             }
             if !matched {
@@ -1425,10 +1425,10 @@ fn goto_file_impl(cx: &mut Context, action: Action) {
             for request in resolve_requests {
                 match request.await {
                     Ok(link) => {
-                        if let Some(target) = link.target {
-                            if seen.insert(target.clone()) {
-                                targets.push(target);
-                            }
+                        if let Some(target) = link.target
+                            && seen.insert(target.clone())
+                        {
+                            targets.push(target);
                         }
                     }
                     Err(err) => log::warn!("Failed to resolve document link: {err}"),
@@ -1903,13 +1903,13 @@ fn switch_case(cx: &mut Context) {
 
 fn switch_to_uppercase(cx: &mut Context) {
     switch_case_impl(cx, |string| {
-        string.chunks().map(|chunk| chunk.to_uppercase()).collect()
+        string.chunks().map(str::to_uppercase).collect()
     });
 }
 
 fn switch_to_lowercase(cx: &mut Context) {
     switch_case_impl(cx, |string| {
-        string.chunks().map(|chunk| chunk.to_lowercase()).collect()
+        string.chunks().map(str::to_lowercase).collect()
     });
 }
 
@@ -3165,7 +3165,7 @@ fn file_picker(cx: &mut Context) {
 fn file_picker_in_current_buffer_directory(cx: &mut Context) {
     let doc_dir = doc!(cx.editor)
         .path()
-        .and_then(|path| path.parent().map(|path| path.to_path_buf()));
+        .and_then(|path| path.parent().map(Path::to_path_buf));
 
     let path = match doc_dir {
         Some(path) => path,
@@ -3214,7 +3214,7 @@ fn file_explorer(cx: &mut Context) {
 fn file_explorer_in_current_buffer_directory(cx: &mut Context) {
     let doc_dir = doc!(cx.editor)
         .path()
-        .and_then(|path| path.parent().map(|path| path.to_path_buf()));
+        .and_then(|path| path.parent().map(Path::to_path_buf));
 
     let path = match doc_dir {
         Some(path) => path,
@@ -4246,7 +4246,7 @@ fn goto_prev_change(cx: &mut Context) {
 }
 
 fn goto_next_change_impl(cx: &mut Context, direction: Direction) {
-    let count = cx.count() as u32 - 1;
+    let count = u32::try_from(cx.count()).unwrap() - 1;
     let motion = move |editor: &mut Editor| {
         let (view, doc) = current!(editor);
         let doc_text = doc.text().slice(..);
@@ -4258,7 +4258,7 @@ fn goto_next_change_impl(cx: &mut Context, direction: Direction) {
         };
 
         let selection = doc.selection(view.id).clone().transform(|range| {
-            let cursor_line = range.cursor_line(doc_text) as u32;
+            let cursor_line = u32::try_from(range.cursor_line(doc_text)).unwrap();
 
             let diff = diff_handle.load();
             let hunk_idx = match direction {
@@ -4372,7 +4372,7 @@ pub mod insert {
                 let current_line_num = doc.text().char_to_line(cursor);
                 let current_line_start = doc.text().line_to_char(current_line_num);
                 let left = doc.text().slice(current_line_start..cursor);
-                left.chars().all(|c| c.is_whitespace())
+                left.chars().all(char::is_whitespace)
             });
 
             if !cursors_after_whitespace {
@@ -5268,7 +5268,7 @@ fn format_selections(cx: &mut Context) {
             doc.identifier(),
             range,
             lsp::FormattingOptions {
-                tab_size: doc.tab_width() as u32,
+                tab_size: u32::try_from(doc.tab_width()).unwrap(),
                 insert_spaces: matches!(doc.indent_style, IndentStyle::Spaces(_)),
                 ..Default::default()
             },
@@ -5768,10 +5768,9 @@ fn shrink_selection(cx: &mut Context) {
             if current_selection.contains(&prev_selection) {
                 doc.set_selection(view.id, prev_selection);
                 return;
-            } else {
-                // clear existing selection as they can't be shrunk to anyway
-                view.object_selections.clear();
             }
+            // clear existing selection as they can't be shrunk to anyway
+            view.object_selections.clear();
         }
         // if not previous selection, shrink to first child
         if let Some(syntax) = doc.syntax() {
@@ -5994,11 +5993,11 @@ fn vsplit_new(cx: &mut Context) {
 }
 
 fn wclose(cx: &mut Context) {
-    if cx.editor.tree.views().count() == 1 {
-        if let Err(err) = typed::buffers_remaining_impl(cx.editor) {
-            cx.editor.set_error(err.to_string());
-            return;
-        }
+    if cx.editor.tree.views().count() == 1
+        && let Err(err) = typed::buffers_remaining_impl(cx.editor)
+    {
+        cx.editor.set_error(err.to_string());
+        return;
     }
     let view_id = view!(cx.editor).id;
     // close current split
@@ -6273,11 +6272,12 @@ fn select_textobject(cx: &mut Context, objtype: textobject::TextObject) {
                     let diff_handle = doc.diff_handle().unwrap();
                     let diff = diff_handle.load();
                     let line = range.cursor_line(text);
-                    let hunk_idx = if let Some(hunk_idx) = diff.hunk_at(line as u32, false) {
-                        hunk_idx
-                    } else {
-                        return range;
-                    };
+                    let hunk_idx =
+                        if let Some(hunk_idx) = diff.hunk_at(u32::try_from(line).unwrap(), false) {
+                            hunk_idx
+                        } else {
+                            return range;
+                        };
                     let hunk = diff.nth_hunk(hunk_idx).after;
 
                     let start = text.line_to_char(hunk.start as usize);

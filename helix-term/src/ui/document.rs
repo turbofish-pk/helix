@@ -107,12 +107,14 @@ pub fn render_text(
         }
 
         // if the end of the viewport is reached stop rendering
-        if grapheme.visual_pos.row as u16 >= renderer.viewport.height + renderer.offset.row as u16 {
+        if u16::try_from(grapheme.visual_pos.row).unwrap()
+            >= renderer.viewport.height + u16::try_from(renderer.offset.row).unwrap()
+        {
             break;
         }
 
         // apply decorations before rendering a new line
-        if grapheme.visual_pos.row as u16 != last_line_pos.visual_line {
+        if u16::try_from(grapheme.visual_pos.row).unwrap() != last_line_pos.visual_line {
             // we initiate doc_line with usize::MAX because no file
             // can reach that size (memory allocations are limited to isize::MAX)
             // initially there is no "previous" line (so doc_line is set to usize::MAX)
@@ -126,7 +128,7 @@ pub fn render_text(
             last_line_pos = LinePos {
                 first_visual_line: grapheme.line_idx != last_line_pos.doc_line,
                 doc_line: grapheme.line_idx,
-                visual_line: grapheme.visual_pos.row as u16,
+                visual_line: u16::try_from(grapheme.visual_pos.row).unwrap(),
             };
             decorations.decorate_line(renderer, last_line_pos);
         }
@@ -244,7 +246,7 @@ impl<'a> TextRenderer<'a> {
 
         let text_style = theme.get("ui.text");
 
-        let indent_width = doc.indent_style.indent_width(tab_width) as u16;
+        let indent_width = u16::try_from(doc.indent_style.indent_width(tab_width)).unwrap();
 
         TextRenderer {
             surface,
@@ -285,7 +287,7 @@ impl<'a> TextRenderer<'a> {
         {
             return false;
         }
-        row -= self.offset.row as u16;
+        row -= u16::try_from(self.offset.row).unwrap();
         // TODO is it correct to apply the whitspace style to all unicode white spaces?
         if grapheme.is_whitespace() {
             style = style.patch(self.whitespace_style);
@@ -377,8 +379,8 @@ impl<'a> TextRenderer<'a> {
             // partially on screen
             let rect = Rect::new(
                 self.viewport.x,
-                self.viewport.y + position.row as u16,
-                (width - cut_off_start) as u16,
+                self.viewport.y + u16::try_from(position.row).unwrap(),
+                u16::try_from(width - cut_off_start).unwrap(),
                 1,
             );
             self.surface.set_style(rect, style);
@@ -402,7 +404,7 @@ impl<'a> TextRenderer<'a> {
         if !self.draw_indent_guides || self.offset.row > row as usize {
             return;
         }
-        row -= self.offset.row as u16;
+        row -= u16::try_from(self.offset.row).unwrap();
 
         // Don't draw indent guides outside of view
         let end_indent = min(
@@ -413,8 +415,10 @@ impl<'a> TextRenderer<'a> {
         ) / self.indent_width as usize;
 
         for i in self.starting_indent..end_indent {
-            let x = (self.viewport.x as usize + (i * self.indent_width as usize) - self.offset.col)
-                as u16;
+            let x = u16::try_from(
+                self.viewport.x as usize + (i * self.indent_width as usize) - self.offset.col,
+            )
+            .unwrap();
             let y = self.viewport.y + row;
             debug_assert!(self.surface.in_bounds(x, y));
             self.surface

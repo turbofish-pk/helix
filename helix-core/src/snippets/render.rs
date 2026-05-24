@@ -164,8 +164,8 @@ impl Snippet {
                     ctx,
                     (replacement_start as i128 + off) as usize,
                 );
-                off +=
-                    replacement_start as i128 - replacement_end as i128 + replacement_len as i128;
+                off += replacement_start as i128 - replacement_end as i128
+                    + i128::try_from(replacement_len).unwrap();
 
                 Some(replacement)
             },

@@ -132,13 +132,13 @@ impl<'a> imara_diff::TokenSource for RopeLines<'a> {
 
     fn estimate_tokens(&self) -> u32 {
         // we can provide a perfect estimate which is very nice for performance
-        self.0.len_lines() as u32
+        u32::try_from(self.0.len_lines()).unwrap()
     }
 }
 
 /// Compares `old` and `new` to generate a [`Transaction`] describing
 /// the steps required to get from `old` to `new`.
-#[must_use] 
+#[must_use]
 pub fn compare_ropes(before: &Rope, after: &Rope) -> Transaction {
     let start = Instant::now();
     let res = ChangeSet::with_capacity(32);

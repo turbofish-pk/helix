@@ -26,7 +26,7 @@ impl Info {
         if body.is_empty() {
             return Self {
                 height: 1,
-                width: title.len() as u16,
+                width: u16::try_from(title.len()).unwrap(),
                 text: "".to_string(),
                 title,
             };
@@ -51,8 +51,8 @@ impl Info {
 
         Self {
             title,
-            width: text.lines().map(|l| l.width()).max().unwrap() as u16,
-            height: body.len() as u16,
+            width: u16::try_from(text.lines().map(|l| l.width()).max().unwrap()).unwrap(),
+            height: u16::try_from(body.len()).unwrap(),
             text,
         }
     }

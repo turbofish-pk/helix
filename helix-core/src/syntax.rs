@@ -19,18 +19,18 @@ use helix_stdx::rope::RopeSliceExt as _;
 use once_cell::sync::OnceCell;
 use ropey::RopeSlice;
 use tree_house::{
-    highlighter,
+    Error, InjectionLanguageMarker, LanguageConfig as SyntaxConfig, Layer, highlighter,
     query_iter::QueryIter,
     tree_sitter::{
-        query::{InvalidPredicateError, UserPredicate},
         Capture, Grammar, InactiveQueryCursor, InputEdit, Node, Pattern, Query, RopeInput, Tree,
+        query::{InvalidPredicateError, UserPredicate},
     },
-    Error, InjectionLanguageMarker, LanguageConfig as SyntaxConfig, Layer,
 };
 
-use crate::{indent::IndentQuery, tree_sitter, ChangeSet, Language};
+use crate::{ChangeSet, Language, indent::IndentQuery, tree_sitter};
 
 pub use tree_house::{
+    Error as HighlighterError, LanguageLoader, TREE_SITTER_MATCH_LIMIT, TreeCursor,
     highlighter::{Highlight, HighlightEvent},
     query_iter::{CapturedMatch, QueryIterEvent, QueryMatchIter, QueryMatchIterEvent},
     Error as HighlighterError, LanguageLoader, TreeCursor, TREE_SITTER_MATCH_LIMIT,
@@ -71,7 +71,9 @@ impl LanguageData {
         let name = &config.language_id;
         let parser_name = config.grammar.as_deref().unwrap_or(name);
         let Some(grammar) = get_language(parser_name)? else {
-            log::info!("Skipping syntax config for '{name}' because the parser's shared library does not exist");
+            log::info!(
+                "Skipping syntax config for '{name}' because the parser's shared library does not exist"
+            );
             return Ok(None);
         };
         let highlight_query_text = read_query(name, "highlights.scm");
@@ -261,11 +263,11 @@ fn reconfigure_highlights(config: &SyntaxConfig, recognized_names: &[String]) {
                 best_match_len = len;
             }
         }
-        best_index.map(|idx| Highlight::new(idx as u32))
+        best_index.map(|idx| Highlight::new(u32::try_from(idx).unwrap()))
     });
 }
 
-#[must_use] 
+#[must_use]
 pub fn read_query(lang: &str, query_filename: &str) -> String {
     tree_house::read_query(lang, |language| {
         helix_loader::grammar::load_runtime_file(language, query_filename).unwrap_or_default()
@@ -292,7 +294,7 @@ impl Loader {
         let mut file_type_globs = Vec::new();
 
         for mut config in config.language {
-            let language = Language(languages.len() as u32);
+            let language = Language(u32::try_from(languages.len()).unwrap());
             config.language = Some(language);
 
             for file_type in &config.file_types {
@@ -326,7 +328,7 @@ impl Loader {
         self.languages
             .iter()
             .enumerate()
-            .map(|(idx, data)| (Language(idx as u32), data))
+            .map(|(idx, data)| (Language(u32::try_from(idx).unwrap()), data))
     }
 
     pub fn language_configs(&self) -> impl ExactSizeIterator<Item = &LanguageConfiguration> {
@@ -339,13 +341,13 @@ impl Loader {
 
     pub fn language_for_name(&self, name: impl PartialEq<String>) -> Option<Language> {
         self.languages.iter().enumerate().find_map(|(idx, config)| {
-            (name == config.config.language_id).then_some(Language(idx as u32))
+            (name == config.config.language_id).then_some(Language(u32::try_from(idx).unwrap()))
         })
     }
 
     pub fn language_for_scope(&self, scope: &str) -> Option<Language> {
         self.languages.iter().enumerate().find_map(|(idx, config)| {
-            (scope == config.config.scope).then_some(Language(idx as u32))
+            (scope == config.config.scope).then_some(Language(u32::try_from(idx).unwrap()))
         })
     }
 
@@ -361,18 +363,18 @@ impl Loader {
         let mut best_match_length = 0;
         let mut best_match_position = None;
         for (idx, data) in self.languages.iter().enumerate() {
-            if let Some(injection_regex) = &data.config.injection_regex {
-                if let Some(mat) = injection_regex.find(text.regex_input()) {
-                    let length = mat.end() - mat.start();
-                    if length > best_match_length {
-                        best_match_position = Some(idx);
-                        best_match_length = length;
-                    }
+            if let Some(injection_regex) = &data.config.injection_regex
+                && let Some(mat) = injection_regex.find(text.regex_input())
+            {
+                let length = mat.end() - mat.start();
+                if length > best_match_length {
+                    best_match_position = Some(idx);
+                    best_match_length = length;
                 }
             }
         }
 
-        best_match_position.map(|i| Language(i as u32))
+        best_match_position.map(|i| Language(u32::try_from(i).unwrap()))
     }
 
     pub fn language_for_filename(&self, path: &Path) -> Option<Language> {
@@ -539,12 +541,12 @@ impl Syntax {
         }
     }
 
-    #[must_use] 
+    #[must_use]
     pub fn layer(&self, layer: Layer) -> &tree_house::LayerData {
         self.inner.layer(layer)
     }
 
-    #[must_use] 
+    #[must_use]
     pub fn root_layer(&self) -> Layer {
         self.inner.root()
     }
@@ -552,7 +554,7 @@ impl Syntax {
     /// Finds the smallest injection layer which fully includes the range `start..=end`.
     ///
     /// This is the same as using the last item in the `layers_for_byte_range` iterator.
-    #[must_use] 
+    #[must_use]
     pub fn layer_for_byte_range(&self, start: u32, end: u32) -> Layer {
         self.inner.layer_for_byte_range(start, end)
     }
@@ -570,32 +572,32 @@ impl Syntax {
         self.inner.layers_for_byte_range(start, end)
     }
 
-    #[must_use] 
+    #[must_use]
     pub fn root_language(&self) -> Language {
         self.layer(self.root_layer()).language
     }
 
-    #[must_use] 
+    #[must_use]
     pub fn tree(&self) -> &Tree {
         self.inner.tree()
     }
 
-    #[must_use] 
+    #[must_use]
     pub fn tree_for_byte_range(&self, start: u32, end: u32) -> &Tree {
         self.inner.tree_for_byte_range(start, end)
     }
 
-    #[must_use] 
+    #[must_use]
     pub fn named_descendant_for_byte_range(&self, start: u32, end: u32) -> Option<Node<'_>> {
         self.inner.named_descendant_for_byte_range(start, end)
     }
 
-    #[must_use] 
+    #[must_use]
     pub fn descendant_for_byte_range(&self, start: u32, end: u32) -> Option<Node<'_>> {
         self.inner.descendant_for_byte_range(start, end)
     }
 
-    #[must_use] 
+    #[must_use]
     pub fn walk(&self) -> TreeCursor<'_> {
         self.inner.walk()
     }
@@ -688,22 +690,21 @@ impl Syntax {
                     } else {
                         Some(mat.node.clone())
                     },
-                    highlight: Highlight::new((scope_stack.len() % rainbow_length) as u32),
+                    highlight: Highlight::new(
+                        u32::try_from(scope_stack.len() % rainbow_length).unwrap(),
+                    ),
                 });
-            } else if capture == rainbow_query.bracket_capture {
-                if let Some(scope) = scope_stack.last() {
-                    if !scope
-                        .node
-                        .as_ref()
-                        .is_some_and(|node| mat.node.parent().as_ref() != Some(node))
-                    {
-                        let start = source
-                            .byte_to_char(source.floor_char_boundary(byte_range.start as usize));
-                        let end =
-                            source.byte_to_char(source.ceil_char_boundary(byte_range.end as usize));
-                        highlights.push((scope.highlight, start..end));
-                    }
-                }
+            } else if capture == rainbow_query.bracket_capture
+                && let Some(scope) = scope_stack.last()
+                && !scope
+                    .node
+                    .as_ref()
+                    .is_some_and(|node| mat.node.parent().as_ref() != Some(node))
+            {
+                let start =
+                    source.byte_to_char(source.floor_char_boundary(byte_range.start as usize));
+                let end = source.byte_to_char(source.ceil_char_boundary(byte_range.end as usize));
+                highlights.push((scope.highlight, start..end));
             }
         }
 
@@ -738,8 +739,8 @@ fn generate_edits(old_text: RopeSlice, changeset: &ChangeSet) -> Vec<InputEdit> 
         match change {
             Retain(_) => {}
             Delete(_) => {
-                let start_byte = old_text.char_to_byte(old_pos) as u32;
-                let old_end_byte = old_text.char_to_byte(old_end) as u32;
+                let start_byte = u32::try_from(old_text.char_to_byte(old_pos)).unwrap();
+                let old_end_byte = u32::try_from(old_text.char_to_byte(old_end)).unwrap();
 
                 // deletion
                 edits.push(InputEdit {
@@ -752,20 +753,19 @@ fn generate_edits(old_text: RopeSlice, changeset: &ChangeSet) -> Vec<InputEdit> 
                 });
             }
             Insert(s) => {
-                let start_byte = old_text.char_to_byte(old_pos) as u32;
-
+                let start_byte = u32::try_from(old_text.char_to_byte(old_pos)).unwrap();
                 // a subsequent delete means a replace, consume it
                 if let Some(Delete(len)) = iter.peek() {
                     old_end = old_pos + len;
-                    let old_end_byte = old_text.char_to_byte(old_end) as u32;
+                    let old_end_byte = u32::try_from(old_text.char_to_byte(old_end)).unwrap();
 
                     iter.next();
 
                     // replacement
                     edits.push(InputEdit {
-                        start_byte,                                // old_pos to byte
-                        old_end_byte,                              // old_end to byte
-                        new_end_byte: start_byte + s.len() as u32, // old_pos to byte + s.len()
+                        start_byte,                                                 // old_pos to byte
+                        old_end_byte, // old_end to byte
+                        new_end_byte: start_byte + u32::try_from(s.len()).unwrap(), // old_pos to byte + s.len()
                         start_point: Point::ZERO,
                         old_end_point: Point::ZERO,
                         new_end_point: Point::ZERO,
@@ -773,9 +773,9 @@ fn generate_edits(old_text: RopeSlice, changeset: &ChangeSet) -> Vec<InputEdit> 
                 } else {
                     // insert
                     edits.push(InputEdit {
-                        start_byte,                                // old_pos to byte
-                        old_end_byte: start_byte,                  // same
-                        new_end_byte: start_byte + s.len() as u32, // old_pos + s.len()
+                        start_byte,                                                 // old_pos to byte
+                        old_end_byte: start_byte,                                   // same
+                        new_end_byte: start_byte + u32::try_from(s.len()).unwrap(), // old_pos + s.len()
                         start_point: Point::ZERO,
                         old_end_point: Point::ZERO,
                         new_end_point: Point::ZERO,
@@ -810,7 +810,7 @@ pub enum OverlayHighlights {
 }
 
 impl OverlayHighlights {
-    #[must_use] 
+    #[must_use]
     pub fn single(highlight: Highlight, range: ops::Range<usize>) -> Self {
         Self::Homogeneous {
             highlight,
@@ -882,7 +882,7 @@ impl OverlayHighlighter {
         let overlays: Vec<_> = overlays.into_iter().filter_map(Overlay::new).collect();
         let next_highlight_start = overlays
             .iter()
-            .filter_map(|overlay| overlay.start())
+            .filter_map(Overlay::start)
             .min()
             .unwrap_or(usize::MAX);
 
@@ -899,7 +899,7 @@ impl OverlayHighlighter {
     /// highlights.
     ///
     /// `usize::MAX` is returned when there are no more overlay highlights.
-    #[must_use] 
+    #[must_use]
     pub fn next_event_offset(&self) -> usize {
         self.next_highlight_start.min(self.next_highlight_end)
     }
@@ -961,7 +961,7 @@ impl OverlayHighlighter {
             self.next_highlight_start = self
                 .overlays
                 .iter()
-                .filter_map(|overlay| overlay.start())
+                .filter_map(Overlay::start)
                 .min()
                 .unwrap_or(usize::MAX);
         }
@@ -998,7 +998,7 @@ pub enum CapturedNode<'a> {
 }
 
 impl CapturedNode<'_> {
-    #[must_use] 
+    #[must_use]
     pub fn start_byte(&self) -> usize {
         match self {
             Self::Single(n) => n.start_byte() as usize,
@@ -1006,7 +1006,7 @@ impl CapturedNode<'_> {
         }
     }
 
-    #[must_use] 
+    #[must_use]
     pub fn end_byte(&self) -> usize {
         match self {
             Self::Single(n) => n.end_byte() as usize,
@@ -1014,7 +1014,7 @@ impl CapturedNode<'_> {
         }
     }
 
-    #[must_use] 
+    #[must_use]
     pub fn byte_range(&self) -> ops::Range<usize> {
         self.start_byte()..self.end_byte()
     }
@@ -1026,7 +1026,7 @@ pub struct TextObjectQuery {
 }
 
 impl TextObjectQuery {
-    #[must_use] 
+    #[must_use]
     pub fn new(query: Query) -> Self {
         Self { query }
     }
@@ -1047,7 +1047,7 @@ impl TextObjectQuery {
     ///   (function)
     /// ) @capture
     /// ```
-    #[must_use] 
+    #[must_use]
     pub fn capture_nodes<'a>(
         &'a self,
         capture_name: &str,
@@ -1059,7 +1059,7 @@ impl TextObjectQuery {
 
     /// Find the first capture that exists out of all given `capture_names`
     /// and return sub nodes that match this capture.
-    #[must_use] 
+    #[must_use]
     pub fn capture_nodes_any<'a>(
         &'a self,
         capture_names: &[&str],
@@ -1165,7 +1165,7 @@ fn pretty_print_tree_impl<W: fmt::Write>(
 }
 
 /// Finds the child of `node` which contains the given byte range.
-#[must_use] 
+#[must_use]
 pub fn child_for_byte_range<'a>(node: &Node<'a>, range: ops::Range<u32>) -> Option<Node<'a>> {
     for child in node.children() {
         let child_range = child.byte_range();
@@ -1341,7 +1341,7 @@ mod test {
         let root = syntax
             .tree()
             .root_node()
-            .descendant_for_byte_range(start as u32, end as u32)
+            .descendant_for_byte_range(start as u32, u32::try_from(end).unwrap())
             .unwrap();
 
         let mut output = String::new();

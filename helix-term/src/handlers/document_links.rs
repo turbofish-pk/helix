@@ -1,13 +1,13 @@
 use std::{collections::HashSet, time::Duration};
 
-use futures_util::{stream::FuturesUnordered, StreamExt};
-use helix_core::{syntax::config::LanguageServerFeature, Assoc};
+use futures_util::{StreamExt, stream::FuturesUnordered};
+use helix_core::{Assoc, syntax::config::LanguageServerFeature};
 use helix_event::{cancelable_future, register_hook};
 use helix_view::{
+    DocumentId, Editor,
     document::DocumentLink,
     events::{DocumentDidChange, DocumentDidOpen, LanguageServerExited, LanguageServerInitialized},
-    handlers::{lsp::DocumentLinksEvent, Handlers},
-    DocumentId, Editor,
+    handlers::{Handlers, lsp::DocumentLinksEvent},
 };
 use tokio::time::Instant;
 
@@ -146,7 +146,11 @@ pub(super) fn register_hooks(handlers: &Handlers) {
     });
 
     register_hook!(move |event: &mut LanguageServerInitialized<'_>| {
-        let doc_ids: Vec<_> = event.editor.documents().map(|doc| doc.id()).collect();
+        let doc_ids: Vec<_> = event
+            .editor
+            .documents()
+            .map(helix_view::Document::id)
+            .collect();
 
         for doc_id in doc_ids {
             request_document_links(event.editor, doc_id);
@@ -162,7 +166,11 @@ pub(super) fn register_hooks(handlers: &Handlers) {
             }
         }
 
-        let doc_ids: Vec<_> = event.editor.documents().map(|doc| doc.id()).collect();
+        let doc_ids: Vec<_> = event
+            .editor
+            .documents()
+            .map(helix_view::Document::id)
+            .collect();
 
         for doc_id in doc_ids {
             request_document_links(event.editor, doc_id);

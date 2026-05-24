@@ -286,7 +286,12 @@ impl Application {
         // reset cursor cache
         self.editor.cursor_cache.reset();
 
-        let pos = pos.map(|pos| (pos.col as u16, pos.row as u16));
+        let pos = pos.map(|pos| {
+            (
+                u16::try_from(pos.col).unwrap(),
+                u16::try_from(pos.row).unwrap(),
+            )
+        });
         self.terminal.draw(pos, kind).unwrap();
     }
 
@@ -634,7 +639,7 @@ impl Application {
         }
 
         let size = if size < 1024 {
-            Size::Bytes(size as u16)
+            Size::Bytes(u16::try_from(size).unwrap())
         } else {
             const SUFFIX: [&str; 4] = ["B", "KiB", "MiB", "GiB"];
             let mut size = size as f32;
@@ -1030,7 +1035,7 @@ impl Application {
                                 failed_change: res
                                     .as_ref()
                                     .err()
-                                    .map(|err| err.failed_change_idx as u32),
+                                    .map(|err| u32::try_from(err.failed_change_idx).unwrap()),
                             }))
                         } else {
                             Err(helix_lsp::jsonrpc::Error {
@@ -1156,15 +1161,13 @@ impl Application {
                                     };
                                     if let Some(language_server) =
                                         editor.language_server_by_id(server_id)
-                                    {
-                                        if let Err(err) =
+                                        && let Err(err) =
                                             language_server.reply(id.clone(), Ok(json!(reply)))
-                                        {
-                                            log::error!(
-                                                "Failed to send reply to server '{}' request {id}: {err}",
-                                                language_server.name()
-                                            );
-                                        }
+                                    {
+                                        log::error!(
+                                            "Failed to send reply to server '{}' request {id}: {err}",
+                                            language_server.name()
+                                        );
                                     }
                                 },
                             );
@@ -1172,10 +1175,9 @@ impl Application {
                                 .replace_or_push("lsp-show-message-request", select);
                             // Avoid sending a reply. The `Select` callback above sends the reply.
                             return;
-                        } else {
-                            self.handle_show_message(params.typ, params.message);
-                            Ok(serde_json::Value::Null)
                         }
+                        self.handle_show_message(params.typ, params.message);
+                        Ok(serde_json::Value::Null)
                     }
                 };
 

@@ -1,4 +1,4 @@
-#[allow(clippy::too_many_lines)]
+// #[allow(clippy::too_many_lines)]
 use ropey::RopeSlice;
 use smallvec::SmallVec;
 
@@ -167,7 +167,7 @@ impl ChangeSet {
     /// returned value will represent the change `docA` → `docC`.
     #[must_use]
     pub fn compose(self, other: Self) -> Self {
-        assert!(self.len_after == other.len);
+        assert_eq!(self.len_after, other.len);
 
         // composing fails in weird ways if one of the sets is empty
         // a: [] len: 0 len_after: 1 | b: [Insert(Tendril<UTF8>(inline: "\n")), Retain(1)] len 1
@@ -319,7 +319,7 @@ impl ChangeSet {
     #[allow(clippy::too_many_lines)]
     #[must_use]
     pub fn invert(&self, original_doc: &Rope) -> Self {
-        assert!(original_doc.len_chars() == self.len);
+        assert_eq!(original_doc.len_chars(), self.len);
 
         let mut changes = Self::with_capacity(self.changes.len());
 
@@ -538,7 +538,7 @@ impl ChangeSet {
 
     #[must_use]
     pub fn from_change(doc: &Rope, change: Change) -> Self {
-        Self::from_changes(doc, std::iter::once(change))
+        Self::from_changes(doc, once(change))
     }
 
     /// Generate a `ChangeSet` from a set of changes.
@@ -925,14 +925,14 @@ impl Iterator for ChangeIterator<'_> {
                 Insert(s) => {
                     let start = self.pos;
                     // a subsequent delete means a replace, consume it
-                    if let Some(Delete(len)) = self.iter.peek() {
+                    return if let Some(Delete(len)) = self.iter.peek() {
                         self.iter.next();
 
                         self.pos += len;
-                        return Some((start, self.pos, Some(s.clone())));
+                        Some((start, self.pos, Some(s.clone())))
                     } else {
-                        return Some((start, start, Some(s.clone())));
-                    }
+                        Some((start, start, Some(s.clone())))
+                    };
                 }
             }
         }

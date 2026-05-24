@@ -3,8 +3,8 @@ use crate::{
     layout::Alignment,
     text::{StyledGrapheme, Text},
     widgets::{
-        reflow::{LineComposer, LineTruncator, WordWrapper},
         Block, Widget,
+        reflow::{LineComposer, LineTruncator, WordWrapper},
     },
 };
 use helix_core::unicode::width::UnicodeWidthStr;
@@ -214,7 +214,7 @@ impl Widget for Paragraph<'_> {
                             symbol
                         })
                         .set_style(*style);
-                    x += symbol.width() as u16;
+                    x += u16::try_from(symbol.width()).unwrap();
                 }
             }
             y += 1;

@@ -98,9 +98,9 @@ impl Renderer<'_, '_> {
     fn draw_eol_diagnostic(&mut self, diag: &Diagnostic, row: u16, col: usize) -> u16 {
         let style = self.styles.severity_style(diag.severity());
         let width = self.renderer.viewport.width;
-        let start_col = (col - self.renderer.offset.col) as u16;
+        let start_col = u16::try_from(col - self.renderer.offset.col).unwrap();
         let mut end_col = start_col;
-        let mut draw_col = (col + 1) as u16;
+        let mut draw_col = u16::try_from(col + 1).unwrap();
 
         for line in diag.message.lines() {
             if !self.renderer.column_in_bounds(draw_col as usize, 1) {
@@ -151,8 +151,8 @@ impl Renderer<'_, '_> {
             self.renderer.draw_decoration_grapheme(
                 grapheme.raw,
                 style,
-                self.row + grapheme.visual_pos.row as u16,
-                text_col + grapheme.visual_pos.col as u16,
+                self.row + u16::try_from(grapheme.visual_pos.row).unwrap(),
+                text_col + u16::try_from(grapheme.visual_pos.col).unwrap(),
             );
         }
         self.row += 1;
@@ -164,7 +164,7 @@ impl Renderer<'_, '_> {
                 self.row += 1;
             }
         } else {
-            self.row += extra_lines as u16;
+            self.row += u16::try_from(extra_lines).unwrap();
         }
     }
 
@@ -284,8 +284,8 @@ impl Decoration for InlineDiagnostics<'_> {
         self.state.compute_line_diagnostics();
         let mut renderer = Renderer {
             renderer,
-            first_row: pos.visual_line + virt_off.row as u16,
-            row: pos.visual_line + virt_off.row as u16,
+            first_row: pos.visual_line + u16::try_from(virt_off.row).unwrap(),
+            row: pos.visual_line + u16::try_from(virt_off.row).unwrap(),
             config: &self.state.config,
             styles: &self.styles,
         };

@@ -10,9 +10,9 @@ use tui::{
 
 use helix_core::Position;
 use helix_view::{
+    Editor,
     graphics::{Margin, Rect},
     input::{MouseEvent, MouseEventKind},
-    Editor,
 };
 
 const MIN_HEIGHT: u16 = 6;
@@ -146,8 +146,8 @@ impl<T: Component> Popup<T> {
         };
 
         // -- make sure frame doesn't stick out of bounds
-        let mut rel_x = position.col as u16;
-        let mut rel_y = position.row as u16;
+        let mut rel_x = u16::try_from(position.col).unwrap();
+        let mut rel_y = u16::try_from(position.row).unwrap();
 
         // if there's a orientation preference, use that
         // if we're on the top part of the screen, do below
@@ -201,7 +201,7 @@ impl<T: Component> Popup<T> {
         let area = match final_pos {
             Open::Above => {
                 rel_y = rel_y.saturating_sub(height);
-                Rect::new(rel_x, rel_y, width, position.row as u16 - rel_y)
+                Rect::new(rel_x, rel_y, width, u16::try_from(position.row).unwrap() - rel_y)
             }
             Open::Below => {
                 rel_y += 1;
@@ -366,7 +366,7 @@ impl<T: Component> Component for Popup<T> {
                 let mut cell;
                 for i in 0..win_height {
                     cell =
-                        &mut surface[(inner.right() - 1 + border as u16, inner.top() + i as u16)];
+                        &mut surface[(inner.right() - 1 + u16::try_from(border).unwrap(), inner.top() + u16::try_from(i).unwrap())];
 
                     let half_block = if render_borders { "▌" } else { "▐" };
 

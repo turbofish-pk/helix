@@ -42,7 +42,7 @@ impl IndentStyle {
         debug_assert!(!indent.is_empty() && indent.len() <= MAX_INDENT as usize);
 
         if indent.starts_with(' ') {
-            IndentStyle::Spaces(indent.len().clamp(1, MAX_INDENT as usize) as u8)
+            IndentStyle::Spaces(u8::try_from(indent.len().clamp(1, MAX_INDENT as usize)).unwrap())
         } else {
             IndentStyle::Tabs
         }
@@ -188,7 +188,7 @@ pub fn auto_detect_indent_style(document_text: &Rope) -> Option<IndentStyle> {
     if indent_freq >= 1 && (indent_freq_2 as f64 / indent_freq as f64) < 0.66 {
         Some(match indent {
             0 => IndentStyle::Tabs,
-            _ => IndentStyle::Spaces(indent as u8),
+            _ => IndentStyle::Spaces(u8::try_from(indent).unwrap()),
         })
     } else {
         None
@@ -201,7 +201,7 @@ pub fn indent_level_for_line(line: RopeSlice, tab_width: usize, indent_width: us
     let mut len = 0;
     for ch in line.chars() {
         match ch {
-            '\t' => len += tab_width_at(len, tab_width as u16),
+            '\t' => len += tab_width_at(len, u16::try_from(tab_width).unwrap()),
             ' ' => len += 1,
             _ => break,
         }
@@ -242,7 +242,7 @@ pub fn normalize_indentation(
     let mut original_len = 0;
     for ch in line.chars() {
         match ch {
-            '\t' => len += tab_width_at(len + off, tab_width as u16),
+            '\t' => len += tab_width_at(len + off, u16::try_from(tab_width).unwrap()),
             ' ' => len += 1,
             _ => break,
         }
@@ -1294,6 +1294,15 @@ pub fn indent_for_newline(
         indent_heuristic,
         syntax.and_then(|syntax| loader.indent_query(syntax.root_language())),
         syntax,
+    ) && let Some(indent) = treesitter_indent_for_pos(
+        query,
+        syntax,
+        tab_width,
+        indent_width,
+        text,
+        line_before,
+        line_before_end_pos,
+        true,
     ) {
         if let Some(indent) = treesitter_indent_for_pos(
             query,
@@ -1354,8 +1363,8 @@ pub fn indent_for_newline(
                     }
                 }
             }
-            return indent.to_string(indent_style, tab_width);
-        };
+        }
+        return indent.to_string(indent_style, tab_width);
     }
     // Fallback in case we either don't have indent queries or they failed for some reason
     let indent_level = indent_level_for_line(text.line(current_line), tab_width, indent_width);
@@ -1365,7 +1374,7 @@ pub fn indent_for_newline(
 pub fn get_scopes<'a>(syntax: Option<&'a Syntax>, text: RopeSlice, pos: usize) -> Vec<&'a str> {
     let mut scopes = Vec::new();
     if let Some(syntax) = syntax {
-        let pos = text.char_to_byte(pos) as u32;
+        let pos = u32::try_from(text.char_to_byte(pos)).unwrap();
         let mut node = match syntax
             .tree()
             .root_node()

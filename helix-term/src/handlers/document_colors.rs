@@ -1,14 +1,14 @@
 use std::{collections::HashSet, time::Duration};
 
-use futures_util::{stream::FuturesUnordered, StreamExt};
+use futures_util::{StreamExt, stream::FuturesUnordered};
 use helix_core::{syntax::config::LanguageServerFeature, text_annotations::InlineAnnotation};
 use helix_event::{cancelable_future, register_hook};
 use helix_lsp::lsp;
 use helix_view::{
+    DocumentId, Editor, Theme,
     document::DocumentColorSwatches,
     events::{DocumentDidChange, DocumentDidOpen, LanguageServerExited, LanguageServerInitialized},
-    handlers::{lsp::DocumentColorsEvent, Handlers},
-    DocumentId, Editor, Theme,
+    handlers::{Handlers, lsp::DocumentColorsEvent},
 };
 use tokio::time::Instant;
 
@@ -127,10 +127,11 @@ fn attach_document_colors(
     for (pos, color) in doc_colors {
         color_swatches_padding.push(InlineAnnotation::new(pos, " "));
         color_swatches.push(InlineAnnotation::new(pos, "■"));
+        #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
         colors.push(Theme::rgb_highlight(
-            (color.red * 255.) as u8,
-            (color.green * 255.) as u8,
-            (color.blue * 255.) as u8,
+            (color.red * 255.).round() as u8,
+            (color.green * 255.).round() as u8,
+            (color.blue * 255.).round() as u8,
         ));
     }
 
@@ -184,7 +185,11 @@ pub(super) fn register_hooks(handlers: &Handlers) {
     });
 
     register_hook!(move |event: &mut LanguageServerInitialized<'_>| {
-        let doc_ids: Vec<_> = event.editor.documents().map(|doc| doc.id()).collect();
+        let doc_ids: Vec<_> = event
+            .editor
+            .documents()
+            .map(helix_view::Document::id)
+            .collect();
 
         for doc_id in doc_ids {
             request_document_colors(event.editor, doc_id);
@@ -201,7 +206,11 @@ pub(super) fn register_hooks(handlers: &Handlers) {
             }
         }
 
-        let doc_ids: Vec<_> = event.editor.documents().map(|doc| doc.id()).collect();
+        let doc_ids: Vec<_> = event
+            .editor
+            .documents()
+            .map(helix_view::Document::id)
+            .collect();
 
         for doc_id in doc_ids {
             request_document_colors(event.editor, doc_id);

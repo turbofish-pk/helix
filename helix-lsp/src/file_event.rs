@@ -3,7 +3,7 @@ use std::{collections::HashMap, path::PathBuf, sync::Weak};
 use globset::{GlobBuilder, GlobSetBuilder};
 use tokio::sync::mpsc;
 
-use crate::{lsp, Client, LanguageServerId};
+use crate::{Client, LanguageServerId, lsp};
 
 enum Event {
     FileChanged {
@@ -51,7 +51,7 @@ impl Default for Handler {
 }
 
 impl Handler {
-    #[must_use] 
+    #[must_use]
     pub fn new() -> Self {
         let (tx, rx) = mpsc::unbounded_channel();
         tokio::spawn(Self::run(rx));
@@ -141,10 +141,10 @@ impl Handler {
 
                     let mut builder = GlobSetBuilder::new();
                     for watcher in ops.watchers {
-                        if let lsp::GlobPattern::String(pattern) = watcher.glob_pattern {
-                            if let Ok(glob) = GlobBuilder::new(&pattern).build() {
-                                builder.add(glob);
-                            }
+                        if let lsp::GlobPattern::String(pattern) = watcher.glob_pattern
+                            && let Ok(glob) = GlobBuilder::new(&pattern).build()
+                        {
+                            builder.add(glob);
                         }
                     }
                     match builder.build() {

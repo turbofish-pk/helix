@@ -103,7 +103,7 @@ impl Component for Hover {
         });
         let contents_para = Paragraph::new(&contents)
             .wrap(Wrap { trim: false })
-            .scroll((cx.scroll.unwrap_or_default() as u16, 0));
+            .scroll((u16::try_from(cx.scroll.unwrap_or_default()).unwrap(), 0));
         contents_para.render(contents_area, surface);
     }
 

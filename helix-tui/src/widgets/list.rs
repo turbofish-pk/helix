@@ -232,7 +232,7 @@ impl<'a> StatefulWidget for List<'a> {
             };
             let max_element_width = (list_area.width - (elem_x - x)) as usize;
             for (j, line) in item.content.lines.iter().enumerate() {
-                buf.set_spans(elem_x, y + j as u16, line, max_element_width as u16);
+                buf.set_spans(elem_x, y + u16::try_from(j).unwrap(), line, u16::try_from(max_element_width).unwrap());
             }
             if is_selected {
                 buf.set_style(area, self.highlight_style);

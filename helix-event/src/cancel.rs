@@ -57,7 +57,7 @@ impl Shared {
 #[allow(clippy::cast_possible_truncation)]
     fn inc_generation(&self, num_running: u32) -> (u32, u32) {
         let state = self.state.load(Relaxed);
-        let generation = state as u32;
+        let generation =  u32::try_from(state).unwrap();
         let prev_running = (state >> 32) as u32;
         // no need to create a new generation if the refcount is zero (fastpath)
         if prev_running == 0 && num_running == 0 {
@@ -76,7 +76,7 @@ impl Shared {
     fn inc_running(&self, generation: u32) {
         let mut state = self.state.load(Relaxed);
         loop {
-            let current_generation = state as u32;
+            let current_generation =  u32::try_from(state).unwrap();
             if current_generation != generation {
                 break;
             }
@@ -97,7 +97,7 @@ impl Shared {
     fn dec_running(&self, generation: u32) {
         let mut state = self.state.load(Relaxed);
         loop {
-            let current_generation = state as u32;
+            let current_generation =  u32::try_from(state).unwrap();
             if current_generation != generation {
                 break;
             }

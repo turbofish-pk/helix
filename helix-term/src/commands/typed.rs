@@ -282,14 +282,14 @@ fn buffer_gather_others_impl(editor: &mut Editor, skip_visible: bool) -> Vec<Doc
             .collect::<HashSet<_>>();
         editor
             .documents()
-            .map(|doc| doc.id())
+            .map(helix_view::Document::id)
             .filter(|doc_id| !visible_document_ids.contains(doc_id))
             .collect()
     } else {
         let current_document = &doc!(editor).id();
         editor
             .documents()
-            .map(|doc| doc.id())
+            .map(helix_view::Document::id)
             .filter(|doc_id| doc_id != current_document)
             .collect()
     }
@@ -322,7 +322,7 @@ fn force_buffer_close_others(
 }
 
 fn buffer_gather_all_impl(editor: &mut Editor) -> Vec<DocumentId> {
-    editor.documents().map(|doc| doc.id()).collect()
+    editor.documents().map(helix_view::Document::id).collect()
 }
 
 fn buffer_close_all(
@@ -823,7 +823,7 @@ pub(super) fn buffers_remaining_impl(editor: &mut Editor) -> anyhow::Result<()> 
     let modified_ids: Vec<_> = editor
         .documents()
         .filter(|doc| doc.is_modified())
-        .map(|doc| doc.id())
+        .map(helix_view::Document::id)
         .collect();
 
     if let Some(first) = modified_ids.first() {
@@ -1115,13 +1115,13 @@ fn theme(cx: &mut compositor::Context, args: Args, event: PromptEvent) -> anyhow
             if args.is_empty() {
                 // Ensures that a preview theme gets cleaned up if the user backspaces until the prompt is empty.
                 cx.editor.unset_theme_preview()?;
-            } else if let Some(theme_name) = args.first() {
-                if let Ok(theme) = cx.editor.theme_loader.load(theme_name) {
-                    if !(true_color || theme.is_16_color()) {
-                        bail!("Unsupported theme: theme requires true color support");
-                    }
-                    cx.editor.set_theme_preview(theme)?;
-                };
+            } else if let Some(theme_name) = args.first()
+                && let Ok(theme) = cx.editor.theme_loader.load(theme_name)
+            {
+                if !(true_color || theme.is_16_color()) {
+                    bail!("Unsupported theme: theme requires true color support");
+                }
+                cx.editor.set_theme_preview(theme)?;
             };
         }
         PromptEvent::Validate => {
@@ -1349,7 +1349,7 @@ fn change_current_directory(
         return Ok(());
     }
 
-    let dir = parse_first_arg_as_dir(&args, cx.editor.get_last_cwd().map(|p| p.to_path_buf()))?;
+    let dir = parse_first_arg_as_dir(&args, cx.editor.get_last_cwd().map(Path::to_path_buf))?;
 
     apply_directory_change(cx, &dir)
 }
@@ -1971,7 +1971,7 @@ fn tree_sitter_highlight_name(
     };
     let text = doc.text().slice(..);
     let cursor = doc.selection(view.id).primary().cursor(text);
-    let byte = text.char_to_byte(cursor) as u32;
+    let byte = u32::try_from(text.char_to_byte(cursor)).unwrap();
     // Query the same range as the one used in syntax highlighting.
     let range = {
         // Calculate viewport byte ranges:
@@ -1980,8 +1980,8 @@ fn tree_sitter_highlight_name(
         let last_line = text.len_lines().saturating_sub(1);
         let height = view.inner_area(doc).height;
         let last_visible_line = (row + height as usize).saturating_sub(1).min(last_line);
-        let start = text.line_to_byte(row.min(last_line)) as u32;
-        let end = text.line_to_byte(last_visible_line + 1) as u32;
+        let start = u32::try_from(text.line_to_byte(row.min(last_line))).unwrap();
+        let end = u32::try_from(text.line_to_byte(last_visible_line + 1)).unwrap();
 
         start..end
     };
@@ -2041,7 +2041,7 @@ fn tree_sitter_layers(
     let loader: &helix_core::syntax::Loader = &cx.editor.syn_loader.load();
     let text = doc.text().slice(..);
     let cursor = doc.selection(view.id).primary().cursor(text);
-    let byte = text.char_to_byte(cursor) as u32;
+    let byte = u32::try_from(text.char_to_byte(cursor)).unwrap();
     let languages =
         syntax
             .layers_for_byte_range(byte, byte)
@@ -2435,7 +2435,7 @@ fn reflow(cx: &mut compositor::Context, args: Args, event: PromptEvent) -> anyho
     //   - The configured text-width in the config.toml
     let text_width: usize = args
         .first()
-        .map(|num| num.parse::<usize>())
+        .map(str::parse::<usize>)
         .transpose()?
         .unwrap_or_else(|| doc.text_width());
 
@@ -2470,8 +2470,8 @@ fn tree_sitter_subtree(
     if let Some(syntax) = doc.syntax() {
         let primary_selection = doc.selection(view.id).primary();
         let text = doc.text();
-        let from = text.char_to_byte(primary_selection.from()) as u32;
-        let to = text.char_to_byte(primary_selection.to()) as u32;
+        let from = u32::try_from(text.char_to_byte(primary_selection.from())).unwrap();
+        let to = u32::try_from(text.char_to_byte(primary_selection.to())).unwrap();
         if let Some(selected_node) = syntax.descendant_for_byte_range(from, to) {
             let mut contents = String::from("```tsq\n");
             helix_core::syntax::pretty_print_tree(&mut contents, selected_node)?;
@@ -2794,17 +2794,14 @@ fn move_buffer_impl(
         .map(|old_file_name| new_path.join(old_file_name))
         .unwrap_or(new_path);
 
-    if old_path.exists() {
-        if let Some(parent) = new_path.parent() {
-            if !parent.exists() {
-                if options.force {
-                    std::fs::DirBuilder::new().recursive(true).create(parent)?;
-                } else {
-                    bail!(
-                        "can't move file, parent directory does not exist (use :mv! to create it)"
-                    )
-                }
-            }
+    if old_path.exists()
+        && let Some(parent) = new_path.parent()
+        && !parent.exists()
+    {
+        if options.force {
+            std::fs::DirBuilder::new().recursive(true).create(parent)?;
+        } else {
+            bail!("can't move file, parent directory does not exist (use :mv! to create it)")
         }
     }
 
@@ -3641,7 +3638,6 @@ pub const TYPABLE_COMMAND_LIST: &[TypableCommand] = &[
             ..Signature::DEFAULT
         },
     },
-
     TypableCommand {
         name: "vsplit",
         aliases: &["vs"],
@@ -4068,7 +4064,7 @@ pub(super) fn execute_command(
 ) -> anyhow::Result<()> {
     let args = if event == PromptEvent::Validate {
         Args::parse(args, cmd.signature, true, |token| {
-            expansion::expand(cx.editor, token).map_err(|err| err.into())
+            expansion::expand(cx.editor, token).map_err(Into::into)
         })
         .map_err(|err| anyhow!("'{}': {err}", cmd.name))?
     } else {
