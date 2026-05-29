@@ -52,10 +52,6 @@ fn test_treesitter_indent_rust_helix() {
                 // handle this.
                 2226..2230,
             ],
-            "helix-term/src/commands/dap.rs" => vec![
-                // Complex `format!` macro
-                46..52,
-            ],
             "helix-term/src/commands/lsp.rs" => vec![
                 // Macro
                 624..627,

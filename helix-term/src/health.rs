@@ -6,8 +6,8 @@ use std::{
     io::{IsTerminal, Write},
 };
 use termina::{
-    style::{ColorSpec, StyleExt as _, Stylized},
     Terminal as _,
+    style::{ColorSpec, StyleExt as _, Stylized},
 };
 
 #[derive(Copy, Clone)]
@@ -20,7 +20,7 @@ pub enum TsFeature {
 }
 
 impl TsFeature {
-    #[must_use] 
+    #[must_use]
     pub fn all() -> &'static [Self] {
         &[
             Self::Highlight,
@@ -31,7 +31,7 @@ impl TsFeature {
         ]
     }
 
-    #[must_use] 
+    #[must_use]
     pub fn runtime_filename(&self) -> &'static str {
         match *self {
             Self::Highlight => "highlights.scm",
@@ -42,7 +42,7 @@ impl TsFeature {
         }
     }
 
-    #[must_use] 
+    #[must_use]
     pub fn long_title(&self) -> &'static str {
         match *self {
             Self::Highlight => "Syntax Highlighting",
@@ -53,7 +53,7 @@ impl TsFeature {
         }
     }
 
-    #[must_use] 
+    #[must_use]
     pub fn short_title(&self) -> &'static str {
         match *self {
             Self::Highlight => "Highlight",
@@ -185,7 +185,7 @@ fn languages(selection: Option<HashSet<String>>) -> std::io::Result<()> {
         }
     };
 
-    let mut headings = vec!["Language", "Language servers", "Debug adapter", "Formatter"];
+    let mut headings = vec!["Language", "Language servers", "Formatter"];
 
     for feat in TsFeature::all() {
         headings.push(feat.short_title())
@@ -246,9 +246,6 @@ fn languages(selection: Option<HashSet<String>>) -> std::io::Result<()> {
                 .map(|config| (ls.name.as_str(), config.command.as_str()))
         });
         write!(stdout, "{}", check_binary_with_name(cmds.next()))?;
-
-        let dap = lang.debugger.as_ref().map(|dap| dap.command.as_str());
-        write!(stdout, "{}", check_binary(dap))?;
 
         let formatter = lang
             .formatter
@@ -344,11 +341,6 @@ pub fn language(lang_str: String) -> std::io::Result<()> {
     )?;
 
     probe_protocol(
-        "debug adapter",
-        lang.debugger.as_ref().map(|dap| dap.command.to_string()),
-    )?;
-
-    probe_protocol(
         "formatter",
         lang.formatter
             .as_ref()
@@ -376,7 +368,7 @@ fn probe_parser(grammar_name: &str) -> std::io::Result<()> {
     }
 }
 
-/// Display diagnostics about multiple LSPs and DAPs.
+/// Display diagnostics about multiple LSPs.
 fn probe_protocols<'a, I: Iterator<Item = (&'a str, &'a str)> + 'a>(
     protocol_name: &str,
     server_cmds: I,
@@ -397,18 +389,18 @@ fn probe_protocols<'a, I: Iterator<Item = (&'a str, &'a str)> + 'a>(
             Ok(path) => (path.display().to_string().green(), "✓".green()),
             Err(_) => (format!("'{}' not found in $PATH", cmd).red(), "✘".red()),
         };
-        writeln!(stdout, "  {} {}: {}", icon, name, diag)?;
+        writeln!(stdout, "  {icon} {name}: {diag}")?;
     }
 
     Ok(())
 }
 
-/// Display diagnostics about LSP and DAP.
+/// Display diagnostics about LSP.
 fn probe_protocol(protocol_name: &str, server_cmd: Option<String>) -> std::io::Result<()> {
     let stdout = std::io::stdout();
     let mut stdout = stdout.lock();
 
-    write!(stdout, "Configured {}:", protocol_name)?;
+    write!(stdout, "Configured {protocol_name}:")?;
     let Some(cmd) = server_cmd else {
         writeln!(stdout, "{}", " None".yellow())?;
         return Ok(());
@@ -417,9 +409,9 @@ fn probe_protocol(protocol_name: &str, server_cmd: Option<String>) -> std::io::R
 
     let (diag, icon) = match helix_stdx::env::which(&cmd) {
         Ok(path) => (path.display().to_string().green(), "✓".green()),
-        Err(_) => (format!("'{}' not found in $PATH", cmd).red(), "✘".red()),
+        Err(_) => (format!("'{cmd}' not found in $PATH").red(), "✘".red()),
     };
-    writeln!(stdout, "  {} {}", icon, diag)?;
+    writeln!(stdout, "  {icon} {diag}")?;
 
     Ok(())
 }

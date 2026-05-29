@@ -139,7 +139,7 @@ impl std::fmt::Display for Id {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Id::Null => f.write_str("null"),
-            Id::Num(num) => write!(f, "{}", num),
+            Id::Num(num) => write!(f, "{num}"), //, num),
             Id::Str(string) => f.write_str(string),
         }
     }
@@ -205,7 +205,7 @@ impl Params {
     {
         let value: Value = self.into();
         serde_json::from_value(value)
-            .map_err(|err| Error::invalid_params(format!("Invalid params: {}.", err)))
+            .map_err(|err| Error::invalid_params(format!("Invalid params: {err}."))) //, err)))
     }
 
     #[must_use]

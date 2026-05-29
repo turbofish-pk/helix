@@ -131,9 +131,9 @@ impl Handler {
                     options: ops,
                 } => {
                     log::debug!(
-                        "Registering didChangeWatchedFiles for client '{}' with id '{}'",
-                        client_id,
-                        registration_id
+                        "Registering didChangeWatchedFiles for client '{client_id}' with id '{registration_id}'",
+                        // client_id,
+                        // registration_id
                     );
 
                     let entry = state.entry(client_id).or_default();

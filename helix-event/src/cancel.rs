@@ -1,8 +1,8 @@
 use std::borrow::Borrow;
 use std::future::Future;
+use std::sync::Arc;
 use std::sync::atomic::AtomicU64;
 use std::sync::atomic::Ordering::Relaxed;
-use std::sync::Arc;
 
 use tokio::sync::Notify;
 
@@ -40,7 +40,7 @@ struct Shared {
 }
 
 impl Shared {
-#[allow(clippy::cast_possible_truncation)]
+    #[allow(clippy::cast_possible_truncation)]
     fn generation(&self) -> u32 {
         self.state.load(Relaxed) as u32
     }
@@ -54,10 +54,10 @@ impl Shared {
     /// regard to the generation counter (doesn't use `fetch_add`)
     /// so the calling code must ensure it cannot execute concurrently
     /// to maintain correctness (but not safety)
-#[allow(clippy::cast_possible_truncation)]
+    #[allow(clippy::cast_possible_truncation)]
     fn inc_generation(&self, num_running: u32) -> (u32, u32) {
         let state = self.state.load(Relaxed);
-        let generation =  u32::try_from(state).unwrap();
+        let generation = u32::try_from(state).unwrap();
         let prev_running = (state >> 32) as u32;
         // no need to create a new generation if the refcount is zero (fastpath)
         if prev_running == 0 && num_running == 0 {
@@ -72,11 +72,10 @@ impl Shared {
         (new_generation, prev_running)
     }
 
-#[allow(clippy::cast_possible_truncation)]
     fn inc_running(&self, generation: u32) {
         let mut state = self.state.load(Relaxed);
         loop {
-            let current_generation =  u32::try_from(state).unwrap();
+            let current_generation = u32::try_from(state & u64::from(u32::MAX)).unwrap();
             if current_generation != generation {
                 break;
             }
@@ -93,15 +92,15 @@ impl Shared {
             }
         }
     }
-#[allow(clippy::cast_possible_truncation)]
+
     fn dec_running(&self, generation: u32) {
         let mut state = self.state.load(Relaxed);
         loop {
-            let current_generation =  u32::try_from(state).unwrap();
+            let current_generation = u32::try_from(state & u64::from(u32::MAX)).unwrap();
             if current_generation != generation {
                 break;
             }
-            let num_running = (state >> 32) as u32;
+            let num_running = u32::try_from(state >> 32).unwrap();
             // running can't be zero here, that would mean we miscounted somewhere
             assert_ne!(num_running, 0);
             let off = 1 << 32;
@@ -205,7 +204,7 @@ impl TaskHandle {
             notified.await;
         }
     }
-#[must_use]
+    #[must_use]
     pub fn is_canceled(&self) -> bool {
         self.generation != self.shared.generation()
     }
@@ -218,7 +217,7 @@ mod tests {
     use futures_executor::block_on;
     use tokio::task::yield_now;
 
-    use crate::{cancelable_future, TaskController};
+    use crate::{TaskController, cancelable_future};
 
     #[test]
     fn immediate_cancel() {

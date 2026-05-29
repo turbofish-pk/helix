@@ -1,7 +1,7 @@
-use crate::{auto_pairs::AutoPairs, diagnostic::Severity, Language};
+use crate::{Language, auto_pairs::AutoPairs, diagnostic::Severity};
 
 use helix_stdx::rope;
-use serde::{ser::SerializeSeq as _, Deserialize, Serialize};
+use serde::{Deserialize, Serialize, ser::SerializeSeq as _};
 use serde_json::Value;
 
 use std::{
@@ -87,9 +87,6 @@ pub struct LanguageConfiguration {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub indent: Option<IndentationConfiguration>,
 
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub debugger: Option<DebugAdapterConfig>,
-
     /// Automatic insertion of pairs to parentheses, brackets,
     /// etc. Defaults to true. Optionally, this can be a list of 2-tuples
     /// to specify a list of characters to pair. This overrides the
@@ -109,7 +106,7 @@ pub struct LanguageConfiguration {
 }
 
 impl LanguageConfiguration {
-    #[must_use] 
+    #[must_use]
     pub fn language(&self) -> Language {
         // This value must be set by `super::Loader::new`.
         self.language.unwrap()
@@ -232,8 +229,7 @@ impl<'de> Deserialize<'de> for FileType {
                             })
                     }
                     Some((key, _value)) => Err(serde::de::Error::custom(format!(
-                        "unknown key in `file-types` list: {}",
-                        key
+                        "unknown key in `file-types` list: {key}"
                     ))),
                     None => Err(serde::de::Error::custom(
                         "expected a `suffix` key in the `file-types` entry",
@@ -379,7 +375,7 @@ pub struct LanguageServerFeatures {
 }
 
 impl LanguageServerFeatures {
-    #[must_use] 
+    #[must_use]
     pub fn has_feature(&self, feature: LanguageServerFeature) -> bool {
         (self.only.is_empty() || self.only.contains(&feature)) && !self.excluded.contains(&feature)
     }
@@ -484,28 +480,6 @@ pub struct DebugTemplate {
     #[serde(default)]
     pub completion: Vec<DebugConfigCompletion>,
     pub args: HashMap<String, Value>,
-}
-
-#[derive(Debug, PartialEq, Eq, Clone, Deserialize, Serialize)]
-#[serde(rename_all = "kebab-case")]
-pub struct DebugAdapterConfig {
-    pub name: String,
-    pub transport: String,
-    #[serde(default)]
-    pub command: String,
-    #[serde(default)]
-    pub args: Vec<String>,
-    pub port_arg: Option<String>,
-    pub templates: Vec<DebugTemplate>,
-    #[serde(default)]
-    pub quirks: DebuggerQuirks,
-}
-
-// Different workarounds for adapters' differences
-#[derive(Debug, Default, PartialEq, Eq, Clone, Serialize, Deserialize)]
-pub struct DebuggerQuirks {
-    #[serde(default)]
-    pub absolute_paths: bool,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
