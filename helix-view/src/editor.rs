@@ -1194,7 +1194,7 @@ impl Default for Config {
             path_completion: true,
             word_completion: WordCompletion::default(),
             auto_format: true,
-            default_yank_register: '"',
+            default_yank_register: '+', //'"',
             auto_save: AutoSave::default(),
             idle_timeout: Duration::from_millis(250),
             completion_timeout: Duration::from_millis(250),

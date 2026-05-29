@@ -6,14 +6,18 @@ use crate::job::Job;
 
 use super::*;
 
-use helix_core::command_line::{Args, Flag, Signature, Token, TokenKind};
-use helix_core::fuzzy::fuzzy_match;
-use helix_core::indent::MAX_INDENT;
-use helix_core::line_ending;
+use helix_core::{
+    command_line::{Args, Flag, Signature, Token, TokenKind},
+    fuzzy::fuzzy_match,
+    indent::MAX_INDENT,
+    line_ending,
+};
 use helix_stdx::path::home_dir;
-use helix_view::document::{DEFAULT_LANGUAGE_NAME, read_to_string};
-use helix_view::editor::{CloseError, ConfigEvent};
-use helix_view::expansion;
+use helix_view::{
+    document::{DEFAULT_LANGUAGE_NAME, read_to_string},
+    editor::{CloseError, ConfigEvent},
+    expansion,
+};
 use serde_json::Value;
 use ui::completers::{self, Completer};
 

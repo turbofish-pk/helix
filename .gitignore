@@ -5,3 +5,5 @@ result
 runtime/grammars
 .DS_Store
 vendor
+.idea
+Cargo.lock

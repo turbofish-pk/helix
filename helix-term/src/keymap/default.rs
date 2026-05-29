@@ -4,7 +4,7 @@ use super::macros::keymap;
 use super::{KeyTrie, Mode};
 use helix_core::hashmap;
 
-#[must_use] 
+#[must_use]
 pub fn default() -> HashMap<Mode, KeyTrie> {
     let normal = keymap!({ "Normal mode"
         "h" | "left" => move_char_left,
@@ -308,7 +308,7 @@ pub fn default() -> HashMap<Mode, KeyTrie> {
             "N" => search_prev,
         },
 
-        "\"" => select_register,
+        // "\"" => select_register,
         "|" => shell_pipe,
         "A-|" => shell_pipe_to,
         "!" => shell_insert_output,
@@ -363,7 +363,7 @@ pub fn default() -> HashMap<Mode, KeyTrie> {
 
         "C-s" => commit_undo_checkpoint,
         "C-x" => completion,
-        "C-r" => insert_register,
+        // "C-r" => insert_register,
 
         "C-w" | "A-backspace" => delete_word_backward,
         "A-d" | "A-del" => delete_word_forward,
