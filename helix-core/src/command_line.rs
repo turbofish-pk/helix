@@ -198,13 +198,13 @@ impl fmt::Display for ParseArgsError<'_> {
                 match (min, max) {
                     (0, Some(0)) => write!(f, "no arguments")?,
                     (min, Some(max)) if min == max => {
-                        write!(f, "exactly {min} argument{}", maybe_plural(*min))?
+                        write!(f, "exactly {min} argument{}", maybe_plural(*min))?;
                     }
                     (min, _) if actual < min => {
-                        write!(f, "at least {min} argument{}", maybe_plural(*min))?
+                        write!(f, "at least {min} argument{}", maybe_plural(*min))?;
                     }
                     (_, Some(max)) if actual > max => {
-                        write!(f, "at most {max} argument{}", maybe_plural(*max))?
+                        write!(f, "at most {max} argument{}", maybe_plural(*max))?;
                     }
                     // `actual` must be either less than `min` or greater than `max` for this type
                     // to be constructed.
@@ -1071,11 +1071,11 @@ mod test {
     #[cfg(unix)]
     #[test]
     fn tokenize_backslash_unix() {
-        assert_tokens(r#"hello\ world"#, &["hello world"]);
-        assert_tokens(r#"one\ two three"#, &["one two", "three"]);
-        assert_tokens(r#"one two\ three"#, &["one", "two three"]);
+        assert_tokens(r"hello\ world", &["hello world"]);
+        assert_tokens(r"one\ two three", &["one two", "three"]);
+        assert_tokens(r"one two\ three", &["one", "two three"]);
         // Trailing backslash is ignored - this improves completions.
-        assert_tokens(r#"hello\"#, &["hello"]);
+        assert_tokens(r"hello\", &["hello"]);
         // The backslash at the start of the double quote makes the quote be treated as raw.
         // For the backslash before the ending quote the token is already considered raw so the
         // backslash and quote are treated literally.
@@ -1087,20 +1087,20 @@ mod test {
 
     #[test]
     fn tokenize_backslash() {
-        assert_tokens(r#"\n"#, &["\\n"]);
-        assert_tokens(r#"'\'"#, &["\\"]);
+        assert_tokens(r"\n", &["\\n"]);
+        assert_tokens(r"'\'", &["\\"]);
     }
 
     #[test]
     fn tokenize_quoting() {
         // Using a quote character twice escapes it.
-        assert_tokens(r#"''"#, &[""]);
+        assert_tokens(r"''", &[""]);
         assert_tokens(r#""""#, &[""]);
-        assert_tokens(r#"``"#, &[""]);
+        assert_tokens(r"``", &[""]);
         assert_tokens(r#"echo """#, &["echo", ""]);
 
-        assert_tokens(r#"'hello'"#, &["hello"]);
-        assert_tokens(r#"'hello world'"#, &["hello world"]);
+        assert_tokens(r"'hello'", &["hello"]);
+        assert_tokens(r"'hello world'", &["hello world"]);
 
         assert_tokens(r#""hello "" world""#, &["hello \" world"]);
     }
@@ -1108,12 +1108,12 @@ mod test {
     #[test]
     fn tokenize_percent() {
         // Pair delimiters:
-        assert_tokens(r#"echo %{hello world}"#, &["echo", "hello world"]);
-        assert_tokens(r#"echo %[hello world]"#, &["echo", "hello world"]);
-        assert_tokens(r#"echo %(hello world)"#, &["echo", "hello world"]);
-        assert_tokens(r#"echo %<hello world>"#, &["echo", "hello world"]);
-        assert_tokens(r#"echo %|hello world|"#, &["echo", "hello world"]);
-        assert_tokens(r#"echo %'hello world'"#, &["echo", "hello world"]);
+        assert_tokens(r"echo %{hello world}", &["echo", "hello world"]);
+        assert_tokens(r"echo %[hello world]", &["echo", "hello world"]);
+        assert_tokens(r"echo %(hello world)", &["echo", "hello world"]);
+        assert_tokens(r"echo %<hello world>", &["echo", "hello world"]);
+        assert_tokens(r"echo %|hello world|", &["echo", "hello world"]);
+        assert_tokens(r"echo %'hello world'", &["echo", "hello world"]);
         assert_tokens(r#"echo %"hello world""#, &["echo", "hello world"]);
         // When invoking a command, double percents can be used within a string as an escape for
         // the percent. This is done in the expansion code though, not in the parser here.
@@ -1121,18 +1121,18 @@ mod test {
         // Different kinds of quotes nested:
         assert_tokens(
             r#"echo "%sh{echo 'hello world'}""#,
-            &["echo", r#"%sh{echo 'hello world'}"#],
+            &["echo", r"%sh{echo 'hello world'}"],
         );
         // Nesting of the expansion delimiter:
-        assert_tokens(r#"echo %{hello {x} world}"#, &["echo", "hello {x} world"]);
+        assert_tokens(r"echo %{hello {x} world}", &["echo", "hello {x} world"]);
         assert_tokens(
-            r#"echo %{hello {{😎}} world}"#,
+            r"echo %{hello {{😎}} world}",
             &["echo", "hello {{😎}} world"],
         );
 
         // Balanced nesting:
         assert_tokens(
-            r#"echo %{hello {}} world}"#,
+            r"echo %{hello {}} world}",
             &["echo", "hello {}", "world}"],
         );
 
@@ -1143,7 +1143,7 @@ mod test {
         );
         // Completion should provide variable names here. (Unbalanced nesting)
         assert_incomplete_tokens(r#"echo %sh{echo "%{c"#, &["echo", r#"echo "%{c"#]);
-        assert_incomplete_tokens(r#"echo %{hello {{} world}"#, &["echo", "hello {{} world}"]);
+        assert_incomplete_tokens(r"echo %{hello {{} world}", &["echo", "hello {{} world}"]);
     }
 
     fn parse_signature<'a>(
@@ -1232,13 +1232,13 @@ mod test {
         assert_eq!(args.get_flag("bar"), Some("xyz 123"));
 
         // Unknown flags are validation errors.
-        assert!(parse_signature(r#"foo --quiz"#, signature).is_err());
+        assert!(parse_signature(r"foo --quiz", signature).is_err());
         // Duplicated flags are parsing errors.
-        assert!(parse_signature(r#"--foo bar --foo"#, signature).is_err());
-        assert!(parse_signature(r#"-f bar --foo"#, signature).is_err());
+        assert!(parse_signature(r"--foo bar --foo", signature).is_err());
+        assert!(parse_signature(r"-f bar --foo", signature).is_err());
 
         // "--" can be used to mark the end of flags. Everything after is considered a positional.
-        let args = parse_signature(r#"hello --bar baz -- --foo"#, signature).unwrap();
+        let args = parse_signature(r"hello --bar baz -- --foo", signature).unwrap();
         assert_eq!(args.len(), 2);
         assert_eq!(&args[0], "hello");
         assert_eq!(&args[1], "--foo");
@@ -1255,15 +1255,15 @@ mod test {
         };
 
         // All quoting and escaping is treated literally in raw mode.
-        let args = parse_signature(r#"'\'"#, signature).unwrap();
+        let args = parse_signature(r"'\'", signature).unwrap();
         assert_eq!(args.len(), 1);
         assert_eq!(&args[0], "'\\'");
-        let args = parse_signature(r#"\''"#, signature).unwrap();
+        let args = parse_signature(r"\''", signature).unwrap();
         assert_eq!(args.len(), 1);
         assert_eq!(&args[0], "\\''");
 
         // Leading space is trimmed.
-        let args = parse_signature(r#"   %sh{foo}"#, signature).unwrap();
+        let args = parse_signature(r"   %sh{foo}", signature).unwrap();
         assert_eq!(args.len(), 1);
         assert_eq!(&args[0], "%sh{foo}");
 

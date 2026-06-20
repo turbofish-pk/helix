@@ -259,7 +259,7 @@ impl<'t> DocumentFormatter<'t> {
                 self.inline_annotation_graphemes = Some((
                     UnicodeSegmentation::graphemes(&*annotation.text, true),
                     highlight,
-                ))
+                ));
             } else {
                 return None;
             }

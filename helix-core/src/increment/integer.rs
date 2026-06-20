@@ -51,9 +51,9 @@ pub fn increment(selected_text: &str, amount: i64) -> Option<String> {
         } - separator_rtl_indexes.len();
 
         if number.starts_with('0') || number.starts_with("-0") {
-            format!("{:01$}", new_value, format_length)
+            format!("{new_value:0format_length$}")
         } else {
-            format!("{}", new_value)
+            format!("{new_value}")
         }
     } else {
         let number = &word[2..];
@@ -63,8 +63,8 @@ pub fn increment(selected_text: &str, amount: i64) -> Option<String> {
         let format_length = selected_text.len() - 2 - separator_rtl_indexes.len();
 
         match radix {
-            2 => format!("0b{:01$b}", new_value, format_length),
-            8 => format!("0o{:01$o}", new_value, format_length),
+            2 => format!("0b{new_value:0format_length$b}"),
+            8 => format!("0o{new_value:0format_length$o}"),
             16 => {
                 let (lower_count, upper_count): (usize, usize) =
                     number.chars().fold((0, 0), |(lower, upper), c| {
@@ -74,9 +74,9 @@ pub fn increment(selected_text: &str, amount: i64) -> Option<String> {
                         )
                     });
                 if upper_count > lower_count {
-                    format!("0x{:01$X}", new_value, format_length)
+                    format!("0x{new_value:0format_length$X}")
                 } else {
-                    format!("0x{:01$x}", new_value, format_length)
+                    format!("0x{new_value:0format_length$x}")
                 }
             }
             _ => unimplemented!("radix not supported: {}", radix),

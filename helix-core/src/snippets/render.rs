@@ -207,7 +207,7 @@ struct SnippetRender<'a> {
 impl SnippetRender<'_> {
     fn render_elements(&mut self, elements: &[SnippetElement]) {
         for element in elements {
-            self.render_element(element)
+            self.render_element(element);
         }
     }
 
@@ -231,10 +231,10 @@ impl SnippetRender<'_> {
                             },
                         ));
                     } else {
-                        self.push_multiline_str(&val)
+                        self.push_multiline_str(&val);
                     }
                 } else if let Some(default) = default {
-                    self.render_elements(default)
+                    self.render_elements(default);
                 }
             }
             SnippetElement::Text(text) => self.push_multiline_str(text),

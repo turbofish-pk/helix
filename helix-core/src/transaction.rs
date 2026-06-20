@@ -1,4 +1,5 @@
-// #[allow(clippy::too_many_lines)]
+#![allow(clippy::too_many_lines)]
+#![allow(clippy::missing_errors_doc)]
 use ropey::RopeSlice;
 use smallvec::SmallVec;
 
@@ -798,8 +799,8 @@ impl Transaction {
             };
 
             let offset_range = Range::new(
-                (new_range.anchor.cast_signed() + offset) as usize,
-                (new_range.head.cast_signed() + offset) as usize,
+                usize::try_from(new_range.anchor.cast_signed() + offset).unwrap(),
+                usize::try_from(new_range.head.cast_signed() + offset).unwrap(),
             );
 
             end_ranges.push(offset_range);

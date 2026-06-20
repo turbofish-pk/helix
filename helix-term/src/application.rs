@@ -601,16 +601,13 @@ impl Application {
             }
         };
 
-        let doc = match self.editor.document_mut(doc_save_event.doc_id) {
-            None => {
-                warn!(
-                    "received document saved event for non-existent doc id: {}",
-                    doc_save_event.doc_id
-                );
+        let Some(doc) = self.editor.document_mut(doc_save_event.doc_id) else {
+            warn!(
+                "received document saved event for non-existent doc id: {}",
+                doc_save_event.doc_id
+            );
 
-                return;
-            }
-            Some(doc) => doc,
+            return;
         };
 
         debug!(

@@ -115,7 +115,7 @@ fn test_indent_level_for_line_with_spaces() {
     let line = ropey::Rope::from_str("        Indented with 8 spaces");
 
     let indent_level = indent_level_for_line(line.slice(0..), tab_width, indent_width);
-    assert_eq!(indent_level, 2)
+    assert_eq!(indent_level, 2);
 }
 
 #[test]
@@ -126,7 +126,7 @@ fn test_indent_level_for_line_with_tabs() {
     let line = ropey::Rope::from_str("\t\tIndented with 2 tabs");
 
     let indent_level = indent_level_for_line(line.slice(0..), tab_width, indent_width);
-    assert_eq!(indent_level, 2)
+    assert_eq!(indent_level, 2);
 }
 
 #[test]
@@ -137,7 +137,7 @@ fn test_indent_level_for_line_with_spaces_and_tabs() {
     let line = ropey::Rope::from_str("   \t \tIndented with mix of spaces and tabs");
 
     let indent_level = indent_level_for_line(line.slice(0..), tab_width, indent_width);
-    assert_eq!(indent_level, 2)
+    assert_eq!(indent_level, 2);
 }
 
 fn indent_tests_dir() -> PathBuf {

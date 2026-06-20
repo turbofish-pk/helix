@@ -26,7 +26,7 @@ pub struct Snippet {
 impl Snippet {
     pub fn parse(snippet: &str) -> Result<Self> {
         let parsed_snippet = parser::parse(snippet)
-            .map_err(|rest| anyhow!("Failed to parse snippet. Remaining input: {}", rest))?;
+            .map_err(|rest| anyhow!("Failed to parse snippet. Remaining input: {rest}"))?;
         Ok(Snippet::new(parsed_snippet))
     }
 
@@ -78,7 +78,7 @@ impl Snippet {
                 SnippetElement::Tabstop { idx } => {
                     idx.0 = tabstops
                         .binary_search_by_key(&*idx, |tabstop| tabstop.idx)
-                        .expect("all tabstops have been resolved")
+                        .expect("all tabstops have been resolved");
                 }
                 SnippetElement::Variable { default, .. } => {
                     if let Some(default) = default {
@@ -98,10 +98,10 @@ impl Snippet {
             }
             // use the first non empty tabstop for all multicursor tabstops
             if tabstop2.kind.is_empty() {
-                swap(tabstop2, tabstop1)
+                swap(tabstop2, tabstop1);
             }
             true
-        })
+        });
     }
 
     fn ensure_last_tabstop(&mut self) {
@@ -115,7 +115,7 @@ impl Snippet {
         });
         self.elements.push(SnippetElement::Tabstop {
             idx: LAST_TABSTOP_IDX,
-        })
+        });
     }
 
     fn elaborate(
@@ -215,14 +215,14 @@ impl Snippet {
                 idx,
                 parent,
                 kind: TabstopKind::Transform(Arc::new(transform)),
-            })
+            });
         } else {
             // TODO: proper error
             self.tabstops.push(Tabstop {
                 idx,
                 parent,
                 kind: TabstopKind::Empty,
-            })
+            });
         }
         idx
     }
@@ -364,9 +364,9 @@ impl Transform {
                     }
                     FormatItem::Conditional(i, if_, else_) => {
                         if cap.get_group(*i).is_none_or(|mat| mat.is_empty()) {
-                            buf.push_str(else_)
+                            buf.push_str(else_);
                         } else {
-                            buf.push_str(if_)
+                            buf.push_str(if_);
                         }
                     }
                 }

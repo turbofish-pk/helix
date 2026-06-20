@@ -485,12 +485,12 @@ impl<T: 'static + Send + Sync, D: 'static + Send + Sync> Picker<T, D> {
 
     /// Move the cursor down by exactly one page. After the last page comes the first page.
     pub fn page_up(&mut self) {
-        self.move_by(self.completion_height as u32, Direction::Backward);
+        self.move_by(u32::from(self.completion_height), Direction::Backward);
     }
 
     /// Move the cursor up by exactly one page. After the first page comes the last page.
     pub fn page_down(&mut self) {
-        self.move_by(self.completion_height as u32, Direction::Forward);
+        self.move_by(u32::from(self.completion_height), Direction::Forward);
     }
 
     /// Move the cursor to the first entry

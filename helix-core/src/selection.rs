@@ -658,17 +658,19 @@ impl Selection {
     }
 
     /// Takes a closure and maps each `Range` over the closure.
+    #[must_use]
     pub fn transform<F>(mut self, mut f: F) -> Self
     where
         F: FnMut(Range) -> Range,
     {
         for range in self.ranges.iter_mut() {
-            *range = f(*range)
+            *range = f(*range);
         }
         self.normalize()
     }
 
     /// Takes a closure and maps each `Range` over the closure to multiple `Range`s.
+    #[must_use]
     pub fn transform_iter<F, I>(mut self, f: F) -> Self
     where
         F: FnMut(Range) -> I,
@@ -715,12 +717,12 @@ impl Selection {
         self.ranges.iter().map(move |range| range.slice(text))
     }
 
-    #[inline(always)]
+    #[inline]
     pub fn iter(&self) -> std::slice::Iter<'_, Range> {
         self.ranges.iter()
     }
 
-    #[inline(always)]
+    #[inline]
     #[must_use]
     pub fn len(&self) -> usize {
         self.ranges.len()
@@ -1300,7 +1302,7 @@ mod test {
     #[test]
     fn selection_line_ranges() {
         let (text, selection) = crate::test::print(
-            r#"                                           L0
+            r"                                           L0
             #[|these]# line #(|ranges)# are #(|merged)#   L1
                                                           L2
             single one-line #(|range)#                    L3
@@ -1314,7 +1316,7 @@ mod test {
                                                           L11
             adjacent #(|ranges)#                          L12
             are merged #(|the same way)#                  L13
-            "#,
+            ",
         );
         let rope = Rope::from_str(&text);
         assert_eq!(

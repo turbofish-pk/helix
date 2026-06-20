@@ -6547,7 +6547,7 @@ fn shell_keep_pipe(cx: &mut Context) {
         for (i, range) in selection.ranges().iter().enumerate() {
             let fragment = range.slice(text);
             if let Err(err) = shell_impl(shell, args.join(" ").as_str(), Some(fragment.into())) {
-                log::debug!("Shell command failed: {}", err);
+                log::debug!("Shell command failed: {err}");
             } else {
                 ranges.push(*range);
                 if i >= old_index && index.is_none() {
@@ -6595,7 +6595,7 @@ async fn shell_impl_async(
     let mut process = match process.spawn() {
         Ok(process) => process,
         Err(e) => {
-            log::error!("Failed to start shell: {}", e);
+            log::error!("Failed to start shell: {e}");
             return Err(e.into());
         }
     };
@@ -6620,7 +6620,7 @@ async fn shell_impl_async(
     let output = if !output.status.success() {
         if output.stderr.is_empty() {
             match output.status.code() {
-                Some(exit_code) => bail!("Shell command failed: status {}", exit_code),
+                Some(exit_code) => bail!("Shell command failed: status {exit_code}"),
                 None => bail!("Shell command failed"),
             }
         }
@@ -6917,21 +6917,21 @@ fn record_macro(cx: &mut Context) {
                 if s.chars().count() == 1 {
                     s
                 } else {
-                    format!("<{}>", s)
+                    format!("<{s}>")
                 }
             })
             .collect::<String>();
         match cx.editor.registers.write(reg, vec![s]) {
             Ok(_) => cx
                 .editor
-                .set_status(format!("Recorded to register [{}]", reg)),
+                .set_status(format!("Recorded to register [{reg}]")),
             Err(err) => cx.editor.set_error(err.to_string()),
         }
     } else {
         let reg = cx.register.take().unwrap_or('@');
         cx.editor.macro_recording = Some((reg, Vec::new()));
         cx.editor
-            .set_status(format!("Recording to register [{}]", reg));
+            .set_status(format!("Recording to register [{reg}]"));
     }
 }
 
@@ -6940,8 +6940,7 @@ fn replay_macro(cx: &mut Context) {
 
     if cx.editor.macro_replaying.contains(&reg) {
         cx.editor.set_error(format!(
-            "Cannot replay from register [{}] because already replaying from same register",
-            reg
+            "Cannot replay from register [{reg}] because already replaying from same register"
         ));
         return;
     }

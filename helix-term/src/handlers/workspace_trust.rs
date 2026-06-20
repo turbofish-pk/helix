@@ -6,7 +6,7 @@ use std::{
 
 use helix_event::register_hook;
 use helix_loader::workspace_trust::TrustStatus;
-use helix_view::{events::DocumentDidOpen, handlers::Handlers, DocumentId};
+use helix_view::{DocumentId, events::DocumentDidOpen, handlers::Handlers};
 
 use crate::{compositor::Compositor, job, ui};
 
@@ -95,8 +95,8 @@ fn select(workspace: PathBuf) -> ui::Select<TrustChoice> {
             match option {
                 TrustChoice::Trust => {
                     editor.workspace_trust.trust(&workspace);
-                    let documents: Vec<DocumentId> = editor.documents.keys().cloned().collect();
-                    for document_id in documents.iter() {
+                    let documents: Vec<DocumentId> = editor.documents.keys().copied().collect();
+                    for document_id in &documents {
                         editor.launch_language_servers(*document_id);
                     }
                     let _ = editor

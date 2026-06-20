@@ -29,6 +29,9 @@ pub enum Grapheme<'a> {
 }
 
 impl<'a> Grapheme<'a> {
+    /// # Panics
+    ///
+    /// Panics if `g` is `"\t"`.
     #[must_use]
     pub fn new_decoration(g: &'static str) -> Grapheme<'a> {
         assert_ne!(g, "\t");
@@ -48,7 +51,7 @@ impl<'a> Grapheme<'a> {
 
     pub fn change_position(&mut self, visual_x: usize, tab_width: u16) {
         if let Grapheme::Tab { width } = self {
-            *width = tab_width_at(visual_x, tab_width)
+            *width = tab_width_at(visual_x, tab_width);
         }
     }
 
@@ -169,7 +172,7 @@ pub fn nth_prev_grapheme_boundary(slice: RopeSlice, char_idx: usize, n: usize) -
 
 /// Finds the previous grapheme boundary before the given char position.
 #[must_use]
-#[inline(always)]
+#[inline]
 pub fn prev_grapheme_boundary(slice: RopeSlice, char_idx: usize) -> usize {
     nth_prev_grapheme_boundary(slice, char_idx, 1)
 }
@@ -217,7 +220,7 @@ pub fn nth_next_grapheme_boundary(slice: RopeSlice, char_idx: usize, n: usize) -
 
 /// Finds the next grapheme boundary after the given char position.
 #[must_use]
-#[inline(always)]
+#[inline]
 pub fn next_grapheme_boundary(slice: RopeSlice, char_idx: usize) -> usize {
     nth_next_grapheme_boundary(slice, char_idx, 1)
 }
@@ -289,8 +292,9 @@ impl Drop for GraphemeStr<'_> {
 impl<'a> From<&'a str> for GraphemeStr<'a> {
     fn from(g: &'a str) -> Self {
         GraphemeStr {
-            ptr: unsafe { NonNull::new_unchecked(g.as_bytes().as_ptr() as *mut u8) },
-            len: i32::try_from(g.len()).unwrap() as u32,
+            ptr: unsafe { NonNull::new_unchecked(g.as_bytes().as_ptr().cast_mut()) },
+            len: u32::try_from(g.len()).unwrap(),
+            // len: i32::try_from(g.len()).unwrap() as u32,
             phantom: PhantomData,
         }
     }

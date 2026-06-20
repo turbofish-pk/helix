@@ -59,9 +59,10 @@ pub fn print(s: &str) -> (String, Selection) {
             None => break,
         };
 
-        if is_primary && primary_idx.is_some() {
-            panic!("primary `#[` already appeared {:?} {:?}", left, s);
-        }
+        assert!(
+            !(is_primary && primary_idx.is_some()),
+            "primary `#[` already appeared {left:?} {s:?}"
+        );
 
         let head_at_beg = iter.next_if_eq(&"|").is_some();
         let last_grapheme = |s: &str| {

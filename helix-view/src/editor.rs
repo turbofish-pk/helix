@@ -18,8 +18,8 @@ use helix_event::dispatch;
 use helix_loader::workspace_trust::{ImplicitTrustLevel, TrustQuery, WorkspaceTrust};
 use helix_vcs::DiffProviderRegistry;
 
-use futures_util::stream::select_all::SelectAll;
 use futures_util::StreamExt;
+use futures_util::stream::select_all::SelectAll;
 use helix_lsp::{Call, LanguageServerId};
 use tokio_stream::wrappers::UnboundedReceiverStream;
 
@@ -1705,10 +1705,10 @@ impl Editor {
             }
         }
 
-        if let Some(dir) = path.parent() {
-            if !dir.is_dir() {
-                fs::create_dir_all(dir)?;
-            }
+        if let Some(dir) = path.parent()
+            && !dir.is_dir()
+        {
+            fs::create_dir_all(dir)?;
         }
         if is_dir {
             fs::create_dir(&path)?;

@@ -127,9 +127,9 @@ pub fn request_signature_help(
         match cancelable_future(future, cancel).await {
             Some(Ok(res)) => {
                 job::dispatch(move |editor, compositor| {
-                    show_signature_help(editor, compositor, invoked, res)
+                    show_signature_help(editor, compositor, invoked, res);
                 })
-                .await
+                .await;
             }
             Some(Err(err)) => log::error!("signature help request failed: {err}"),
             None => (),

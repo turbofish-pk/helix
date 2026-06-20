@@ -53,7 +53,8 @@ impl EditorConfig {
                 Ok(ini) => ini,
                 Err(err) => {
                     log::warn!(
-                        "Ignoring EditorConfig file at '{editor_config_file:?}' because a glob failed to compile: {err}"
+                        "Ignoring EditorConfig file at '{}' because a glob failed to compile: {err}",
+                        editor_config_file.display()
                     );
                     continue;
                 }
@@ -299,7 +300,7 @@ mod test {
 
     #[test]
     fn parse_test() {
-        let source = r#"
+        let source = r"
         [*]
         indent_style = space
 
@@ -308,7 +309,7 @@ mod test {
 
         [docs/**.txt]
         insert_final_newline = true
-        "#;
+        ";
 
         assert_eq!(
             editor_config("a.txt", source),

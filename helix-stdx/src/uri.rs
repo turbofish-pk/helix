@@ -5,12 +5,11 @@
 //! percent encoding rules. Encoding follows RFC3986 (percent-encode everything outside `pchar`),
 //! not the WHATWG URL rules the `url` crate implements. Some language servers are strict about
 //! this (e.g. Deno): they reject unescaped `[`/`]` in paths (valid in WHATWG but not RFC3986).
-
 use std::fmt;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
 
-use percent_encoding::{percent_decode, percent_encode, AsciiSet, NON_ALPHANUMERIC};
+use percent_encoding::{AsciiSet, NON_ALPHANUMERIC, percent_decode, percent_encode};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 /// The set of bytes percent-encoded in a path. RFC3986 allows `pchar`
@@ -58,9 +57,7 @@ impl fmt::Display for ParseError {
 impl std::error::Error for ParseError {}
 
 impl Url {
-    /// Parse an absolute URI. Mirrors `url::Url::parse`'s rejection of relative
-    /// references: the input must begin with a valid scheme (`ALPHA *( ALPHA /
-    /// DIGIT / "+" / "-" / "." ) ":"`).
+    #[allow(clippy::missing_errors_doc)]
     pub fn parse(input: &str) -> Result<Url, ParseError> {
         let colon = input.find(':').ok_or(ParseError)?;
         let scheme = &input[..colon];
@@ -75,11 +72,12 @@ impl Url {
     }
 
     /// The full URI as a string slice.
+    #[must_use]
     pub fn as_str(&self) -> &str {
         &self.0
     }
 
-    /// The scheme (the part before the first `:`), e.g. `file`.
+    #[must_use]
     pub fn scheme(&self) -> &str {
         match self.0.find(':') {
             Some(i) => &self.0[..i],
@@ -87,7 +85,7 @@ impl Url {
         }
     }
 
-    /// The (still percent-encoded) path component, matching `url::Url::path`.
+    #[must_use]
     pub fn path(&self) -> &str {
         let after_scheme = match self.0.find(':') {
             Some(i) => &self.0[i + 1..],
@@ -107,8 +105,8 @@ impl Url {
         &after_authority[..end]
     }
 
-    /// Build a `file://` URI from an absolute filesystem path.
     #[allow(clippy::result_unit_err)]
+    #[allow(clippy::missing_errors_doc)]
     pub fn from_file_path<P: AsRef<Path>>(path: P) -> Result<Url, ()> {
         let path = path.as_ref();
         if !path.is_absolute() {
@@ -119,9 +117,8 @@ impl Url {
         Ok(Url(serialization))
     }
 
-    /// Like [`Url::from_file_path`], but ensures a trailing slash so the URI
-    /// denotes a directory.
     #[allow(clippy::result_unit_err)]
+    #[allow(clippy::missing_errors_doc)]
     pub fn from_directory_path<P: AsRef<Path>>(path: P) -> Result<Url, ()> {
         let mut url = Url::from_file_path(path)?;
         if !url.0.ends_with('/') {
@@ -132,6 +129,7 @@ impl Url {
 
     /// Convert a `file://` URI back to a filesystem path.
     #[allow(clippy::result_unit_err)]
+    #[allow(clippy::missing_errors_doc)]
     pub fn to_file_path(&self) -> Result<PathBuf, ()> {
         if self.scheme() != "file" {
             return Err(());
@@ -181,6 +179,8 @@ impl Url {
 }
 
 #[cfg(not(windows))]
+#[allow(clippy::missing_errors_doc)]
+#[allow(clippy::unnecessary_wraps)]
 fn serialize_path(out: &mut String, path: &Path) -> Result<(), ()> {
     use std::os::unix::ffi::OsStrExt;
     // The path is absolute, so it begins with `/`; percent-encode it while

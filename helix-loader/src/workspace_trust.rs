@@ -79,14 +79,15 @@ pub enum TrustStatus {
 }
 
 impl TrustStatus {
+    #[must_use]
     pub fn is_trusted(&self) -> bool {
         matches!(self, Self::Trusted)
     }
-
+    #[must_use]
     pub fn is_stale(&self) -> bool {
         matches!(self, Self::Stale)
     }
-
+    #[must_use]
     pub fn is_excluded(&self) -> bool {
         matches!(self, Self::Excluded)
     }
@@ -130,6 +131,7 @@ impl Default for Config {
 /// Compile workspace-trust glob patterns into a matcher. `~` and environment variables are expanded
 /// in each pattern; invalid patterns are logged and skipped rather than failing the whole config
 /// load. Returns an empty set (matches nothing) when `patterns` is empty or all entries are invalid.
+#[must_use]
 pub fn build_trusted_globs(patterns: &[String]) -> GlobSet {
     let mut builder = GlobSetBuilder::new();
     for pattern in patterns {
@@ -164,6 +166,7 @@ struct CacheEntry {
 }
 
 impl WorkspaceTrust {
+    #[must_use]
     pub fn new(config: Config) -> Self {
         Self {
             inner: Arc::new(Mutex::new(HashMap::new())),
@@ -173,19 +176,21 @@ impl WorkspaceTrust {
 
     /// A trust state that grants every capability. Use for non-interactive contexts (CLI grammar
     /// build, `hx --health`) where prompting isn't meaningful.
+    #[must_use]
     pub fn fully_trusted() -> Self {
         Self::new(Config {
             level: ImplicitTrustLevel::Insecure,
             ..Config::default()
         })
     }
-
+    #[must_use]
     pub fn implicit_level(&self) -> ImplicitTrustLevel {
         self.config.level
     }
 
     /// Whether the trust modal should be surfaced on `DocumentDidOpen`. When false the user is
     /// only informed via the statusline indicator and acts explicitly via `:workspace-trust`.
+    #[must_use]
     pub fn prompts_enabled(&self) -> bool {
         self.config.prompt
     }
@@ -206,6 +211,7 @@ impl WorkspaceTrust {
     /// Raw on-disk trust status for `workspace`, ignoring implicit-trust-level shortcuts and the
     /// `demote_for_query` mapping. Use this when you need to distinguish *Stale* (was trusted,
     /// `.helix/` changed) from *Untrusted* (never trusted)
+    #[must_use]
     pub fn status(&self, workspace: &Path) -> TrustStatus {
         self.entry(workspace).status
     }
@@ -226,6 +232,7 @@ impl WorkspaceTrust {
     }
 
     /// Query trust for `workspace` from the perspective of a specific subsystem.
+    #[must_use]
     pub fn query(&self, workspace: &Path, query: TrustQuery) -> TrustStatus {
         let raw = self.status(workspace);
 
@@ -252,15 +259,16 @@ impl WorkspaceTrust {
     }
 
     /// Query trust for the workspace containing `file`.
+    #[must_use]
     pub fn query_for_file(&self, file: &Path, query: TrustQuery) -> TrustStatus {
         let workspace = file
             .parent()
-            .map(|dir| find_workspace_in(dir).0)
-            .unwrap_or_else(|| find_workspace().0);
+            .map_or_else(|| find_workspace().0, |dir| find_workspace_in(dir).0);
         self.query(&workspace, query)
     }
 
     /// Query trust for the current working directory's workspace.
+    #[must_use]
     pub fn query_current(&self, query: TrustQuery) -> TrustStatus {
         let workspace = find_workspace().0;
         self.query(&workspace, query)
@@ -277,6 +285,7 @@ impl WorkspaceTrust {
     /// Reads the entire cache entry through `Self::entry` in a single lock acquisition (so the
     /// `Untrusted` branch's `has_local_config` snapshot is consistent with the status read). Cheap
     /// on the hot render path after the first query.
+    #[must_use]
     pub fn workspace_restricted(&self, workspace: &Path) -> bool {
         // If the workspace is fully trusted there's no restrictions.
         if self.config.level == ImplicitTrustLevel::Insecure || self.is_glob_trusted(workspace) {
@@ -291,6 +300,7 @@ impl WorkspaceTrust {
     }
 
     /// Per-document version of [`Self::workspace_restricted`].
+    #[must_use]
     pub fn restricted_for_doc(&self, workspace: &Path, servers_to_load: bool) -> bool {
         if self.workspace_restricted(workspace) {
             return true;
@@ -438,7 +448,10 @@ fn read_entry(workspace: &Path) -> Option<DiskEntry> {
         Ok(s) => s,
         Err(err) if err.kind() == std::io::ErrorKind::NotFound => return None,
         Err(err) => {
-            log::error!("workspace trust file {path:?} unreadable: {err:?}");
+            log::error!(
+                "workspace trust file {} unreadable: {err:?}",
+                path.display()
+            );
             return None;
         }
     };
@@ -466,13 +479,15 @@ fn read_entry(workspace: &Path) -> Option<DiskEntry> {
 
     // Sanity check that we didn't hit a path collision: the path inside the file should match the
     // workspace we looked up.
-    if let Some(stored) = stored_path {
-        if Path::new(&stored) != workspace {
-            log::error!(
-                "workspace trust file {path:?} contains path {stored:?}, expected {workspace:?}"
-            );
-            return None;
-        }
+    if let Some(stored) = stored_path
+        && Path::new(&stored) != workspace
+    {
+        log::error!(
+            "workspace trust file {} contains path {stored}, expected {}",
+            path.display(),
+            workspace.display()
+        );
+        return None;
     }
 
     Some(DiskEntry { hash, excluded })
@@ -481,7 +496,10 @@ fn read_entry(workspace: &Path) -> Option<DiskEntry> {
 fn write_entry(workspace: &Path, entry: &DiskEntry) {
     let dir = workspace_trust_dir();
     if let Err(err) = fs::create_dir_all(&dir) {
-        log::error!("Couldn't create workspace trust dir {dir:?}: {err:?}");
+        log::error!(
+            "Couldn't create workspace trust dir {}: {err}",
+            dir.display()
+        );
         return;
     }
     let path = entry_path(workspace);
@@ -494,7 +512,10 @@ fn write_entry(workspace: &Path, entry: &DiskEntry) {
     let _ = writeln!(contents, "excluded = {}", entry.excluded);
 
     if let Err(err) = fs::write(&path, contents) {
-        log::error!("Error writing workspace trust file {path:?}: {err:?}");
+        log::error!(
+            "Error writing workspace trust file {}: {err:?}",
+            path.display()
+        );
     }
 }
 
@@ -503,7 +524,10 @@ fn remove_entry(workspace: &Path) {
     match fs::remove_file(&path) {
         Ok(()) => {}
         Err(err) if err.kind() == std::io::ErrorKind::NotFound => {}
-        Err(err) => log::error!("Error removing workspace trust file {path:?}: {err:?}"),
+        Err(err) => log::error!(
+            "Error removing workspace trust file {}: {err}",
+            path.display()
+        ),
     }
 }
 
@@ -512,6 +536,7 @@ fn remove_entry(workspace: &Path) {
 /// SHA-256 of all files under `.helix/`, used to detect changes to local config after trust was
 /// granted. Returns `None` if `.helix/` is absent or has no files, so a workspace with no local
 /// config can still be trusted.
+#[must_use]
 pub fn compute_workspace_hash(workspace: &Path) -> Option<String> {
     let helix_dir = workspace.join(".helix");
     if !helix_dir.is_dir() {
@@ -532,7 +557,10 @@ pub fn compute_workspace_hash(workspace: &Path) -> Option<String> {
         match fs::read(file) {
             Ok(bytes) => hash_field(&mut hasher, &bytes),
             Err(err) => {
-                log::warn!("workspace hash: treating unreadable file {file:?} as empty: {err:?}");
+                log::warn!(
+                    "workspace hash: treating unreadable file {} as empty: {err}",
+                    file.display()
+                );
                 hash_field(&mut hasher, &[]);
             }
         }
@@ -566,10 +594,10 @@ fn walk(dir: &Path, out: &mut Vec<PathBuf>) {
             // Symlinks to files (extremely common: dotfiles managers symlink `.helix/config.toml`
             // to an external location). Follow once via `fs::metadata` which traverses links, then
             // include the file in the hash so mutations to the *target* are still detected.
-            if let Ok(target) = fs::metadata(&path) {
-                if target.is_file() {
-                    out.push(path);
-                }
+            if let Ok(target) = fs::metadata(&path)
+                && target.is_file()
+            {
+                out.push(path);
             }
         }
     }

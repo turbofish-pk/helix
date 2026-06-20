@@ -63,6 +63,7 @@ impl LanguageData {
 
     /// Loads the grammar and compiles the highlights, injections and locals for the language.
     /// This function should only be used by this module or the xtask crate.
+    #[allow(clippy::missing_errors_doc)]
     pub fn compile_syntax_config(
         config: &LanguageConfiguration,
         loader: &Loader,
@@ -304,7 +305,7 @@ impl Loader {
                     FileType::Glob(glob) => {
                         file_type_globs.push(FileTypeGlob::new(glob.to_owned(), language));
                     }
-                };
+                }
             }
             for shebang in &config.shebangs {
                 languages_by_shebang.insert(shebang.clone(), language);
@@ -343,13 +344,13 @@ impl Loader {
             (name == config.config.language_id).then_some(Language(u32::try_from(idx).unwrap()))
         })
     }
-
+    #[allow(clippy::missing_errors_doc)]
     pub fn language_for_scope(&self, scope: &str) -> Option<Language> {
         self.languages.iter().enumerate().find_map(|(idx, config)| {
             (scope == config.config.scope).then_some(Language(u32::try_from(idx).unwrap()))
         })
     }
-
+    #[allow(clippy::missing_errors_doc)]
     pub fn language_for_match(&self, text: RopeSlice) -> Option<Language> {
         // PERF: If the name matches up with the id, then this saves the need to do expensive regex.
         let shortcircuit = self.language_for_name(text);
@@ -520,11 +521,12 @@ pub struct Syntax {
 const PARSE_TIMEOUT: Duration = Duration::from_millis(500); // half a second is pretty generous
 
 impl Syntax {
+    #[allow(clippy::missing_errors_doc)]
     pub fn new(source: RopeSlice, language: Language, loader: &Loader) -> Result<Self, Error> {
         let inner = tree_house::Syntax::new(source, language, PARSE_TIMEOUT, loader)?;
         Ok(Self { inner })
     }
-
+    #[allow(clippy::missing_errors_doc)]
     pub fn update(
         &mut self,
         old_source: RopeSlice,
@@ -637,7 +639,7 @@ impl Syntax {
             range,
         )
     }
-
+    #[allow(clippy::missing_errors_doc)]
     pub fn rainbow_highlights(
         &self,
         source: RopeSlice,
@@ -1128,7 +1130,7 @@ fn pretty_print_tree_impl<W: fmt::Write>(
         write!(fmt, "{:indentation_columns$}", "")?;
 
         if let Some(field_name) = cursor.field_name() {
-            write!(fmt, "{}: ", field_name)?;
+            write!(fmt, "{field_name}: ")?;
         }
 
         write!(fmt, "({}", node.kind())?;
@@ -1225,16 +1227,16 @@ mod test {
 
     #[test]
     fn test_textobject_queries() {
-        let query_str = r#"
+        let query_str = r"
         (line_comment)+ @quantified_nodes
         ((line_comment)+) @quantified_nodes_grouped
         ((line_comment) (line_comment)) @multiple_nodes_grouped
-        "#;
+        ";
         let source = Rope::from_str(
-            r#"
+            r"
 /// a comment on
 /// multiple lines
-        "#,
+        ",
         );
 
         let language = LOADER.language_for_name("rust").unwrap();
@@ -1253,9 +1255,7 @@ mod test {
             assert_eq!(
                 matches[0].byte_range(),
                 range,
-                "@{} expected {:?}",
-                capture,
-                range
+                "@{capture} expected {range:?}"
             )
         };
 
@@ -1340,7 +1340,7 @@ mod test {
         let root = syntax
             .tree()
             .root_node()
-            .descendant_for_byte_range(start as u32, u32::try_from(end).unwrap())
+            .descendant_for_byte_range(u32::try_from(start).unwrap(), u32::try_from(end).unwrap())
             .unwrap();
 
         let mut output = String::new();
@@ -1351,7 +1351,7 @@ mod test {
 
     #[test]
     fn test_pretty_print() {
-        let source = r#"// Hello"#;
+        let source = r"// Hello";
         assert_pretty_print("rust", source, "(line_comment \"//\")", 0, source.len());
 
         // A large tree should be indented with fields:
@@ -1378,11 +1378,11 @@ mod test {
         );
 
         // Selecting a token should print just that token:
-        let source = r#"fn main() {}"#;
+        let source = r"fn main() {}";
         assert_pretty_print("rust", source, r#""fn""#, 0, 1);
 
         // Error nodes are printed as errors:
-        let source = r#"}{"#;
+        let source = r"}{";
         assert_pretty_print("rust", source, "(ERROR \"}\" \"{\")", 0, source.len());
 
         // Fields broken under unnamed nodes are determined correctly.

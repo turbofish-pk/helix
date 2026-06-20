@@ -4,8 +4,8 @@
 use smallvec::SmallVec;
 
 use crate::{
-    syntax::config::BlockCommentToken, Change, Range, Rope, RopeSlice, Selection, Tendril,
-    Transaction,
+    Change, Range, Rope, RopeSlice, Selection, Tendril, Transaction,
+    syntax::config::BlockCommentToken,
 };
 use helix_stdx::rope::RopeSliceExt;
 use std::borrow::Cow;
@@ -83,7 +83,7 @@ pub fn toggle_line_comments(doc: &Rope, selection: &Selection, token: Option<&st
     let text = doc.slice(..);
 
     let token = token.unwrap_or(DEFAULT_COMMENT_TOKEN);
-    let comment = Tendril::from(format!("{} ", token));
+    let comment = Tendril::from(format!("{token} "));
 
     let mut lines: Vec<usize> = Vec::with_capacity(selection.len());
 
@@ -139,7 +139,7 @@ pub enum CommentChange {
     },
 }
 
-#[must_use] 
+#[must_use]
 pub fn find_block_comments(
     tokens: &[BlockCommentToken],
     text: RopeSlice,
@@ -192,16 +192,7 @@ pub fn find_block_comments(
                 }
             }
 
-            if !line_commented {
-                comment_changes.push(CommentChange::Uncommented {
-                    range: *range,
-                    start_pos,
-                    end_pos,
-                    start_token: default_tokens.start.clone(),
-                    end_token: default_tokens.end.clone(),
-                });
-                commented = false;
-            } else {
+            if line_commented {
                 comment_changes.push(CommentChange::Commented {
                     range: *range,
                     start_pos,
@@ -212,6 +203,15 @@ pub fn find_block_comments(
                     start_token: start_token.to_string(),
                     end_token: end_token.to_string(),
                 });
+            } else {
+                comment_changes.push(CommentChange::Uncommented {
+                    range: *range,
+                    start_pos,
+                    end_pos,
+                    start_token: default_tokens.start.clone(),
+                    end_token: default_tokens.end.clone(),
+                });
+                commented = false;
             }
             only_whitespace = false;
         } else {
@@ -249,11 +249,11 @@ pub fn create_block_comment_transaction(
                 let from = range.from();
                 changes.push((
                     from + start_pos,
-                    from + start_pos + start_token.len() + start_margin as usize,
+                    from + start_pos + start_token.len() + usize::from(start_margin),
                     None,
                 ));
                 changes.push((
-                    from + end_pos - end_token.len() - end_margin as usize + 1,
+                    from + end_pos - end_token.len() - usize::from(end_margin) + 1,
                     from + end_pos + 1,
                     None,
                 ));
@@ -272,12 +272,12 @@ pub fn create_block_comment_transaction(
                     changes.push((
                         from + start_pos,
                         from + start_pos,
-                        Some(Tendril::from(format!("{} ", start_token))),
+                        Some(Tendril::from(format!("{start_token} "))),
                     ));
                     changes.push((
                         from + end_pos + 1,
                         from + end_pos + 1,
-                        Some(Tendril::from(format!(" {}", end_token))),
+                        Some(Tendril::from(format!(" {end_token}"))),
                     ));
 
                     let offset = start_token.chars().count() + end_token.chars().count() + 2;
@@ -312,7 +312,7 @@ pub fn toggle_block_comments(
     transaction
 }
 
-#[must_use] 
+#[must_use]
 pub fn split_lines_of_selection(text: RopeSlice, selection: &Selection) -> Selection {
     let mut ranges = SmallVec::new();
     for range in selection.ranges() {

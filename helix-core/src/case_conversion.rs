@@ -20,7 +20,7 @@ pub fn to_pascal_case_with(text: impl Iterator<Item = char>, buf: &mut Tendril) 
             at_word_start = false;
             buf.extend(c.to_uppercase());
         } else {
-            buf.push(c)
+            buf.push(c);
         }
     }
 }
@@ -28,7 +28,7 @@ pub fn to_pascal_case_with(text: impl Iterator<Item = char>, buf: &mut Tendril) 
 pub fn to_upper_case_with(text: impl Iterator<Item = char>, buf: &mut Tendril) {
     for c in text {
         for c in c.to_uppercase() {
-            buf.push(c)
+            buf.push(c);
         }
     }
 }
@@ -36,7 +36,7 @@ pub fn to_upper_case_with(text: impl Iterator<Item = char>, buf: &mut Tendril) {
 pub fn to_lower_case_with(text: impl Iterator<Item = char>, buf: &mut Tendril) {
     for c in text {
         for c in c.to_lowercase() {
-            buf.push(c)
+            buf.push(c);
         }
     }
 }

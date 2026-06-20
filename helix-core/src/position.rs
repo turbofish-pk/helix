@@ -276,7 +276,7 @@ pub fn pos_at_coords(text: RopeSlice, coords: Position, limit_before_line_ending
         } else {
             lines
         });
-    };
+    }
     let line_start = text.line_to_char(row);
     let line_end = if limit_before_line_ending {
         line_end_char_index(&text, row)

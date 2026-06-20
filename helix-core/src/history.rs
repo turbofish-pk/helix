@@ -347,7 +347,7 @@ fn parse_human_duration(s: &str) -> Result<Duration, String> {
     for cap in NUMBER_UNIT_REGEX.captures_iter(s) {
         let (n, unit_str) = (&cap[1], &cap[2]);
 
-        let n: u64 = n.parse().map_err(|_| format!("integer too large: {}", n))?;
+        let n: u64 = n.parse().map_err(|_| format!("integer too large: {n}"))?;
 
         let time_unit = TIME_UNITS
             .iter()
@@ -356,7 +356,7 @@ fn parse_human_duration(s: &str) -> Result<Duration, String> {
 
         if let Some((i, (_, unit, mul))) = time_unit {
             if specified[i] {
-                return Err(format!("{} specified more than once", unit));
+                return Err(format!("{unit} specified more than once"));
             }
             specified[i] = true;
 
@@ -366,7 +366,7 @@ fn parse_human_duration(s: &str) -> Result<Duration, String> {
                 None => return Err("duration too large".to_string()),
             }
         } else {
-            return Err(format!("incorrect time unit: {}", unit_str));
+            return Err(format!("incorrect time unit: {unit_str}"));
         }
     }
 
@@ -595,7 +595,7 @@ mod test {
         );
         assert_eq!(
             "2m".parse::<UndoKind>(),
-            Ok(TimePeriod(Duration::from_secs(120)))
+            Ok(TimePeriod(Duration::from_mins(2)))
         );
         assert_eq!(
             "5h".parse::<UndoKind>(),

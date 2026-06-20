@@ -225,7 +225,7 @@ impl<'de> Deserialize<'de> for FileType {
                         globset::Glob::new(glob.as_str())
                             .map(FileType::Glob)
                             .map_err(|err| {
-                                serde::de::Error::custom(format!("invalid `glob` pattern: {}", err))
+                                serde::de::Error::custom(format!("invalid `glob` pattern: {err}"))
                             })
                     }
                     Some((key, _value)) => Err(serde::de::Error::custom(format!(
@@ -349,7 +349,7 @@ impl Display for LanguageServerFeature {
             DocumentColors => "document-colors",
             CallHierarchy => "call-hierarchy",
         };
-        write!(f, "{feature}",)
+        write!(f, "{feature}")
     }
 }
 
@@ -418,12 +418,12 @@ where
     let mut serializer = serializer.serialize_seq(Some(map.len()))?;
     for features in map {
         let features = if features.only.is_empty() && features.excluded.is_empty() {
-            LanguageServerFeatureConfiguration::Simple(features.name.to_owned())
+            LanguageServerFeatureConfiguration::Simple(features.name.clone())
         } else {
             LanguageServerFeatureConfiguration::Features {
                 only_features: features.only.clone(),
                 except_features: features.excluded.clone(),
-                name: features.name.to_owned(),
+                name: features.name.clone(),
             }
         };
         serializer.serialize_element(&features)?;

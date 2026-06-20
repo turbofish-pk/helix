@@ -64,7 +64,7 @@ impl ChangeSetBuilder<'_> {
             } else {
                 for &line in &self.file.after[after.start as usize..after.end as usize] {
                     for chunk in self.file.interner[line].chunks() {
-                        fragment.push_str(chunk)
+                        fragment.push_str(chunk);
                     }
                 }
             };
@@ -158,7 +158,7 @@ pub fn compare_ropes(before: &Rope, after: &Rope) -> Transaction {
         IndentHeuristic::new(|token| IndentLevel::for_ascii_line(file.interner[token].bytes(), 4)),
     );
     for hunk in diff.hunks() {
-        builder.process_hunk(hunk.before, hunk.after)
+        builder.process_hunk(hunk.before, hunk.after);
     }
     let res = builder.finish().into();
 

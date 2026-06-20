@@ -207,18 +207,13 @@ pub fn get_line_ending_of_str(line: &str) -> Option<LineEnding> {
 /// Returns the char index of the end of the given line, not including its line ending.
 #[must_use]
 pub fn line_end_char_index(slice: &RopeSlice, line: usize) -> usize {
-    slice.line_to_char(line + 1)
-        - get_line_ending(&slice.line(line))
-            .map(|le| le.len_chars())
-            .unwrap_or(0)
+    slice.line_to_char(line + 1) - get_line_ending(&slice.line(line)).map_or(0, |le| le.len_chars())
 }
 
 #[must_use]
 pub fn line_end_byte_index(slice: &RopeSlice, line: usize) -> usize {
     slice.line_to_byte(line + 1)
-        - get_line_ending(&slice.line(line))
-            .map(|le| le.as_str().len())
-            .unwrap_or(0)
+        - get_line_ending(&slice.line(line)).map_or(0, |le| le.as_str().len())
 }
 
 /// Fetches line `line_idx` from the passed rope slice, sans any line ending.
@@ -233,7 +228,7 @@ pub fn line_without_line_ending<'a>(slice: &'a RopeSlice, line_idx: usize) -> Ro
 /// any final line ending.
 #[must_use]
 pub fn rope_end_without_line_ending(slice: &RopeSlice) -> usize {
-    slice.len_chars() - get_line_ending(slice).map(|le| le.len_chars()).unwrap_or(0)
+    slice.len_chars() - get_line_ending(slice).map_or(0, |le| le.len_chars())
 }
 
 #[cfg(test)]

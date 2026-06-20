@@ -55,7 +55,7 @@ pub fn user_lang_loader(trust: &WorkspaceTrust) -> Result<Loader, LanguageLoader
                 let res: Result<LanguageConfiguration, _> = lang.clone().try_into();
                 if let Err(inner_err) = res {
                     let context = match lang.get("name") {
-                        Some(name) => format!("for language {}", name),
+                        Some(name) => format!("for language {name}"),
                         None => "for unknown language".to_owned(),
                     };
                     return LanguageLoaderError::ConfigError(inner_err, context);

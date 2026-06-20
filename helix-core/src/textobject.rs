@@ -1,3 +1,4 @@
+#![allow(clippy::missing_errors_doc)]
 use std::fmt::Display;
 
 use ropey::RopeSlice;
@@ -264,13 +265,19 @@ pub fn textobject_treesitter(
     _count: usize,
 ) -> Range {
     let byte_pos = slice.char_to_byte(range.cursor(slice));
-    let layer = syntax.layer_for_byte_range(byte_pos as u32, byte_pos as u32);
+    let layer = syntax.layer_for_byte_range(
+        u32::try_from(byte_pos).unwrap(),
+        u32::try_from(byte_pos).unwrap(),
+    );
     let root = syntax
-        .tree_for_byte_range(byte_pos as u32, byte_pos as u32)
+        .tree_for_byte_range(
+            u32::try_from(byte_pos).unwrap(),
+            u32::try_from(byte_pos).unwrap(),
+        )
         .root_node();
     let textobject_query = loader.textobject_query(syntax.layer(layer).language);
     let get_range = move || -> Option<Range> {
-        let capture_name = format!("{}.{}", object_name, textobject); // eg. function.inner
+        let capture_name = format!("{object_name}.{textobject}"); // eg. function.inner
         let node = textobject_query?
             .capture_nodes(&capture_name, &root, slice)?
             .filter(|node| node.byte_range().contains(&byte_pos))
@@ -406,9 +413,7 @@ mod test {
                 assert_eq!(
                     result,
                     expected_range.into(),
-                    "\nCase failed: {:?} - {:?}",
-                    sample,
-                    case
+                    "\nCase failed: {sample:?} - {case:?}"
                 );
             }
         }
@@ -441,7 +446,7 @@ mod test {
             let selection =
                 selection.transform(|r| textobject_paragraph(text.slice(..), r, Inside, 1));
             let actual = crate::test::plain(s.as_ref(), &selection);
-            assert_eq!(actual, expected, "\nbefore: `{:?}`", before);
+            assert_eq!(actual, expected, "\nbefore: `{before:?}`");
         }
     }
 
@@ -464,7 +469,7 @@ mod test {
             let selection =
                 selection.transform(|r| textobject_paragraph(text.slice(..), r, Inside, 2));
             let actual = crate::test::plain(s.as_ref(), &selection);
-            assert_eq!(actual, expected, "\nbefore: `{:?}`", before);
+            assert_eq!(actual, expected, "\nbefore: `{before:?}`");
         }
     }
 
@@ -495,7 +500,7 @@ mod test {
             let selection =
                 selection.transform(|r| textobject_paragraph(text.slice(..), r, Around, 1));
             let actual = crate::test::plain(s.as_ref(), &selection);
-            assert_eq!(actual, expected, "\nbefore: `{:?}`", before);
+            assert_eq!(actual, expected, "\nbefore: `{before:?}`");
         }
     }
 
@@ -582,9 +587,7 @@ mod test {
                 assert_eq!(
                     result,
                     expected_range.into(),
-                    "\nCase failed: {:?} - {:?}",
-                    sample,
-                    case
+                    "\nCase failed: {sample:?} - {case:?}"
                 );
             }
         }

@@ -148,7 +148,7 @@ fn find_nth_closest_pairs_plain(
                     Direction::Backward => Ok((close_pos, open_pos)),
                 };
             }
-            _ => continue,
+            _ => {}
         }
     }
 
@@ -412,7 +412,7 @@ mod test {
             find_nth_pairs_pos(None, doc.slice(..), '\'', selection.primary(), 1)
                 .expect("find should succeed"),
             (expectations[0], expectations[1])
-        )
+        );
     }
 
     #[test]
@@ -429,7 +429,7 @@ mod test {
             find_nth_pairs_pos(None, doc.slice(..), '\'', selection.primary(), 2)
                 .expect("find should succeed"),
             (expectations[0], expectations[1])
-        )
+        );
     }
 
     #[test]
@@ -444,7 +444,7 @@ mod test {
         assert_eq!(
             find_nth_pairs_pos(None, doc.slice(..), '\'', selection.primary(), 1),
             Err(Error::CursorOnAmbiguousPair)
-        )
+        );
     }
 
     #[test]
@@ -459,7 +459,7 @@ mod test {
         assert_eq!(
             find_nth_closest_pairs_pos(None, doc.slice(..), selection.primary(), 1),
             Err(Error::PairNotFound)
-        )
+        );
     }
 
     // Create a Rope and a matching Selection using a specification language.
@@ -469,10 +469,10 @@ mod test {
         text: &str,
         spec: &str,
     ) -> (Rope, Selection, Vec<usize>) {
-        if text.len() != spec.len() {
-            panic!("specification must match text length -- are newlines aligned?");
-        }
-
+        assert!(
+            text.len() == spec.len(),
+            "specification must match text length -- are newlines aligned?"
+        );
         let rope = Rope::from(text);
 
         let selections: SmallVec<[Range; 1]> = spec

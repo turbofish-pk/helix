@@ -91,7 +91,7 @@ pub fn move_vertically_visual(
         annotations,
     );
     if dir == Direction::Forward {
-        new_pos += (virtual_rows != 0) as usize;
+        new_pos += usize::from(virtual_rows != 0);
     }
 
     // Special-case to avoid moving to the end of the last non-empty line.
@@ -382,7 +382,8 @@ where
     F: Fn(char) -> bool,
 {
     let mut chars = slice.chars_at(pos).enumerate();
-    chars.find_map(|(i, c)| if !fun(c) { Some(pos + i) } else { None })
+    // chars.find_map(|(i, c)| if !fun(c) { Some(pos + i) } else { None })
+    chars.find_map(|(i, c)| if fun(c) { None } else { Some(pos + i) })
 }
 
 #[inline]
@@ -396,10 +397,10 @@ where
     let mut chars_starting_from_next = slice.chars_at(pos);
     let mut backwards = iter::from_fn(|| chars_starting_from_next.prev()).enumerate();
     backwards.find_map(|(i, c)| {
-        if !fun(c) {
-            Some(pos.saturating_sub(i))
-        } else {
+        if fun(c) {
             None
+        } else {
+            Some(pos.saturating_sub(i))
         }
     })
 }
@@ -591,13 +592,19 @@ pub fn goto_treesitter_object(
 
         // Walk the layer at the cursor with that language's own tree and textobject query.
         // Resolved per step so the motion can cross into and out of injected regions.
-        let layer = syntax.layer_for_byte_range(byte_pos as u32, byte_pos as u32);
+        let layer = syntax.layer_for_byte_range(
+            u32::try_from(byte_pos).unwrap(),
+            u32::try_from(byte_pos).unwrap(),
+        );
         let slice_tree = syntax
-            .tree_for_byte_range(byte_pos as u32, byte_pos as u32)
+            .tree_for_byte_range(
+                u32::try_from(byte_pos).unwrap(),
+                u32::try_from(byte_pos).unwrap(),
+            )
             .root_node();
         let textobject_query = loader.textobject_query(syntax.layer(layer).language);
 
-        let cap_name = |t: TextObject| format!("{}.{}", object_name, t);
+        let cap_name = |t: TextObject| format!("{object_name}.{t}");
         let nodes = textobject_query?.capture_nodes_any(
             &[
                 &cap_name(TextObject::Movement),
@@ -663,16 +670,9 @@ pub fn move_parent_node_end(
         let start_from = u32::try_from(text.char_to_byte(range.from())).unwrap();
         let start_to = u32::try_from(text.char_to_byte(range.to())).unwrap();
 
-        let mut node = match syntax.named_descendant_for_byte_range(start_from, start_to) {
-            Some(node) => node,
-            None => {
-                log::debug!(
-                    "no descendant found for byte range: {} - {}",
-                    start_from,
-                    start_to
-                );
-                return range;
-            }
+        let Some(mut node) = syntax.named_descendant_for_byte_range(start_from, start_to) else {
+            log::debug!("no descendant found for byte range: {start_from} - {start_to}");
+            return range;
         };
 
         let mut end_head = match dir {
@@ -1121,7 +1121,7 @@ mod test {
         for (sample, scenario) in tests {
             for (count, begin, expected_end) in scenario.into_iter() {
                 let range = move_next_word_start(Rope::from(sample).slice(..), begin, count);
-                assert_eq!(range, expected_end, "Case failed: [{}]", sample);
+                assert_eq!(range, expected_end, "Case failed: [{sample}]");
             }
         }
     }
@@ -1207,7 +1207,7 @@ mod test {
         for (sample, scenario) in tests {
             for (count, begin, expected_end) in scenario.into_iter() {
                 let range = move_next_sub_word_start(Rope::from(sample).slice(..), begin, count);
-                assert_eq!(range, expected_end, "Case failed: [{}]", sample);
+                assert_eq!(range, expected_end, "Case failed: [{sample}]");
             }
         }
     }
@@ -1293,7 +1293,7 @@ mod test {
         for (sample, scenario) in tests {
             for (count, begin, expected_end) in scenario.into_iter() {
                 let range = move_next_sub_word_end(Rope::from(sample).slice(..), begin, count);
-                assert_eq!(range, expected_end, "Case failed: [{}]", sample);
+                assert_eq!(range, expected_end, "Case failed: [{sample}]");
             }
         }
     }
@@ -1403,7 +1403,7 @@ mod test {
         for (sample, scenario) in tests {
             for (count, begin, expected_end) in scenario.into_iter() {
                 let range = move_next_long_word_start(Rope::from(sample).slice(..), begin, count);
-                assert_eq!(range, expected_end, "Case failed: [{}]", sample);
+                assert_eq!(range, expected_end, "Case failed: [{sample}]");
             }
         }
     }
@@ -1510,7 +1510,7 @@ mod test {
         for (sample, scenario) in tests {
             for (count, begin, expected_end) in scenario.into_iter() {
                 let range = move_prev_word_start(Rope::from(sample).slice(..), begin, count);
-                assert_eq!(range, expected_end, "Case failed: [{}]", sample);
+                assert_eq!(range, expected_end, "Case failed: [{sample}]");
             }
         }
     }
@@ -1596,7 +1596,7 @@ mod test {
         for (sample, scenario) in tests {
             for (count, begin, expected_end) in scenario.into_iter() {
                 let range = move_prev_sub_word_start(Rope::from(sample).slice(..), begin, count);
-                assert_eq!(range, expected_end, "Case failed: [{}]", sample);
+                assert_eq!(range, expected_end, "Case failed: [{sample}]");
             }
         }
     }
@@ -1699,7 +1699,7 @@ mod test {
         for (sample, scenario) in tests {
             for (count, begin, expected_end) in scenario.into_iter() {
                 let range = move_prev_long_word_start(Rope::from(sample).slice(..), begin, count);
-                assert_eq!(range, expected_end, "Case failed: [{}]", sample);
+                assert_eq!(range, expected_end, "Case failed: [{sample}]");
             }
         }
     }
@@ -1805,7 +1805,7 @@ mod test {
         for (sample, scenario) in tests {
             for (count, begin, expected_end) in scenario.into_iter() {
                 let range = move_next_word_end(Rope::from(sample).slice(..), begin, count);
-                assert_eq!(range, expected_end, "Case failed: [{}]", sample);
+                assert_eq!(range, expected_end, "Case failed: [{sample}]");
             }
         }
     }
@@ -1912,7 +1912,7 @@ mod test {
         for (sample, scenario) in tests {
             for (count, begin, expected_end) in scenario.into_iter() {
                 let range = move_prev_word_end(Rope::from(sample).slice(..), begin, count);
-                assert_eq!(range, expected_end, "Case failed: [{}]", sample);
+                assert_eq!(range, expected_end, "Case failed: [{sample}]");
             }
         }
     }
@@ -1998,7 +1998,7 @@ mod test {
         for (sample, scenario) in tests {
             for (count, begin, expected_end) in scenario.into_iter() {
                 let range = move_prev_sub_word_end(Rope::from(sample).slice(..), begin, count);
-                assert_eq!(range, expected_end, "Case failed: [{}]", sample);
+                assert_eq!(range, expected_end, "Case failed: [{sample}]");
             }
         }
     }
@@ -2100,7 +2100,7 @@ mod test {
         for (sample, scenario) in tests {
             for (count, begin, expected_end) in scenario.into_iter() {
                 let range = move_next_long_word_end(Rope::from(sample).slice(..), begin, count);
-                assert_eq!(range, expected_end, "Case failed: [{}]", sample);
+                assert_eq!(range, expected_end, "Case failed: [{sample}]");
             }
         }
     }
@@ -2203,7 +2203,7 @@ mod test {
         for (sample, scenario) in tests {
             for (count, begin, expected_end) in scenario.into_iter() {
                 let range = move_prev_long_word_end(Rope::from(sample).slice(..), begin, count);
-                assert_eq!(range, expected_end, "Case failed: [{}]", sample);
+                assert_eq!(range, expected_end, "Case failed: [{sample}]");
             }
         }
     }
@@ -2238,7 +2238,7 @@ mod test {
             let selection =
                 selection.transform(|r| move_prev_paragraph(text.slice(..), r, 1, Movement::Move));
             let actual = crate::test::plain(s.as_ref(), &selection);
-            assert_eq!(actual, expected, "\nbefore: `{:?}`", before);
+            assert_eq!(actual, expected, "\nbefore: `{before:?}`");
         }
     }
 
@@ -2261,7 +2261,7 @@ mod test {
             let selection =
                 selection.transform(|r| move_prev_paragraph(text.slice(..), r, 2, Movement::Move));
             let actual = crate::test::plain(s.as_ref(), &selection);
-            assert_eq!(actual, expected, "\nbefore: `{:?}`", before);
+            assert_eq!(actual, expected, "\nbefore: `{before:?}`");
         }
     }
 
@@ -2284,7 +2284,7 @@ mod test {
             let selection = selection
                 .transform(|r| move_prev_paragraph(text.slice(..), r, 1, Movement::Extend));
             let actual = crate::test::plain(s.as_ref(), &selection);
-            assert_eq!(actual, expected, "\nbefore: `{:?}`", before);
+            assert_eq!(actual, expected, "\nbefore: `{before:?}`");
         }
     }
 
@@ -2326,7 +2326,7 @@ mod test {
             let selection =
                 selection.transform(|r| move_next_paragraph(text.slice(..), r, 1, Movement::Move));
             let actual = crate::test::plain(s.as_ref(), &selection);
-            assert_eq!(actual, expected, "\nbefore: `{:?}`", before);
+            assert_eq!(actual, expected, "\nbefore: `{before:?}`");
         }
     }
 
@@ -2349,7 +2349,7 @@ mod test {
             let selection =
                 selection.transform(|r| move_next_paragraph(text.slice(..), r, 2, Movement::Move));
             let actual = crate::test::plain(s.as_ref(), &selection);
-            assert_eq!(actual, expected, "\nbefore: `{:?}`", before);
+            assert_eq!(actual, expected, "\nbefore: `{before:?}`");
         }
     }
 
@@ -2372,7 +2372,7 @@ mod test {
             let selection = selection
                 .transform(|r| move_next_paragraph(text.slice(..), r, 1, Movement::Extend));
             let actual = crate::test::plain(s.as_ref(), &selection);
-            assert_eq!(actual, expected, "\nbefore: `{:?}`", before);
+            assert_eq!(actual, expected, "\nbefore: `{before:?}`");
         }
     }
 }

@@ -7,15 +7,14 @@ use helix_stdx::rope::RopeSliceExt;
 use tree_house::TREE_SITTER_MATCH_LIMIT;
 
 use crate::{
+    Position, Rope, RopeSlice, Syntax, Tendril,
     chars::{char_is_line_ending, char_is_whitespace},
     graphemes::{grapheme_width, tab_width_at},
     syntax::{self, config::IndentationHeuristic},
     tree_sitter::{
-        self,
+        self, Capture, Grammar, InactiveQueryCursor, Node, Pattern, Query, QueryMatch, RopeInput,
         query::{InvalidPredicateError, UserPredicate},
-        Capture, Grammar, InactiveQueryCursor, Node, Pattern, Query, QueryMatch, RopeInput,
     },
-    Position, Rope, RopeSlice, Syntax, Tendril,
 };
 
 /// Enum representing indentation style.
@@ -37,6 +36,7 @@ impl IndentStyle {
     /// For example, passing `"    "` (four spaces) will create `IndentStyle::Spaces(4)`.
     #[allow(clippy::should_implement_trait)]
     #[inline]
+    #[must_use]
     pub fn from_str(indent: &str) -> Self {
         // XXX: do we care about validating the input more than this?  Probably not...?
         debug_assert!(!indent.is_empty() && indent.len() <= MAX_INDENT as usize);
@@ -49,6 +49,7 @@ impl IndentStyle {
     }
 
     #[inline]
+    #[must_use]
     pub fn as_str(&self) -> &'static str {
         match *self {
             IndentStyle::Tabs => "\t",
@@ -64,6 +65,7 @@ impl IndentStyle {
     }
 
     #[inline]
+    #[must_use]
     pub fn indent_width(&self, tab_width: usize) -> usize {
         match *self {
             IndentStyle::Tabs => tab_width,
@@ -76,6 +78,7 @@ impl IndentStyle {
 ///
 /// Returns the indentation style if the auto-detect confidence is
 /// reasonably high, otherwise returns `None`.
+#[must_use]
 pub fn auto_detect_indent_style(document_text: &Rope) -> Option<IndentStyle> {
     // Build a histogram of the indentation *increases* between
     // subsequent lines, ignoring lines that are all whitespace.
@@ -197,6 +200,7 @@ pub fn auto_detect_indent_style(document_text: &Rope) -> Option<IndentStyle> {
 
 /// To determine indentation of a newly inserted line, figure out the indentation at the last col
 /// of the previous line.
+#[must_use]
 pub fn indent_level_for_line(line: RopeSlice, tab_width: usize, indent_width: usize) -> usize {
     let mut len = 0;
     for ch in line.chars() {
@@ -376,7 +380,7 @@ impl IndentQuery {
                         header_patterns.insert(pattern);
                     }
                     Some(other) => {
-                        return Err(format!("unknown scope (#set! scope \"{other}\")").into())
+                        return Err(format!("unknown scope (#set! scope \"{other}\")").into());
                     }
                     None => return Err("missing scope value (#set! scope ...)".into()),
                 };
@@ -604,7 +608,9 @@ fn query_indents<'a>(
                 IndentCaptureType::Align(RopeSlice::from(""))
             } else if capture == query.anchor_capture {
                 if anchor.is_some() {
-                    log::error!("Invalid indent query: Encountered more than one @anchor in the same match.")
+                    log::error!(
+                        "Invalid indent query: Encountered more than one @anchor in the same match."
+                    );
                 } else {
                     anchor = Some(&matched_node.node);
                 }
@@ -636,7 +642,7 @@ fn query_indents<'a>(
                 capture_type,
                 header: query.header_patterns.contains(&m.pattern()),
             };
-            added_indent_captures.push((node_id, indent_capture))
+            added_indent_captures.push((node_id, indent_capture));
         }
         for (node_id, mut capture) in added_indent_captures {
             // Set the anchor for all align queries.
@@ -664,7 +670,7 @@ fn query_indents<'a>(
         opaque_ranges,
     };
 
-    log::trace!("indent result = {:?}", result);
+    log::trace!("indent result = {result:?}");
 
     result
 }
@@ -869,18 +875,18 @@ fn init_indent_query<'a, 'b>(
         .is_some();
 
     // Check for extend captures, potentially changing the node that the indent calculation starts with
-    if let Some(deepest_preceding) = deepest_preceding {
-        if !descended {
-            extend_nodes(
-                &mut node,
-                deepest_preceding,
-                &extend_captures,
-                text,
-                line,
-                tab_width,
-                indent_width,
-            );
-        }
+    if let Some(deepest_preceding) = deepest_preceding
+        && !descended
+    {
+        extend_nodes(
+            &mut node,
+            deepest_preceding,
+            &extend_captures,
+            text,
+            line,
+            tab_width,
+            indent_width,
+        );
     }
     Some((node, query_result.indent_captures, opaque_ranges))
 }
@@ -942,6 +948,7 @@ fn opaque_hit(start: u32, end: u32, byte_pos: u32, text: RopeSlice) -> bool {
 /// `treesitter_indent_for_pos` does not call this — it derives the same answer
 /// from the captures of its single containment pass — so this exists for external
 /// callers (e.g. the indent-check xtask) that only need the opaque test.
+#[must_use]
 pub fn is_opaque_interior(
     query: &IndentQuery,
     syntax: &Syntax,
@@ -1160,10 +1167,11 @@ fn containment_accounting<'a>(
                 }
             }
             // Innermost containing alignment wins (first seen on the upward walk).
-            if let Some(a) = node_align {
-                if contains && align.is_none() {
-                    align = Some(a);
-                }
+            if let Some(a) = node_align
+                && contains
+                && align.is_none()
+            {
+                align = Some(a);
             }
         }
         match node.parent() {
@@ -1239,6 +1247,7 @@ fn injection_base_level(
 /// `case`/`else`/`except` keyword, …). Used to tell a *recoverable* typing
 /// over-indent (the leading token will pull the line back) from a real one (a
 /// plain statement that the new-line indent placed too deep).
+#[must_use]
 pub fn is_outdent_token_at(
     query: &IndentQuery,
     syntax: &Syntax,
@@ -1297,7 +1306,7 @@ pub fn indent_for_newline(
     ) && let Some(indent) = treesitter_indent_for_pos(
         query,
         syntax,
-&loader,
+        loader,
         tab_width,
         indent_width,
         text,
@@ -1315,53 +1324,49 @@ pub fn indent_for_newline(
             line_before,
             line_before_end_pos,
             true,
-        ) {
-            if *indent_heuristic == IndentationHeuristic::Hybrid {
-                // We want to compute the indentation not only based on the
-                // syntax tree but also on the actual indentation of a previous
-                // line. This makes indentation computation more resilient to
-                // incomplete queries, incomplete source code & differing indentation
-                // styles for the same language.
-                // However, using the indent of a previous line as a baseline may not
-                // make sense, e.g. if it has a different alignment than the new line.
-                // In order to prevent edge cases with long running times, we only try
-                // a constant number of (non-empty) lines.
-                const MAX_ATTEMPTS: usize = 4;
-                let mut num_attempts = 0;
-                for line_idx in (0..=line_before).rev() {
-                    let line = text.line(line_idx);
-                    let first_non_whitespace_char = match line.first_non_whitespace_char() {
-                        Some(i) => i,
-                        None => {
-                            continue;
-                        }
-                    };
-                    if let Some(indent) = (|| {
-                        let computed_indent = treesitter_indent_for_pos(
-                            query,
-                            syntax,
-                            loader,
-                            tab_width,
-                            indent_width,
-                            text,
-                            line_idx,
-                            text.line_to_char(line_idx) + first_non_whitespace_char,
-                            false,
-                        )?;
-                        let leading_whitespace = line.slice(0..first_non_whitespace_char);
-                        indent.relative_indent(
-                            &computed_indent,
-                            leading_whitespace,
-                            indent_style,
-                            tab_width,
-                        )
-                    })() {
-                        return indent;
-                    }
-                    num_attempts += 1;
-                    if num_attempts == MAX_ATTEMPTS {
-                        break;
-                    }
+        ) && *indent_heuristic == IndentationHeuristic::Hybrid
+        {
+            // We want to compute the indentation not only based on the
+            // syntax tree but also on the actual indentation of a previous
+            // line. This makes indentation computation more resilient to
+            // incomplete queries, incomplete source code & differing indentation
+            // styles for the same language.
+            // However, using the indent of a previous line as a baseline may not
+            // make sense, e.g. if it has a different alignment than the new line.
+            // In order to prevent edge cases with long running times, we only try
+            // a constant number of (non-empty) lines.
+            const MAX_ATTEMPTS: usize = 4;
+            let mut num_attempts = 0;
+            for line_idx in (0..=line_before).rev() {
+                let line = text.line(line_idx);
+                let Some(first_non_whitespace_char) = line.first_non_whitespace_char() else {
+                    continue;
+                };
+                if let Some(indent) = (|| {
+                    let computed_indent = treesitter_indent_for_pos(
+                        query,
+                        syntax,
+                        loader,
+                        tab_width,
+                        indent_width,
+                        text,
+                        line_idx,
+                        text.line_to_char(line_idx) + first_non_whitespace_char,
+                        false,
+                    )?;
+                    let leading_whitespace = line.slice(0..first_non_whitespace_char);
+                    indent.relative_indent(
+                        &computed_indent,
+                        leading_whitespace,
+                        indent_style,
+                        tab_width,
+                    )
+                })() {
+                    return indent;
+                }
+                num_attempts += 1;
+                if num_attempts == MAX_ATTEMPTS {
+                    break;
                 }
             }
         }
@@ -1371,18 +1376,17 @@ pub fn indent_for_newline(
     let indent_level = indent_level_for_line(text.line(current_line), tab_width, indent_width);
     indent_style.as_str().repeat(indent_level)
 }
-
+#[must_use]
 pub fn get_scopes<'a>(syntax: Option<&'a Syntax>, text: RopeSlice, pos: usize) -> Vec<&'a str> {
     let mut scopes = Vec::new();
     if let Some(syntax) = syntax {
         let pos = u32::try_from(text.char_to_byte(pos)).unwrap();
-        let mut node = match syntax
+        let Some(mut node) = syntax
             .tree()
             .root_node()
             .descendant_for_byte_range(pos, pos)
-        {
-            Some(node) => node,
-            None => return scopes,
+        else {
+            return scopes;
         };
 
         scopes.push(node.kind());

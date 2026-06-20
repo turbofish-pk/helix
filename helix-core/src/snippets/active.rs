@@ -1,13 +1,13 @@
 use std::ops::{Index, IndexMut};
 
 use foldhash::HashSet;
-use helix_stdx::range::{is_exact_subset, is_subset};
 use helix_stdx::Range;
+use helix_stdx::range::{is_exact_subset, is_subset};
 use ropey::Rope;
 
 use crate::movement::Direction;
-use crate::snippets::render::{RenderedSnippet, Tabstop};
 use crate::snippets::TabstopIdx;
+use crate::snippets::render::{RenderedSnippet, Tabstop};
 use crate::{Assoc, ChangeSet, Selection, Transaction};
 
 pub struct ActiveSnippet {
@@ -31,7 +31,7 @@ impl IndexMut<TabstopIdx> for ActiveSnippet {
 }
 
 impl ActiveSnippet {
-    #[must_use] 
+    #[must_use]
     pub fn new(snippet: RenderedSnippet) -> Option<Self> {
         let snippet = Self {
             ranges: snippet.ranges,
@@ -42,7 +42,7 @@ impl ActiveSnippet {
         (snippet.tabstops.len() != 1).then_some(snippet)
     }
 
-    #[must_use] 
+    #[must_use]
     pub fn is_valid(&self, new_selection: &Selection) -> bool {
         is_subset::<false>(self.ranges.iter().copied(), new_selection.range_bounds())
     }
@@ -51,7 +51,7 @@ impl ActiveSnippet {
         self.tabstops.iter()
     }
 
-    #[must_use] 
+    #[must_use]
     pub fn delete_placeholder(&self, doc: &Rope) -> Transaction {
         Transaction::delete(
             doc,
@@ -119,7 +119,7 @@ impl ActiveSnippet {
                         // really occur in practice, the below just ensures
                         // our invariants hold
                         range.start = prev.end;
-                        range.end = range.end.max(range.start)
+                        range.end = range.end.max(range.start);
                     }
                     prev = *range;
                 }
@@ -196,13 +196,13 @@ impl ActiveSnippet {
         // separate keymap
     }
 
-    #[must_use] 
+    #[must_use]
     pub fn tabstop_selection(&self, primary_idx: usize, direction: Direction) -> Selection {
         let tabstop = &self[self.current_tabstop];
         tabstop.selection(direction, primary_idx, self.ranges.len())
     }
 
-    #[must_use] 
+    #[must_use]
     pub fn insert_subsnippet(mut self, snippet: RenderedSnippet) -> Option<Self> {
         if !snippet.ranges.len().is_multiple_of(self.ranges.len())
             || !is_exact_subset(self.ranges.iter().copied(), snippet.ranges.iter().copied())

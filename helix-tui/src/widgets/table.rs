@@ -345,6 +345,7 @@ pub struct TableState {
 }
 
 impl TableState {
+    #[must_use]
     pub fn selected(&self) -> Option<usize> {
         self.selected
     }
@@ -444,7 +445,7 @@ impl Table<'_> {
                 height: table_row.height,
             };
             buf.set_style(table_row_area, table_row.style);
-            let is_selected = state.selected.map(|s| s == i).unwrap_or(false);
+            let is_selected = state.selected.is_some_and(|s| s == i);
             let table_row_start_col = if has_selection {
                 let symbol = if is_selected {
                     highlight_symbol

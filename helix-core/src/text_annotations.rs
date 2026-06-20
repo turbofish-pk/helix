@@ -222,7 +222,7 @@ impl<'a, A, M> From<(&'a [A], M)> for Layer<'a, A, M> {
 
 fn reset_pos<A, M>(layers: &[Layer<A, M>], pos: usize, get_pos: impl Fn(&A) -> usize) {
     for layer in layers {
-        layer.reset_pos(pos, &get_pos)
+        layer.reset_pos(pos, &get_pos);
     }
 }
 
@@ -398,7 +398,7 @@ impl<'a> TextAnnotations<'a> {
                     Ordering::Less => next_anchor
                         .set(unsafe { layer.get().skip_concealed_anchors(grapheme.char_idx) }),
                     Ordering::Equal => {
-                        next_anchor.set(unsafe { layer.get().process_anchor(grapheme) })
+                        next_anchor.set(unsafe { layer.get().process_anchor(grapheme) });
                     }
                     Ordering::Greater => break,
                 }
