@@ -5,7 +5,7 @@ use helix_core::graphemes::Grapheme;
 use helix_core::str_utils::char_to_byte_idx;
 use helix_core::syntax::{self, HighlightEvent, Highlighter, OverlayHighlights};
 use helix_core::text_annotations::TextAnnotations;
-use helix_core::{Position, RopeSlice, visual_offset_from_block};
+use helix_core::{visual_offset_from_block, Position, RopeSlice};
 use helix_stdx::rope::RopeSliceExt;
 use helix_view::editor::{WhitespaceConfig, WhitespaceRenderValue};
 use helix_view::graphics::Rect;
@@ -349,7 +349,7 @@ impl<'a> TextRenderer<'a> {
         let grapheme = match &grapheme.raw {
             Grapheme::Tab { width } => {
                 is_tab = true;
-                let grapheme_tab_width = char_to_byte_idx(tab, width);
+                let grapheme_tab_width = char_to_byte_idx(tab, *width);
                 &tab[..grapheme_tab_width]
             }
             // TODO special rendering for other whitespaces?

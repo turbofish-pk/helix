@@ -33,7 +33,6 @@ pub use tree_house::{
     Error as HighlighterError, LanguageLoader, TREE_SITTER_MATCH_LIMIT, TreeCursor,
     highlighter::{Highlight, HighlightEvent},
     query_iter::{CapturedMatch, QueryIterEvent, QueryMatchIter, QueryMatchIterEvent},
-    Error as HighlighterError, LanguageLoader, TreeCursor, TREE_SITTER_MATCH_LIMIT,
 };
 
 #[derive(Debug)]

@@ -118,7 +118,7 @@ pub fn fetch_grammars(strict: bool) -> Result<()> {
     let total = grammars.len();
     let counter = Arc::new(AtomicUsize::new(0));
 
-    println!("Fetching {} grammars", total);
+    println!("Fetching {total} grammars");
     let counter = Arc::clone(&counter);
 
     let results = run_parallel(grammars, move |grammar| {
@@ -203,7 +203,7 @@ pub fn build_grammars(target: Option<String>, strict: bool) -> Result<()> {
             "Building grammars ({}/{}): {}",
             current, total, grammar.grammar_id
         );
-        build_grammar(grammar, target.as_deref())
+        build_grammar(&grammar, target.as_deref())
     });
 
     let mut errors = Vec::new();

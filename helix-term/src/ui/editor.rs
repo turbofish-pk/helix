@@ -1266,15 +1266,15 @@ impl EditorView {
 
                     let (view, doc) = current!(cxt.editor);
 
-                    let Some(path) = doc.path().map(ToOwned::to_owned) else {
+                    let Some(_path) = doc.path().map(ToOwned::to_owned) else {
                         return EventResult::Ignored(None);
                     };
 
                     if let Some(_char_idx) =
                         view.pos_at_visual_coords(doc, coords.row as u16, coords.col as u16, true)
                     {
-                        
- 
+
+
                         return EventResult::Consumed(None);
                     }
                 }

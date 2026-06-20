@@ -1297,6 +1297,7 @@ pub fn indent_for_newline(
     ) && let Some(indent) = treesitter_indent_for_pos(
         query,
         syntax,
+&loader,
         tab_width,
         indent_width,
         text,
