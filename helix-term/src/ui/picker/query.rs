@@ -12,7 +12,7 @@ pub(super) struct PickerQuery {
     /// for those columns.
     inner: HashMap<Arc<str>, Arc<str>>,
     /// The byte ranges of the input text which are used as input for each column.
-    /// This is calculated at parsing time for use in [Self::active_column].
+    /// This is calculated at parsing time for use in [`Self::active_column`].
     /// This Vec is naturally sorted in ascending order and ranges do not overlap.
     column_ranges: Vec<(Range<usize>, Option<Arc<str>>)>,
 }
@@ -233,25 +233,25 @@ mod test {
         );
 
         // Escaping
-        query.parse(r#"hello\ world"#);
+        query.parse(r"hello\ world");
         assert_eq!(
             query,
             hashmap!(
-                "primary".into() => r#"hello\ world"#.into(),
+                "primary".into() => r"hello\ world".into(),
             )
         );
-        query.parse(r#"hello \%field1 world"#);
+        query.parse(r"hello \%field1 world");
         assert_eq!(
             query,
             hashmap!(
                 "primary".into() => "hello %field1 world".into(),
             )
         );
-        query.parse(r#"%field1 hello\ world"#);
+        query.parse(r"%field1 hello\ world");
         assert_eq!(
             query,
             hashmap!(
-                "field1".into() => r#"hello\ world"#.into(),
+                "field1".into() => r"hello\ world".into(),
             )
         );
         query.parse(r#"hello %field1 a\"b"#);
@@ -262,25 +262,25 @@ mod test {
                 "field1".into() => r#"a\"b"#.into(),
             )
         );
-        query.parse(r#"%field1 hello\ world"#);
+        query.parse(r"%field1 hello\ world");
         assert_eq!(
             query,
             hashmap!(
-                "field1".into() => r#"hello\ world"#.into(),
+                "field1".into() => r"hello\ world".into(),
             )
         );
-        query.parse(r#"\bfoo\b"#);
+        query.parse(r"\bfoo\b");
         assert_eq!(
             query,
             hashmap!(
-                "primary".into() => r#"\bfoo\b"#.into(),
+                "primary".into() => r"\bfoo\b".into(),
             )
         );
-        query.parse(r#"\\n"#);
+        query.parse(r"\\n");
         assert_eq!(
             query,
             hashmap!(
-                "primary".into() => r#"\\n"#.into(),
+                "primary".into() => r"\\n".into(),
             )
         );
 

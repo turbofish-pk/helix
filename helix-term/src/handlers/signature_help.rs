@@ -86,7 +86,7 @@ impl helix_event::AsyncHook for SignatureHelpHandler {
             }
         }
         if self.trigger.is_none() {
-            self.trigger = Some(SignatureHelpInvoked::Automatic)
+            self.trigger = Some(SignatureHelpInvoked::Automatic);
         }
         Some(Instant::now() + Duration::from_millis(TIMEOUT))
     }
@@ -95,7 +95,7 @@ impl helix_event::AsyncHook for SignatureHelpHandler {
         let invocation = self.trigger.take().unwrap();
         self.state = State::Pending;
         let handle = self.task_controller.restart();
-        job::dispatch_blocking(move |editor, _| request_signature_help(editor, invocation, handle))
+        job::dispatch_blocking(move |editor, _| request_signature_help(editor, invocation, handle));
     }
 }
 
@@ -316,7 +316,7 @@ fn signature_help_post_insert_char_hook(
         let cursor = doc.selection(view.id).primary().cursor(text);
         text = text.slice(..cursor);
         if triggers.iter().any(|trigger| text.ends_with(trigger)) {
-            send_blocking(tx, SignatureHelpEvent::Trigger)
+            send_blocking(tx, SignatureHelpEvent::Trigger);
         }
     }
 }

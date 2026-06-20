@@ -185,19 +185,19 @@ fn update_completion_filter(cx: &mut commands::Context, c: Option<char>) {
                 }
             } else {
                 let handle = cx.editor.handlers.completions.request_controller.restart();
-                request_incomplete_completion_list(cx.editor, handle)
+                request_incomplete_completion_list(cx.editor, handle);
             }
         }
-    }))
+    }));
 }
 
 fn clear_completions(cx: &mut commands::Context) {
     cx.callback.push(Box::new(|compositor, cx| {
         let editor_view = compositor.find::<ui::EditorView>().unwrap();
         editor_view.clear_completion(cx.editor);
-    }))
+    }));
 }
-
+#[allow(clippy::unnecessary_wraps)]
 fn completion_post_command_hook(
     PostCommand { command, cx }: &mut PostCommand<'_, '_>,
 ) -> anyhow::Result<()> {
@@ -256,14 +256,14 @@ pub(super) fn register_hooks(_handlers: &Handlers) {
                 .event(CompletionEvent::Cancel);
             clear_completions(event.cx);
         } else if event.new_mode == Mode::Insert {
-            trigger_auto_completion(event.cx.editor, false)
+            trigger_auto_completion(event.cx.editor, false);
         }
         Ok(())
     });
 
     register_hook!(move |event: &mut PostInsertChar<'_, '_>| {
         if event.cx.editor.last_completion.is_some() {
-            update_completion_filter(event.cx, Some(event.c))
+            update_completion_filter(event.cx, Some(event.c));
         } else {
             trigger_auto_completion(event.cx.editor, false);
         }

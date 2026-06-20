@@ -23,7 +23,7 @@ impl Hover {
 
     pub fn new(
         hovers: Vec<(String, lsp::Hover)>,
-        config_loader: Arc<ArcSwap<syntax::Loader>>,
+        config_loader: &Arc<ArcSwap<syntax::Loader>>,
     ) -> Self {
         let n_hovers = hovers.len();
         let contents = hovers
@@ -89,7 +89,7 @@ impl Component for Hover {
             let borders = BorderType::line_symbols(BorderType::Plain);
             for x in area.left()..area.right() {
                 if let Some(cell) = surface.get_mut(x, area.top() + HEADER_HEIGHT) {
-                    cell.set_symbol(borders.horizontal).set_style(sep_style);
+                    let _ = cell.set_symbol(borders.horizontal).set_style(sep_style);
                 }
             }
         }

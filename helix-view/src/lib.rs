@@ -1,3 +1,5 @@
+#![allow(clippy::missing_errors_doc)]
+#![allow(clippy::missing_panics_doc)]
 #[macro_use]
 pub mod macros;
 
@@ -49,7 +51,7 @@ impl std::fmt::Display for DocumentId {
 slotmap::new_key_type! {
     pub struct ViewId;
 }
-
+#[derive(Copy, Clone)]
 pub enum Align {
     Top,
     Center,
@@ -73,7 +75,7 @@ pub fn align_view(doc: &mut Document, view: &View, align: Align) {
     (view_offset.anchor, view_offset.vertical_offset) = char_idx_at_visual_offset(
         doc_text,
         cursor,
-        -(relative as isize),
+        -usize::from(relative).cast_signed(),
         0,
         &text_fmt,
         &view.text_annotations(doc, None),

@@ -93,7 +93,7 @@ impl menu::Item for CompletionItem {
                 Some(lsp::CompletionItemKind::OPERATOR) => "operator".into(),
                 Some(lsp::CompletionItemKind::TYPE_PARAMETER) => "type_param".into(),
                 Some(kind) => {
-                    log::error!("Received unknown completion item kind: {:?}", kind);
+                    log::error!("Received unknown completion item kind: {kind:?}");
                     "".into()
                 }
                 None => "".into(),
@@ -158,47 +158,49 @@ impl Completion {
 
             match event {
                 PromptEvent::Abort => {}
-                PromptEvent::Update if preview_completion_insert => {
-                    // Update creates "ghost" transactions which are not sent to the
-                    // lsp server to avoid messing up re-requesting completions. Once a
-                    // completion has been selected (with tab, c-n or c-p) it's always accepted whenever anything
-                    // is typed. The only way to avoid that is to explicitly abort the completion
-                    // with c-c. This will remove the "ghost" transaction.
-                    //
-                    // The ghost transaction is modeled with a transaction that is not sent to the LS.
-                    // (apply_temporary) and a savepoint. It's extremely important this savepoint is restored
-                    // (also without sending the transaction to the LS) *before any further transaction is applied*.
-                    // Otherwise incremental sync breaks (since the state of the LS doesn't match the state the transaction
-                    // is applied to).
-                    if matches!(editor.last_completion, Some(CompleteAction::Triggered)) {
-                        editor.last_completion = Some(CompleteAction::Selected {
-                            savepoint: doc.savepoint(view),
-                        })
-                    }
-                    let item = item.unwrap();
-                    let context = &editor.handlers.completions.active_completions[&item.provider()];
-                    // if more text was entered, remove it
-                    doc.restore(view, &context.savepoint, false);
-                    // always present here
+                PromptEvent::Update => {
+                    if preview_completion_insert {
+                        // Update creates "ghost" transactions which are not sent to the
+                        // lsp server to avoid messing up re-requesting completions. Once a
+                        // completion has been selected (with tab, c-n or c-p) it's always accepted whenever anything
+                        // is typed. The only way to avoid that is to explicitly abort the completion
+                        // with c-c. This will remove the "ghost" transaction.
+                        //
+                        // The ghost transaction is modeled with a transaction that is not sent to the LS.
+                        // (apply_temporary) and a savepoint. It's extremely important this savepoint is restored
+                        // (also without sending the transaction to the LS) *before any further transaction is applied*.
+                        // Otherwise incremental sync breaks (since the state of the LS doesn't match the state the transaction
+                        // is applied to).
+                        if matches!(editor.last_completion, Some(CompleteAction::Triggered)) {
+                            editor.last_completion = Some(CompleteAction::Selected {
+                                savepoint: doc.savepoint(view),
+                            });
+                        }
+                        let item = item.unwrap();
+                        let context =
+                            &editor.handlers.completions.active_completions[&item.provider()];
+                        // if more text was entered, remove it
+                        doc.restore(view, &context.savepoint, false);
+                        // always present here
 
-                    match item {
-                        CompletionItem::Lsp(item) => {
-                            let (transaction, _) = lsp_item_to_transaction(
-                                doc,
-                                view.id,
-                                &item.item,
-                                language_server!(item).offset_encoding(),
-                                trigger_offset,
-                                replace_mode,
-                            );
-                            doc.apply_temporary(&transaction, view.id)
-                        }
-                        CompletionItem::Other(core::CompletionItem { transaction, .. }) => {
-                            doc.apply_temporary(transaction, view.id)
-                        }
-                    };
+                        match item {
+                            CompletionItem::Lsp(item) => {
+                                let (transaction, _) = lsp_item_to_transaction(
+                                    doc,
+                                    view.id,
+                                    &item.item,
+                                    language_server!(item).offset_encoding(),
+                                    trigger_offset,
+                                    replace_mode,
+                                );
+                                doc.apply_temporary(&transaction, view.id)
+                            }
+                            CompletionItem::Other(core::CompletionItem { transaction, .. }) => {
+                                doc.apply_temporary(transaction, view.id)
+                            }
+                        };
+                    }
                 }
-                PromptEvent::Update => {}
                 PromptEvent::Validate => {
                     if let Some(CompleteAction::Selected { savepoint }) =
                         editor.last_completion.take()
@@ -222,11 +224,11 @@ impl Completion {
                             if !item.resolved
                                 && let Some(resolved_item) = Self::resolve_completion_item(
                                     language_server,
-                                    item.item.clone(),
+                                    &item.item.clone(),
                                 )
                             {
                                 item.item = resolved_item;
-                            };
+                            }
 
                             let encoding = language_server.offset_encoding();
                             let (transaction, snippet) = lsp_item_to_transaction(
@@ -280,7 +282,7 @@ impl Completion {
                     // so we want to retrigger immediately when accepting a completion.
                     trigger_auto_completion(editor, true);
                 }
-            };
+            }
 
             // In case the popup was deleted because of an intersection w/ the auto-complete menu.
             if event != PromptEvent::Update {
@@ -347,7 +349,7 @@ impl Completion {
                     }
                     None => false,
                 }
-            })
+            });
         } else {
             matches.clear();
             matches.extend(options.iter().enumerate().filter_map(|(i, option)| {
@@ -383,7 +385,7 @@ impl Completion {
     /// accepting a completion.
     fn resolve_completion_item(
         language_server: &helix_lsp::Client,
-        completion_item: lsp::CompletionItem,
+        completion_item: &lsp::CompletionItem,
     ) -> Option<lsp::CompletionItem> {
         if !matches!(
             language_server.capabilities().completion_provider,
@@ -394,12 +396,12 @@ impl Completion {
         ) {
             return None;
         }
-        let future = language_server.resolve_completion_item(&completion_item);
+        let future = language_server.resolve_completion_item(completion_item);
         let response = helix_lsp::block_on(future);
         match response {
             Ok(item) => Some(item),
             Err(err) => {
-                log::error!("Failed to resolve completion item: {}", err);
+                log::error!("Failed to resolve completion item: {err}");
                 None
             }
         }
@@ -410,14 +412,13 @@ impl Completion {
     pub fn update_filter(&mut self, c: Option<char>) {
         // recompute menu based on matches
         let menu = self.popup.contents_mut();
-        match c {
-            Some(c) => self.filter.push(c),
-            None => {
-                self.filter.pop();
-                if self.filter.is_empty() {
-                    menu.clear();
-                    return;
-                }
+        if let Some(c) = c {
+            self.filter.push(c);
+        } else {
+            self.filter.pop();
+            if self.filter.is_empty() {
+                menu.clear();
+                return;
             }
         }
         self.score(c.is_some());
@@ -432,7 +433,7 @@ impl Completion {
         let menu = self.popup.contents_mut();
         let (_, options) = menu.update_options();
         if is_incomplete {
-            options.retain(|item| item.provider() != response.provider)
+            options.retain(|item| item.provider() != response.provider);
         }
         response.take_items(options);
         self.score(false);
@@ -471,9 +472,8 @@ impl Component for Completion {
         self.popup.render(area, surface, cx);
 
         // if we have a selection, render a markdown popup on top/below with info
-        let option = match self.popup.contents_mut().selection_mut() {
-            Some(option) => option,
-            None => return,
+        let Some(option) = self.popup.contents_mut().selection_mut() else {
+            return;
         };
         if let CompletionItem::Lsp(option) = option {
             self.resolve_handler.ensure_item_resolved(cx.editor, option);
@@ -633,7 +633,7 @@ fn lsp_item_to_transaction(
         )
     {
         let Ok(snippet) = Snippet::parse(&new_text) else {
-            log::error!("Failed to parse snippet: {new_text:?}",);
+            log::error!("Failed to parse snippet: {new_text:?}");
             return (Transaction::new(doc.text()), None);
         };
         let (transaction, snippet) = util::generate_transaction_from_snippet(
@@ -641,7 +641,7 @@ fn lsp_item_to_transaction(
             selection,
             edit_offset,
             replace_mode,
-            snippet,
+            &snippet,
             &mut doc.snippet_ctx(),
         );
         (transaction, Some(snippet))

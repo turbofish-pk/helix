@@ -109,7 +109,7 @@ impl Editor {
                     path.to_string_lossy(),
                     err
                 );
-                log::error!("{}", err);
+                log::error!("{err}");
                 self.set_error(err);
                 return Err(ApplyEditErrorKind::FileNotFound);
             }
@@ -170,7 +170,7 @@ impl Editor {
                     }
                 }
                 lsp::DocumentChanges::Operations(operations) => {
-                    log::debug!("document changes - operations: {:?}", operations);
+                    log::debug!("document changes - operations: {operations:?}");
                     for (i, operation) in operations.iter().enumerate() {
                         match operation {
                             lsp::DocumentChangeOperation::Op(op) => {
@@ -216,9 +216,9 @@ impl Editor {
         }
 
         if let Some(ref changes) = workspace_edit.changes {
-            log::debug!("workspace changes: {:?}", changes);
+            log::debug!("workspace changes: {changes:?}");
             for (i, (uri, text_edits)) in changes.iter().enumerate() {
-                let text_edits = text_edits.to_vec();
+                let text_edits = text_edits.clone();
                 self.apply_text_edits(uri, None, text_edits, offset_encoding)
                     .map_err(|kind| ApplyEditError {
                         kind,
@@ -321,7 +321,7 @@ impl Editor {
                     })
                     .map(|(d, _)| d);
                 if new_diagnostics.eq(old_diagnostics) {
-                    unchanged_diag_sources.push(source.clone())
+                    unchanged_diag_sources.push(source.clone());
                 }
             }
         }

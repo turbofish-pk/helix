@@ -80,19 +80,19 @@ impl EditorConfig {
             for section in config.sections {
                 if section.glob.is_match(relative_path) {
                     log::info!(
-                        "applying EditorConfig from section '{}' in file {:?}",
+                        "applying EditorConfig from section '{}' in file {}",
                         section.glob.glob(),
-                        dir.join(".editorconfig")
+                        dir.join(".editorconfig").display()
                     );
                     pairs.extend(section.pairs);
                 }
             }
         }
 
-        Self::from_pairs(pairs)
+        Self::from_pairs(&pairs)
     }
 
-    fn from_pairs(pairs: Pairs) -> Self {
+    fn from_pairs(pairs: &Pairs) -> Self {
         enum IndentSize {
             Tab,
             Spaces(NonZeroU8),
@@ -122,7 +122,7 @@ impl EditorConfig {
                 "space" => {
                     let spaces = match indent_size {
                         Some(IndentSize::Spaces(spaces)) => spaces.get(),
-                        Some(IndentSize::Tab) => tab_width.map(|n| n.get()).unwrap_or(4),
+                        Some(IndentSize::Tab) => tab_width.map_or(4, std::num::NonZero::get),
                         None => 4,
                     };
                     Some(IndentStyle::Spaces(spaces.clamp(1, MAX_INDENT)))
@@ -295,7 +295,7 @@ mod test {
                 acc.extend(section.pairs);
                 acc
             });
-        EditorConfig::from_pairs(pairs)
+        EditorConfig::from_pairs(&pairs)
     }
 
     #[test]

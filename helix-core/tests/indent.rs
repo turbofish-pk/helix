@@ -36,11 +36,7 @@ fn test_treesitter_indent_rust_helix() {
         }
         #[allow(clippy::single_range_in_vec_init)]
         let ignored_lines: Vec<Range<usize>> = match file {
-            "helix-term/src/application.rs" => vec![
-                // We can't handle complicated indent rules inside macros (`json!` in this case) since
-                // the tree-sitter grammar only parses them as `token_tree` and `identifier` nodes.
-                1045..1051,
-            ],
+            "helix-term/src/application.rs" => vec![1045..1051],
             "helix-term/src/commands.rs" => vec![
                 // This is broken because of the current handling of `call_expression`
                 // (i.e. having an indent query for it but outdenting again in specific cases).
@@ -103,7 +99,7 @@ fn test_treesitter_indent_rust_helix() {
             .output()
             .unwrap();
         let doc = Rope::from_reader(&mut content.stdout.as_slice()).unwrap();
-        test_treesitter_indent(file, doc, "source.rust", ignored_lines);
+        test_treesitter_indent(file, &doc, "source.rust", &ignored_lines);
     }
 }
 
@@ -157,9 +153,9 @@ fn indent_tests_config() -> Configuration {
 /// `ignored_lines` is a list of (1-indexed) line ranges that are excluded from this test.
 fn test_treesitter_indent(
     test_name: &str,
-    doc: Rope,
+    doc: &Rope,
     lang_scope: &str,
-    ignored_lines: Vec<std::ops::Range<usize>>,
+    ignored_lines: &[std::ops::Range<usize>],
 ) {
     let loader = Loader::new(indent_tests_config()).unwrap();
 
@@ -194,7 +190,7 @@ fn test_treesitter_indent(
                 false,
             )
             .unwrap()
-            .to_string(&indent_style, tab_width);
+            .to_string(indent_style, tab_width);
             assert!(
                 line.get_slice(..pos).is_some_and(|s| s == suggested_indent),
                 "Wrong indentation for file {:?} on line {}:\n\"{}\" (original line)\n\"{}\" (suggested indentation)\n",

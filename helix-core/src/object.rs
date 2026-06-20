@@ -1,3 +1,4 @@
+#![allow(clippy::redundant_closure_for_method_calls)]
 use crate::{Range, RopeSlice, Selection, Syntax, movement::Direction, syntax::TreeCursor};
 
 #[must_use]

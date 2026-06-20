@@ -8,7 +8,7 @@
 //! However this process can allocate a (potentially quite large) vector.
 //!
 //! To avoid reallocation for every diff, the vector is reused.
-//! However the RopeSlice references the original rope and therefore forms a self-referential data structure.
+//! However the `RopeSlice` references the original rope and therefore forms a self-referential data structure.
 //! A transmute is used to change the lifetime of the slice to static to circumvent that project.
 use std::mem::transmute;
 
@@ -56,7 +56,7 @@ impl InternedRopeLines {
         self.interned.clear();
         *self.diff_base = diff_base;
         if let Some(doc) = doc {
-            *self.doc = doc
+            *self.doc = doc;
         }
         if !self.is_too_large() {
             self.update_diff_base_impl();
@@ -96,7 +96,7 @@ impl InternedRopeLines {
         self.interned.update_before(before);
         self.num_tokens_diff_base = self.interned.interner.num_tokens();
         // the has to be interned again because the interner was fully cleared
-        self.update_doc_impl()
+        self.update_doc_impl();
     }
 
     fn update_doc_impl(&mut self) {

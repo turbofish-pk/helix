@@ -1,5 +1,5 @@
-use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Duration;
 
 use parking_lot::Mutex;
@@ -87,5 +87,5 @@ fn dynamic() {
     dispatch(Event3 {});
     dispatch(Event4 { count: 0 });
     dispatch(Event3 {});
-    assert_eq!(count.load(Ordering::Relaxed), 7)
+    assert_eq!(count.load(Ordering::Relaxed), 7);
 }

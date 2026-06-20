@@ -1,21 +1,20 @@
 use crate::{
-    jsonrpc,
+    Error, LanguageServerId, Result, jsonrpc,
     lsp::{self, notification::Notification as _},
-    Error, LanguageServerId, Result,
 };
 use anyhow::Context;
 use log::{error, info};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::HashMap;
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use tokio::{
     io::{AsyncBufRead, AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader, BufWriter},
     process::{ChildStderr, ChildStdin, ChildStdout},
     sync::{
-        mpsc::{unbounded_channel, Sender, UnboundedReceiver, UnboundedSender},
         Mutex, Notify,
+        mpsc::{Sender, UnboundedReceiver, UnboundedSender, unbounded_channel},
     },
 };
 
@@ -49,6 +48,36 @@ pub struct Transport {
     inject_tx: UnboundedSender<Payload>,
     /// Notified once the `exit` notification has been flushed to the server's stdin
     shutdown_flushed: Arc<Notify>,
+}
+
+// Determine if a message is allowed to be sent early
+fn is_initialize(payload: &Payload) -> bool {
+    use lsp::{
+        notification::Initialized,
+        request::{Initialize, Request},
+    };
+    match payload {
+        Payload::Request {
+            value: jsonrpc::MethodCall { method, .. },
+            ..
+        } if method == Initialize::METHOD => true,
+        Payload::Notification(jsonrpc::Notification { method, .. })
+            if method == Initialized::METHOD =>
+        {
+            true
+        }
+        _ => false,
+    }
+}
+
+fn is_shutdown(payload: &Payload) -> bool {
+    use lsp::request::{Request, Shutdown};
+    matches!(payload, Payload::Request { value: jsonrpc::MethodCall { method, .. }, .. } if method == Shutdown::METHOD)
+}
+
+fn is_exit(payload: &Payload) -> bool {
+    use lsp::notification::{Exit, Notification};
+    matches!(payload, Payload::Notification(jsonrpc::Notification { method, .. }) if method == Exit::METHOD)
 }
 
 impl Transport {
@@ -124,18 +153,8 @@ impl Transport {
 
             let parts = header.split_once(": ");
 
-            match parts {
-                Some(("Content-Length", value)) => {
-                    content_length = Some(value.parse().context("invalid content length")?);
-                }
-                Some((_, _)) => {}
-                None => {
-                    // Workaround: Some non-conformant language servers will output logging and other garbage
-                    // into the same stream as JSON-RPC messages. This can also happen from shell scripts that spawn
-                    // the server. Skip such lines and log a warning.
-
-                    // warn!("Failed to parse header: {:?}", header);
-                }
+            if let Some(("Content-Length", value)) = parts {
+                content_length = Some(value.parse().context("invalid content length")?);
             }
         }
 
@@ -164,7 +183,7 @@ impl Transport {
         buffer.truncate(0);
         if err.read_line(buffer).await? == 0 {
             return Err(Error::StreamClosed);
-        };
+        }
         error!("{language_server_name} err <- {buffer:?}");
 
         Ok(())
@@ -221,7 +240,7 @@ impl Transport {
         match msg {
             ServerMessage::Output(output) => {
                 self.process_request_response(output, language_server_name)
-                    .await?
+                    .await?;
             }
             ServerMessage::Call(jsonrpc::Call::MethodCall(ref method_call))
                 if self.shutdown_requested.load(Ordering::Acquire) =>
@@ -248,7 +267,7 @@ impl Transport {
                     .send((self.id, call))
                     .context("failed to send a message to server")?;
             }
-        };
+        }
         Ok(())
     }
 
@@ -267,17 +286,14 @@ impl Transport {
 
         if let Some(tx) = self.pending_requests.lock().await.remove(&id) {
             match tx.send(result).await {
-                Ok(_) => (),
+                Ok(()) => (),
                 Err(_) => log::debug!(
-                    "Tried sending response into a closed channel (id={:?}), likely a fire-and-forget shutdown",
-                    id
+                    "Tried sending response into a closed channel (id={id:?}), likely a fire-and-forget shutdown"
                 ),
-            };
+            }
         } else {
             log::error!(
-                "Discarding Language Server response without a request (id={:?}) {:?}",
-                id,
-                result
+                "Discarding Language Server response without a request (id={id:?}) {result:?}"
             );
         }
 
@@ -305,27 +321,26 @@ impl Transport {
                         .process_server_message(&client_tx, msg, &transport.name)
                         .await
                     {
-                        Ok(_) => {}
+                        Ok(()) => {}
                         Err(err) => {
-                            error!("{} err: <- {err:?}", transport.name);
+                            let name = &transport.name;
+                            error!("{name} err: <- {err:?}");
                             break;
                         }
-                    };
+                    }
                 }
                 Err(err) => {
                     if !matches!(err, Error::StreamClosed) {
-                        error!(
-                            "Exiting {} after unexpected error: {err:?}",
-                            &transport.name
-                        );
+                        let name = &transport.name;
+                        error!("Exiting {name} after unexpected error: {err:?}");
                     }
 
                     // Close any outstanding requests.
                     for (id, tx) in transport.pending_requests.lock().await.drain() {
                         match tx.send(Err(Error::StreamClosed)).await {
-                            Ok(_) => (),
+                            Ok(()) => (),
                             Err(_) => {
-                                error!("Could not close request on a closed channel (id={:?})", id)
+                                error!("Could not close request on a closed channel (id={id:?});");
                             }
                         }
                     }
@@ -341,9 +356,9 @@ impl Transport {
                         .process_server_message(&client_tx, notification, &transport.name)
                         .await
                     {
-                        Ok(_) => {}
+                        Ok(()) => {}
                         Err(err) => {
-                            error!("err: <- {:?}", err);
+                            error!("err: <- {err:?}");
                         }
                     }
                     break;
@@ -358,9 +373,10 @@ impl Transport {
             match Self::recv_server_error(&mut server_stderr, &mut recv_buffer, &transport.name)
                 .await
             {
-                Ok(_) => {}
+                Ok(()) => {}
                 Err(err) => {
-                    error!("{} err: <- {err:?}", transport.name);
+                    let name = &transport.name;
+                    error!("{name} err: <- {err:?}");
                     break;
                 }
             }
@@ -383,42 +399,12 @@ impl Transport {
         let notified = initialize_notify.notified();
         tokio::pin!(notified);
 
-        // Determine if a message is allowed to be sent early
-        fn is_initialize(payload: &Payload) -> bool {
-            use lsp::{
-                notification::Initialized,
-                request::{Initialize, Request},
-            };
-            match payload {
-                Payload::Request {
-                    value: jsonrpc::MethodCall { method, .. },
-                    ..
-                } if method == Initialize::METHOD => true,
-                Payload::Notification(jsonrpc::Notification { method, .. })
-                    if method == Initialized::METHOD =>
-                {
-                    true
-                }
-                _ => false,
-            }
-        }
-
-        fn is_shutdown(payload: &Payload) -> bool {
-            use lsp::request::{Request, Shutdown};
-            matches!(payload, Payload::Request { value: jsonrpc::MethodCall { method, .. }, .. } if method == Shutdown::METHOD)
-        }
-
-        fn is_exit(payload: &Payload) -> bool {
-            use lsp::notification::{Exit, Notification};
-            matches!(payload, Payload::Notification(jsonrpc::Notification { method, .. }) if method == Exit::METHOD)
-        }
-
         // TODO: events that use capabilities need to do the right thing
 
         loop {
             tokio::select! {
                 biased;
-                _ = &mut notified, if is_pending => {
+                () = &mut notified, if is_pending => {
                     // server successfully initialized
                     is_pending = false;
 
@@ -431,7 +417,7 @@ impl Transport {
                     }));
                     let language_server_name = &transport.name;
                     match transport.process_server_message(&client_tx, notification, language_server_name).await {
-                        Ok(_) => {}
+                        Ok(()) => {}
                         Err(err) => {
                             error!("{language_server_name} err: <- {err:?}");
                         }
@@ -439,9 +425,9 @@ impl Transport {
 
                     // drain the pending queue and send payloads to server
                     for msg in pending_messages.drain(..) {
-                        log::info!("Draining pending message {:?}", msg);
+                        log::info!("Draining pending message {msg:?}");
                         match transport.send_payload_to_server(&mut server_stdin, msg).await {
-                            Ok(_) => {}
+                            Ok(()) => {}
                             Err(err) => {
                                 error!("{language_server_name} err: <- {err:?}");
                             }
@@ -473,7 +459,7 @@ impl Transport {
                                     .store(true, Ordering::Release);
                             }
                             match transport.send_payload_to_server(&mut server_stdin, msg).await {
-                                Ok(_) => {
+                                Ok(()) => {
                                     // `exit` is the last thing a shutting-down client sends;
                                     // signal that it has reached the server's stdin.
                                     if is_exit_msg {
@@ -481,7 +467,8 @@ impl Transport {
                                     }
                                 }
                                 Err(err) => {
-                                    error!("{} err: <- {err:?}", transport.name);
+                                    let name = &transport.name;
+                                    error!("{name} err: <- {err:?}");
                                 }
                             }
                         }
@@ -493,9 +480,10 @@ impl Transport {
                 msg = inject_rx.recv() => {
                     if let Some(msg) = msg {
                         match transport.send_payload_to_server(&mut server_stdin, msg).await {
-                            Ok(_) => {}
+                            Ok(()) => {}
                             Err(err) => {
-                                error!("{} inject err: <- {err:?}", transport.name);
+                                let name = &transport.name;
+                                error!("{name} inject err: <- {err:?}");
                             }
                         }
                     }

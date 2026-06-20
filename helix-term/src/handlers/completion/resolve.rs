@@ -82,7 +82,7 @@ impl ResolveHandler {
         ) {
             let item = Arc::new(item.clone());
             self.last_request = Some(item.clone());
-            send_blocking(&self.resolver, ResolveRequest { item, ls })
+            send_blocking(&self.resolver, ResolveRequest { item, ls });
         } else {
             item.resolved = true;
         }
@@ -166,8 +166,8 @@ impl ResolveRequest {
                     }
                 });
                 completion.replace_item(&*self.item, resolved_item);
-            };
+            }
         })
-        .await
+        .await;
     }
 }

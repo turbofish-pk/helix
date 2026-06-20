@@ -70,6 +70,7 @@ pub struct KeyEvent {
 
 impl KeyEvent {
     /// If a character was pressed, return it.
+    #[must_use]
     pub fn char(&self) -> Option<char> {
         match self.code {
             KeyCode::Char(ch) => Some(ch),
@@ -93,10 +94,11 @@ impl KeyEvent {
     /// let k = KeyEvent::from_str(" ").unwrap().key_sequence_format();
     /// assert_eq!(k, "<space>");
     /// ```
+    #[must_use]
     pub fn key_sequence_format(&self) -> String {
         let s = self.to_string();
         if s.graphemes(true).count() > 1 {
-            format!("<{}>", s)
+            format!("<{s}>")
         } else {
             s
         }
@@ -204,8 +206,8 @@ impl fmt::Display for KeyEvent {
             KeyCode::Char('-') => f.write_str(keys::MINUS)?,
             KeyCode::Char('<') => f.write_str(keys::LESS_THAN)?,
             KeyCode::Char('>') => f.write_str(keys::GREATER_THAN)?,
-            KeyCode::F(i) => f.write_fmt(format_args!("F{}", i))?,
-            KeyCode::Char(c) => f.write_fmt(format_args!("{}", c))?,
+            KeyCode::F(i) => f.write_fmt(format_args!("F{i}"))?,
+            KeyCode::Char(c) => f.write_fmt(format_args!("{c}"))?,
             KeyCode::CapsLock => f.write_str(keys::CAPS_LOCK)?,
             KeyCode::ScrollLock => f.write_str(keys::SCROLL_LOCK)?,
             KeyCode::NumLock => f.write_str(keys::NUM_LOCK)?,
@@ -239,12 +241,12 @@ impl fmt::Display for KeyEvent {
             KeyCode::Modifier(ModifierKeyCode::RightHyper) => f.write_str(keys::RIGHT_HYPER)?,
             KeyCode::Modifier(ModifierKeyCode::RightMeta) => f.write_str(keys::RIGHT_META)?,
             KeyCode::Modifier(ModifierKeyCode::IsoLevel3Shift) => {
-                f.write_str(keys::ISO_LEVEL_3_SHIFT)?
+                f.write_str(keys::ISO_LEVEL_3_SHIFT)?;
             }
             KeyCode::Modifier(ModifierKeyCode::IsoLevel5Shift) => {
-                f.write_str(keys::ISO_LEVEL_5_SHIFT)?
+                f.write_str(keys::ISO_LEVEL_5_SHIFT)?;
             }
-        };
+        }
         Ok(())
     }
 }
@@ -394,7 +396,7 @@ impl std::str::FromStr for KeyEvent {
                 let function = str::parse::<u8>(&function)?;
                 (function > 0 && function < 25)
                     .then_some(KeyCode::F(function))
-                    .ok_or_else(|| anyhow!("Invalid function key '{}'", function))?
+                    .ok_or_else(|| anyhow!("Invalid function key '{function}'"))?
             }
             // Checking that the last token is empty ensures that this branch is only taken if
             // `-` is used as a code. For example this branch will not be taken for `S-` (which is
@@ -408,11 +410,10 @@ impl std::str::FromStr for KeyEvent {
                 }
                 let suggestion = format!("{}-{}", s.trim_end_matches('-'), keys::MINUS);
                 return Err(anyhow!(
-                    "Key '-' cannot be used with modifiers, use '{}' instead",
-                    suggestion
+                    "Key '-' cannot be used with modifiers, use '{suggestion}' instead"
                 ));
             }
-            invalid => return Err(anyhow!("Invalid key code '{}'", invalid)),
+            invalid => return Err(anyhow!("Invalid key code '{invalid}'")),
         };
 
         let mut modifiers = KeyModifiers::empty();
@@ -422,11 +423,11 @@ impl std::str::FromStr for KeyEvent {
                 "A" => KeyModifiers::ALT,
                 "C" => KeyModifiers::CONTROL,
                 "Meta" | "Cmd" | "Win" => KeyModifiers::SUPER,
-                _ => return Err(anyhow!("Invalid key modifier '{}-'", token)),
+                _ => return Err(anyhow!("Invalid key modifier '{token}-'")),
             };
 
             if modifiers.contains(flag) {
-                return Err(anyhow!("Repeated key modifier '{}-'", token));
+                return Err(anyhow!("Repeated key modifier '{token}-'"));
             }
             modifiers.insert(flag);
         }

@@ -5,7 +5,7 @@ pub mod workspace_trust;
 
 use helix_stdx::{env::current_working_dir, path};
 
-use etcetera::base_strategy::{choose_base_strategy, BaseStrategy};
+use etcetera::base_strategy::{BaseStrategy, choose_base_strategy};
 use std::path::{Path, PathBuf};
 
 pub const VERSION_AND_GIT_HASH: &str = env!("VERSION_AND_GIT_HASH");
@@ -96,11 +96,7 @@ pub fn runtime_dirs() -> &'static [PathBuf] {
 fn find_runtime_file(rel_path: &Path) -> Option<PathBuf> {
     RUNTIME_DIRS.iter().find_map(|rt_dir| {
         let path = rt_dir.join(rel_path);
-        if path.exists() {
-            Some(path)
-        } else {
-            None
-        }
+        if path.exists() { Some(path) } else { None }
     })
 }
 
@@ -207,7 +203,7 @@ pub fn merge_toml_values(left: toml::Value, right: toml::Value, merge_depth: usi
     }
 
     match (left, right) {
-        (Value::Array( mut left_items), Value::Array(right_items)) => {
+        (Value::Array(mut left_items), Value::Array(right_items)) => {
             if merge_depth > 0 {
                 left_items.reserve(right_items.len());
                 for rvalue in right_items {
@@ -227,7 +223,7 @@ pub fn merge_toml_values(left: toml::Value, right: toml::Value, merge_depth: usi
                 Value::Array(right_items)
             }
         }
-        (Value::Table( mut left_map), Value::Table(right_map)) => {
+        (Value::Table(mut left_map), Value::Table(right_map)) => {
             if merge_depth > 0 {
                 for (rname, rvalue) in right_map {
                     match left_map.remove(&rname) {
@@ -283,7 +279,9 @@ fn default_config_file() -> PathBuf {
 }
 
 fn ensure_parent_dir(path: &Path) {
-    if let Some(parent) = path.parent() && !parent.exists() {
+    if let Some(parent) = path.parent()
+        && !parent.exists()
+    {
         std::fs::create_dir_all(parent).ok();
     }
 }
@@ -357,6 +355,6 @@ mod merge_toml_tests {
                 .as_array()
                 .unwrap(),
             &vec![Value::String("lsp".into())]
-        )
+        );
     }
 }

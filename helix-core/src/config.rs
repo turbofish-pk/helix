@@ -51,7 +51,7 @@ pub fn user_lang_loader(trust: &WorkspaceTrust) -> Result<Loader, LanguageLoader
         .map_err(LanguageLoaderError::DeserializeError)?;
     let config = config_val.clone().try_into().map_err(|e| {
         if let Some(languages) = config_val.get("language").and_then(|v| v.as_array()) {
-            for lang in languages.iter() {
+            for lang in languages {
                 let res: Result<LanguageConfiguration, _> = lang.clone().try_into();
                 if let Err(inner_err) = res {
                     let context = match lang.get("name") {

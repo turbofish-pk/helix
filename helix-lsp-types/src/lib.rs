@@ -2808,7 +2808,7 @@ mod tests {
 
     #[test]
     fn one_of() {
-        test_serialization(&OneOf::<bool, ()>::Left(true), r#"true"#);
+        test_serialization(&OneOf::<bool, ()>::Left(true), "true");
         test_serialization(&OneOf::<String, ()>::Left("abcd".into()), r#""abcd""#);
         test_serialization(
             &OneOf::<String, WorkDoneProgressOptions>::Right(WorkDoneProgressOptions {
@@ -2820,7 +2820,7 @@ mod tests {
 
     #[test]
     fn number_or_string() {
-        test_serialization(&NumberOrString::Number(123), r#"123"#);
+        test_serialization(&NumberOrString::Number(123), r"123");
 
         test_serialization(&NumberOrString::String("abcd".into()), r#""abcd""#);
     }
@@ -2863,7 +2863,7 @@ mod tests {
                 document_changes: None,
                 ..Default::default()
             },
-            r#"{}"#,
+            r"{}",
         );
 
         test_serialization(

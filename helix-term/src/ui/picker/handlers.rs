@@ -1,6 +1,7 @@
 use std::{
+    marker::PhantomData,
     path::Path,
-    sync::{atomic, Arc},
+    sync::{Arc, atomic},
     time::Duration,
 };
 
@@ -20,7 +21,7 @@ impl<T: 'static + Send + Sync, D: 'static + Send + Sync> Default for PreviewHigh
     fn default() -> Self {
         Self {
             trigger: None,
-            phantom_data: Default::default(),
+            phantom_data: PhantomData,
         }
     }
 }
@@ -61,8 +62,7 @@ impl<T: 'static + Send + Sync, D: 'static + Send + Sync> AsyncHook
                 return;
             };
 
-            let Some(CachedPreview::Document(doc)) = picker.preview_cache.get_mut(&path)
-            else {
+            let Some(CachedPreview::Document(doc)) = picker.preview_cache.get_mut(&path) else {
                 return;
             };
 
@@ -70,7 +70,10 @@ impl<T: 'static + Send + Sync, D: 'static + Send + Sync> AsyncHook
                 return;
             }
 
-            let Some(language) = doc.language_config().map(|config| config.language()) else {
+            let Some(language) = doc
+                .language_config()
+                .map(helix_core::syntax::config::LanguageConfiguration::language)
+            else {
                 return;
             };
 
@@ -94,8 +97,7 @@ impl<T: 'static + Send + Sync, D: 'static + Send + Sync> AsyncHook
                         log::info!("picker closed before syntax highlighting finished");
                         return;
                     };
-                    let Some(CachedPreview::Document(doc)) =
-                        picker.preview_cache.get_mut(&path)
+                    let Some(CachedPreview::Document(doc)) = picker.preview_cache.get_mut(&path)
                     else {
                         return;
                     };
@@ -185,6 +187,6 @@ impl<T: 'static + Send + Sync, D: 'static + Send + Sync> AsyncHook for DynamicQu
                 // NOTE: the Drop implementation of Injector will request a redraw when the
                 // injector falls out of scope here, clearing the "running" indicator.
             });
-        })
+        });
     }
 }

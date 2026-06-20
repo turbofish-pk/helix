@@ -1,5 +1,6 @@
+#![allow(clippy::missing_errors_doc)]
 use crate::keymap;
-use crate::keymap::{merge_keys, KeyTrie};
+use crate::keymap::{KeyTrie, merge_keys};
 use helix_loader::merge_toml_values;
 use helix_view::{document::Mode, theme};
 use serde::Deserialize;
@@ -68,10 +69,10 @@ impl Config {
             (Ok(global), Ok(local)) => {
                 let mut keys = keymap::default();
                 if let Some(global_keys) = global.keys {
-                    merge_keys(&mut keys, global_keys)
+                    merge_keys(&mut keys, global_keys);
                 }
                 if let Some(local_keys) = local.keys {
-                    merge_keys(&mut keys, local_keys)
+                    merge_keys(&mut keys, local_keys);
                 }
 
                 let editor = match (global.editor, local.editor) {
@@ -93,7 +94,7 @@ impl Config {
             // if any configs are invalid return that first
             (_, Err(ConfigLoadError::BadConfig(err)))
             | (Err(ConfigLoadError::BadConfig(err)), _) => {
-                return Err(ConfigLoadError::BadConfig(err))
+                return Err(ConfigLoadError::BadConfig(err));
             }
             (Ok(config), Err(_)) | (Err(_), Ok(config)) => {
                 let mut keys = keymap::default();

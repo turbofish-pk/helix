@@ -8,9 +8,9 @@ use std::{
 
 use helix_core::{self as core, Selection, Transaction, completion::CompletionProvider};
 use helix_event::TaskHandle;
-use helix_stdx::path::{self, canonicalize, fold_home_dir, get_path_suffix};
 use helix_stdx::Url;
-use helix_view::{document::SavePoint, handlers::completion::ResponseContext, Document};
+use helix_stdx::path::{self, canonicalize, fold_home_dir, get_path_suffix};
+use helix_view::{Document, document::SavePoint, handlers::completion::ResponseContext};
 
 use crate::handlers::completion::{CompletionItem, CompletionItems, item::CompletionResponse};
 
@@ -20,6 +20,7 @@ pub(crate) fn path_completion(
     handle: TaskHandle,
     savepoint: Arc<SavePoint>,
 ) -> Option<impl FnOnce() -> CompletionResponse + use<>> {
+    const PRIORITY: i8 = 1;
     if !doc.path_completion_enabled() {
         return None;
     }
@@ -69,7 +70,6 @@ pub(crate) fn path_completion(
     }
 
     // TODO: handle properly in the future
-    const PRIORITY: i8 = 1;
     let future = move || {
         let Ok(read_dir) = std::fs::read_dir(&dir_path) else {
             return CompletionResponse {
@@ -134,10 +134,10 @@ pub(crate) fn path_completion(
 
 #[cfg(unix)]
 fn path_documentation(md: &fs::Metadata, full_path: &Path, kind: &str) -> String {
+    use std::os::unix::prelude::PermissionsExt;
     let full_path = fold_home_dir(canonicalize(full_path));
     let full_path_name = full_path.to_string_lossy();
 
-    use std::os::unix::prelude::PermissionsExt;
     let mode = md.permissions().mode();
 
     let perms = [

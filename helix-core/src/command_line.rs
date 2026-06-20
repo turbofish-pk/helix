@@ -135,11 +135,11 @@ pub struct Signature {
     ///
     /// See the `Flag` struct for more info.
     pub flags: &'static [Flag],
-    /// Do not set this field. Use `..Signature::DEFAULT` to construct a `Signature` instead.
-    // This field allows adding new fields later with minimal code changes. This works like a
-    // `#[non_exhaustive]` annotation except that it supports the `..Signature::DEFAULT`
-    // shorthand.
-    pub _dummy: (),
+    // /// Do not set this field. Use `..Signature::DEFAULT` to construct a `Signature` instead.
+    // // This field allows adding new fields later with minimal code changes. This works like a
+    // // `#[non_exhaustive]` annotation except that it supports the `..Signature::DEFAULT`
+    // // shorthand.
+    // _dummy: (),
 }
 
 impl Signature {
@@ -149,7 +149,7 @@ impl Signature {
         positionals: (0, None),
         raw_after: None,
         flags: &[],
-        _dummy: (),
+        // _dummy: (),
     };
 
     fn check_positional_count(&self, actual: usize) -> Result<(), ParseArgsError<'static>> {
@@ -512,7 +512,7 @@ impl<'a> Tokenizer<'a> {
             let idx = self.pos + offset;
             if self.input.as_bytes().get(idx + 1) == Some(&quote) {
                 // Treat two quotes in a row as an escape.
-                escaped.push_str(&self.input[self.pos..idx + 1]);
+                escaped.push_str(&self.input[self.pos..=idx]);
                 // Advance past the escaped quote.
                 self.pos = idx + 2;
             } else {
@@ -551,7 +551,7 @@ impl<'a> Tokenizer<'a> {
         let kind_start = self.pos;
         self.pos += self.input[self.pos..]
             .bytes()
-            .take_while(|b| b.is_ascii_lowercase())
+            .take_while(u8::is_ascii_lowercase)
             .count();
         let kind = &self.input[kind_start..self.pos];
 
@@ -763,8 +763,8 @@ impl Default for Args<'_> {
             validate: Default::default(),
             only_positionals: Default::default(),
             state: CompletionState::default(),
-            positionals: Default::default(),
-            flags: Default::default(),
+            positionals: Vec::default(),
+            flags: HashMap::default(),
         }
     }
 }
@@ -891,7 +891,7 @@ impl<'a> Args<'a> {
     fn finish(&self) -> Result<(), ParseArgsError<'a>> {
         if !self.validate {
             return Ok(());
-        };
+        }
 
         if let Some(flag) = self.flag_awaiting_argument() {
             return Err(ParseArgsError::FlagMissingArgument { flag: flag.name });
@@ -1036,7 +1036,7 @@ mod test {
         let actual: Vec<_> = Tokenizer::new(input, true)
             .map(|arg| arg.unwrap().content)
             .collect();
-        let actual: Vec<_> = actual.iter().map(|c| c.as_ref()).collect();
+        let actual: Vec<_> = actual.iter().map(std::convert::AsRef::as_ref).collect();
 
         assert_eq!(actual.as_slice(), expected);
     }
@@ -1053,7 +1053,7 @@ mod test {
         let actual: Vec<_> = Tokenizer::new(input, false)
             .map(|arg| arg.unwrap().content)
             .collect();
-        let actual: Vec<_> = actual.iter().map(|c| c.as_ref()).collect();
+        let actual: Vec<_> = actual.iter().map(std::convert::AsRef::as_ref).collect();
 
         assert_eq!(actual.as_slice(), expected);
     }
@@ -1131,10 +1131,7 @@ mod test {
         );
 
         // Balanced nesting:
-        assert_tokens(
-            r"echo %{hello {}} world}",
-            &["echo", "hello {}", "world}"],
-        );
+        assert_tokens(r"echo %{hello {}} world}", &["echo", "hello {}", "world}"]);
 
         // Recursive expansions:
         assert_tokens(

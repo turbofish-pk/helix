@@ -108,9 +108,10 @@ pub fn print(s: &str) -> (String, Selection) {
                 primary_idx = Some(ranges.len());
             }
 
-            let (anchor, head) = match head_at_beg {
-                true => (left.chars().count(), start),
-                false => (start, left.chars().count()),
+            let (anchor, head) = if head_at_beg {
+                (left.chars().count(), start)
+            } else {
+                (start, left.chars().count())
             };
 
             ranges.push(Range::new(anchor, head));
@@ -124,9 +125,8 @@ pub fn print(s: &str) -> (String, Selection) {
         }
     }
 
-    let primary = match primary_idx {
-        Some(i) => i,
-        None => panic!("missing primary `#[|]#` {s:?}"),
+    let Some(primary) = primary_idx else {
+        panic!("missing primary `#[|]#` {s:?}")
     };
 
     let selection = Selection::new(ranges, primary);

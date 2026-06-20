@@ -1,3 +1,4 @@
+#![allow(clippy::redundant_closure_for_method_calls)]
 use crate::compositor::{Component, Compositor, Context, Event, EventResult};
 use crate::{alt, ctrl, key, shift, ui};
 use arc_swap::ArcSwap;
@@ -29,7 +30,7 @@ type CallbackFn = Box<dyn FnMut(&mut Context, &str, PromptEvent)>;
 pub type DocFn = Box<dyn Fn(&str) -> Option<Cow<str>>>;
 
 pub struct Prompt {
-    prompt: Cow<'static, str>,
+    text: Cow<'static, str>,
     line: String,
     cursor: usize,
     // Fields used for Component callbacks and rendering:
@@ -58,7 +59,7 @@ pub enum PromptEvent {
     /// Abort the change, reverting to the initial state.
     Abort,
 }
-
+#[derive(Clone, Copy)]
 pub enum CompletionDirection {
     Forward,
     Backward,
@@ -81,13 +82,13 @@ fn is_word_sep(c: char) -> bool {
 
 impl Prompt {
     pub fn new(
-        prompt: Cow<'static, str>,
+        text: Cow<'static, str>,
         history_register: Option<char>,
         completion_fn: impl FnMut(&Editor, &str) -> Vec<Completion> + 'static,
         callback_fn: impl FnMut(&mut Context, &str, PromptEvent) + 'static,
     ) -> Self {
         Self {
-            prompt,
+            text,
             line: String::new(),
             cursor: 0,
             line_area: Rect::default(),
@@ -111,7 +112,7 @@ impl Prompt {
     pub(crate) fn position(&self) -> usize {
         self.cursor
     }
-
+    #[must_use]
     pub fn with_line(mut self, line: String, editor: &Editor) -> Self {
         self.set_line(line, editor);
         self
@@ -123,7 +124,7 @@ impl Prompt {
         self.cursor = cursor;
         self.recalculate_completion(editor);
     }
-
+    #[must_use]
     pub fn with_language(
         mut self,
         language: &'static str,
@@ -137,7 +138,7 @@ impl Prompt {
     pub fn line(&self) -> &String {
         &self.line
     }
-
+    #[must_use]
     pub fn with_history_register(&mut self, history_register: Option<char>) -> &mut Self {
         self.history_register = history_register;
         self
@@ -232,8 +233,7 @@ impl Prompt {
                 }
                 char_indices
                     .get(char_position)
-                    .map(|(i, _)| *i)
-                    .unwrap_or_else(|| self.line.len())
+                    .map_or_else(|| self.line.len(), |(i, _)| *i)
             }
             Movement::ForwardChar(rep) => {
                 let mut position = self.cursor;
@@ -277,7 +277,7 @@ impl Prompt {
 
     pub fn move_cursor(&mut self, movement: Movement) {
         let pos = self.eval_movement(movement);
-        self.cursor = pos
+        self.cursor = pos;
     }
 
     pub fn move_start(&mut self) {
@@ -514,10 +514,10 @@ impl Prompt {
         let line = area.height - 1;
         surface.clear_with(area.clip_top(line), background);
         // render buffer text
-        surface.set_string(area.x, area.y + line, &self.prompt, prompt_color);
+        surface.set_string(area.x, area.y + line, &self.text, prompt_color);
 
         self.line_area = area
-            .clip_left(u16::try_from(self.prompt.len()).unwrap())
+            .clip_left(u16::try_from(self.text.len()).unwrap())
             .clip_top(line)
             .clip_right(2);
 
@@ -605,6 +605,7 @@ impl Prompt {
 
 impl Component for Prompt {
     fn handle_event(&mut self, event: &Event, cx: &mut Context) -> EventResult {
+        use helix_core::textobject;
         let event = match event {
             Event::Paste(data) => {
                 self.insert_str(data, cx.editor);
@@ -612,10 +613,7 @@ impl Component for Prompt {
                 return EventResult::Consumed(None);
             }
             Event::Key(event) => *event,
-            Event::Resize(..) => return EventResult::Consumed(None),
-            // Prompt is a modal and should consume mouse events so clicks don't fall
-            // through to the editor underneath
-            Event::Mouse(_) => return EventResult::Consumed(None),
+            Event::Resize(..) | Event::Mouse(_) => return EventResult::Consumed(None),
             _ => return EventResult::Ignored(None),
         };
 
@@ -663,7 +661,6 @@ impl Component for Prompt {
                 let (view, doc) = current!(cx.editor);
                 let text = doc.text().slice(..);
 
-                use helix_core::textobject;
                 let range = textobject::textobject_word(
                     text,
                     doc.selection(view.id).primary(),
@@ -683,8 +680,7 @@ impl Component for Prompt {
                 } else {
                     let last_item = self
                         .first_history_completion(cx.editor)
-                        .map(|entry| entry.to_string())
-                        .unwrap_or_else(|| String::from(""));
+                        .map_or_else(String::new, |entry| entry.to_string());
 
                     // handle executing with last command in history if nothing entered
                     let input = if self.line.is_empty() {
@@ -722,11 +718,11 @@ impl Component for Prompt {
                 if self.completion.len() == 1 && self.line.ends_with(std::path::MAIN_SEPARATOR) {
                     self.recalculate_completion(cx.editor);
                 }
-                (self.callback_fn)(cx, &self.line, PromptEvent::Update)
+                (self.callback_fn)(cx, &self.line, PromptEvent::Update);
             }
             shift!(Tab) => {
                 self.change_completion_selection(CompletionDirection::Backward);
-                (self.callback_fn)(cx, &self.line, PromptEvent::Update)
+                (self.callback_fn)(cx, &self.line, PromptEvent::Update);
             }
             ctrl!('q') => self.exit_selection(),
             ctrl!('r') => {
@@ -764,13 +760,13 @@ impl Component for Prompt {
     }
 
     fn render(&mut self, area: Rect, surface: &mut Surface, cx: &mut Context) {
-        self.render_prompt(area, surface, cx)
+        self.render_prompt(area, surface, cx);
     }
 
     fn cursor(&self, area: Rect, editor: &Editor) -> (Option<Position>, CursorKind) {
         let area = area
-            .clip_left(u16::try_from(self.prompt.len()).unwrap())
-            .clip_right(if self.prompt.is_empty() { 2 } else { 0 });
+            .clip_left(u16::try_from(self.text.len()).unwrap())
+            .clip_right(if self.text.is_empty() { 2 } else { 0 });
 
         let mut col = area.left() as usize + self.line[self.anchor..self.cursor].width();
 

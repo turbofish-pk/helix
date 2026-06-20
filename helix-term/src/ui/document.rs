@@ -5,7 +5,7 @@ use helix_core::graphemes::Grapheme;
 use helix_core::str_utils::char_to_byte_idx;
 use helix_core::syntax::{self, HighlightEvent, Highlighter, OverlayHighlights};
 use helix_core::text_annotations::TextAnnotations;
-use helix_core::{visual_offset_from_block, Position, RopeSlice};
+use helix_core::{Position, RopeSlice, visual_offset_from_block};
 use helix_stdx::rope::RopeSliceExt;
 use helix_view::editor::{WhitespaceConfig, WhitespaceRenderValue};
 use helix_view::graphics::Rect;
@@ -20,11 +20,11 @@ use crate::ui::text_decorations::DecorationManager;
 pub struct LinePos {
     /// Indicates whether the given visual line
     /// is the first visual line of the given document line
-    pub first_visual_line: bool,
+    pub is_first_visual: bool,
     /// The line index of the document line that contains the given visual line
-    pub doc_line: usize,
+    pub doc_line_index: usize,
     /// Vertical offset from the top of the inner view area
-    pub visual_line: u16,
+    pub vertical_offset: u16,
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -56,7 +56,7 @@ pub fn render_document(
         overlay_highlights,
         theme,
         decorations,
-    )
+    );
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -82,9 +82,9 @@ pub fn render_text(
     let mut overlay_highlighter = OverlayHighlighter::new(overlay_highlights, theme);
 
     let mut last_line_pos = LinePos {
-        first_visual_line: false,
-        doc_line: usize::MAX,
-        visual_line: u16::MAX,
+        is_first_visual: false,
+        doc_line_index: usize::MAX,
+        vertical_offset: u16::MAX,
     };
     let mut last_line_end = 0;
     let mut is_in_indent_area = true;
@@ -114,21 +114,21 @@ pub fn render_text(
         }
 
         // apply decorations before rendering a new line
-        if u16::try_from(grapheme.visual_pos.row).unwrap() != last_line_pos.visual_line {
+        if u16::try_from(grapheme.visual_pos.row).unwrap() != last_line_pos.vertical_offset {
             // we initiate doc_line with usize::MAX because no file
             // can reach that size (memory allocations are limited to isize::MAX)
             // initially there is no "previous" line (so doc_line is set to usize::MAX)
             // in that case we don't need to draw indent guides/virtual text
-            if last_line_pos.doc_line != usize::MAX {
+            if last_line_pos.doc_line_index != usize::MAX {
                 // draw indent guides for the last line
-                renderer.draw_indent_guides(last_line_indent_level, last_line_pos.visual_line);
+                renderer.draw_indent_guides(last_line_indent_level, last_line_pos.vertical_offset);
                 is_in_indent_area = true;
-                decorations.render_virtual_lines(renderer, last_line_pos, last_line_end)
+                decorations.render_virtual_lines(renderer, last_line_pos, last_line_end);
             }
             last_line_pos = LinePos {
-                first_visual_line: grapheme.line_idx != last_line_pos.doc_line,
-                doc_line: grapheme.line_idx,
-                visual_line: u16::try_from(grapheme.visual_pos.row).unwrap(),
+                is_first_visual: grapheme.line_idx != last_line_pos.doc_line_index,
+                doc_line_index: grapheme.line_idx,
+                vertical_offset: u16::try_from(grapheme.visual_pos.row).unwrap(),
             };
             decorations.decorate_line(renderer, last_line_pos);
         }
@@ -170,8 +170,8 @@ pub fn render_text(
         last_line_end = grapheme.visual_pos.col + grapheme_width;
     }
 
-    renderer.draw_indent_guides(last_line_indent_level, last_line_pos.visual_line);
-    decorations.render_virtual_lines(renderer, last_line_pos, last_line_end)
+    renderer.draw_indent_guides(last_line_indent_level, last_line_pos.vertical_offset);
+    decorations.render_virtual_lines(renderer, last_line_pos, last_line_end);
 }
 
 #[derive(Debug)]
@@ -193,7 +193,7 @@ pub struct TextRenderer<'a> {
     pub viewport: Rect,
     pub offset: Position,
 }
-
+#[derive(Clone, Copy)]
 pub struct GraphemeStyle {
     syntax_style: Style,
     overlay_style: Style,
@@ -260,7 +260,7 @@ impl<'a> TextRenderer<'a> {
             whitespace_style: theme.get("ui.virtual.whitespace"),
             indent_width,
             starting_indent: offset.col / indent_width as usize
-                + !offset.col.is_multiple_of(indent_width as usize) as usize
+                + usize::from(!offset.col.is_multiple_of(indent_width as usize))
                 + editor_config.indent_guides.skip_levels as usize,
             indent_guide_style: text_style.patch(
                 theme
@@ -276,7 +276,7 @@ impl<'a> TextRenderer<'a> {
     /// Draws a single `grapheme` at the current render position with a specified `style`.
     pub fn draw_decoration_grapheme(
         &mut self,
-        grapheme: Grapheme,
+        grapheme: &Grapheme,
         mut style: Style,
         mut row: u16,
         col: u16,
@@ -295,11 +295,11 @@ impl<'a> TextRenderer<'a> {
 
         let grapheme = match grapheme {
             Grapheme::Tab { width } => {
-                let grapheme_tab_width = char_to_byte_idx(&self.virtual_tab, width);
+                let grapheme_tab_width = char_to_byte_idx(&self.virtual_tab, *width);
                 &self.virtual_tab[..grapheme_tab_width]
             }
-            Grapheme::Other { ref g } if g == "\u{00A0}" => " ",
-            Grapheme::Other { ref g } => g,
+            Grapheme::Other { g } if g == "\u{00A0}" => " ",
+            Grapheme::Other { g } => g,
             Grapheme::Newline => " ",
         };
 
@@ -363,8 +363,8 @@ impl<'a> TextRenderer<'a> {
         let in_bounds = self.column_in_bounds(position.col, width);
 
         if in_bounds {
-            let x = self.viewport.x + (position.col - self.offset.col) as u16;
-            let y = self.viewport.y + position.row as u16;
+            let x = self.viewport.x + u16::try_from(position.col - self.offset.col).unwrap();
+            let y = self.viewport.y + u16::try_from(position.row).unwrap();
             if is_tab {
                 // A tab expands to `width` single-column cells; writing them
                 // individually keeps background styles (selection, cursorline)
@@ -432,7 +432,7 @@ impl<'a> TextRenderer<'a> {
         }
         let y = y - self.offset.row as u16;
         self.surface
-            .set_string(x, y + self.viewport.y, string, style)
+            .set_string(x, y + self.viewport.y, string, style);
     }
 
     pub fn set_stringn(&mut self, x: u16, y: u16, string: &str, width: usize, style: Style) {

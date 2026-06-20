@@ -1,3 +1,5 @@
+#![allow(clippy::missing_errors_doc)]
+#![allow(clippy::missing_panics_doc)]
 mod client;
 pub mod file_event;
 mod file_operations;
@@ -78,7 +80,7 @@ pub enum OffsetEncoding {
 }
 
 pub mod util {
-    use super::*;
+    use super::{OffsetEncoding, lsp};
     use helix_core::line_ending::{line_end_byte_index, line_end_char_index};
     use helix_core::snippets::{RenderedSnippet, Snippet, SnippetRenderCtx};
     use helix_core::{Range, Rope, Selection, Tendril, Transaction, diagnostic::NumberOrString};
@@ -93,7 +95,7 @@ pub mod util {
         diag: &helix_core::diagnostic::Diagnostic,
         offset_encoding: OffsetEncoding,
     ) -> lsp::Diagnostic {
-        use helix_core::diagnostic::Severity::*;
+        use helix_core::diagnostic::Severity::{Error, Hint, Info, Warning};
 
         let range = Range::new(diag.range.start, diag.range.end);
         let severity = diag.severity.map(|s| match s {
@@ -122,10 +124,10 @@ pub mod util {
             })
             .collect();
 
-        let tags = if !new_tags.is_empty() {
-            Some(new_tags)
-        } else {
+        let tags = if new_tags.is_empty() {
             None
+        } else {
+            Some(new_tags)
         };
 
         lsp::Diagnostic {
@@ -133,10 +135,10 @@ pub mod util {
             severity,
             code,
             source: diag.source.clone(),
-            message: diag.message.to_owned(),
+            message: diag.message.clone(),
             related_information: None,
             tags,
-            data: diag.data.to_owned(),
+            data: diag.data.clone(),
             ..Default::default()
         }
     }
@@ -324,14 +326,17 @@ pub mod util {
                 if end_offset > text.len_chars() as i128 {
                     return None;
                 }
-                (start_offset as usize, end_offset as usize)
+                (
+                    usize::try_from(start_offset).unwrap(),
+                    usize::try_from(end_offset).unwrap(),
+                )
             }
             None => find_completion_range(text, replace_mode, cursor),
         };
         Some(res)
     }
 
-    /// Creates a [Transaction] from the [lsp::TextEdit] in a completion response.
+    /// Creates a [Transaction] from the [`lsp::TextEdit`] in a completion response.
     /// The transaction applies the edit to all cursors.
     #[must_use]
     pub fn generate_transaction_from_completion_edit(
@@ -382,7 +387,7 @@ pub mod util {
         selection: &Selection,
         edit_offset: Option<(i128, i128)>,
         replace_mode: bool,
-        snippet: Snippet,
+        snippet: &Snippet,
         cx: &mut SnippetRenderCtx,
     ) -> (Transaction, RenderedSnippet) {
         let text = doc.slice(..);
@@ -656,7 +661,7 @@ impl Registry {
     }
 
     /// If this method is called, all documents that have a reference to the language server have to refresh their language servers,
-    /// See helix_view::editor::Editor::refresh_language_servers
+    /// See `helix_view::editor::Editor::refresh_language_servers`
     pub fn restart_server(
         &mut self,
         name: &str,
@@ -805,7 +810,7 @@ impl LspProgressMap {
 
     #[must_use]
     pub fn is_progressing(&self, id: LanguageServerId) -> bool {
-        self.0.get(&id).map(|it| !it.is_empty()).unwrap_or_default()
+        self.0.get(&id).is_some_and(|it| !it.is_empty())
     }
 
     /// Returns last progress status for a given server with `id` and `token`.
@@ -830,8 +835,7 @@ impl LspProgressMap {
     pub fn is_created(&mut self, id: LanguageServerId, token: &lsp::ProgressToken) -> bool {
         self.0
             .get(&id)
-            .map(|values| values.get(token).is_some())
-            .unwrap_or_default()
+            .is_some_and(|values| values.get(token).is_some())
     }
 
     pub fn create(&mut self, id: LanguageServerId, token: lsp::ProgressToken) {
@@ -880,7 +884,7 @@ impl LspProgressMap {
             .and_modify(|e| match e {
                 ProgressStatus::Created => (),
                 ProgressStatus::Started { progress, .. } => {
-                    *progress = lsp::WorkDoneProgress::Report(status)
+                    *progress = lsp::WorkDoneProgress::Report(status);
                 }
             });
     }
@@ -899,7 +903,7 @@ impl<T: Into<Error>> From<T> for StartupError {
     }
 }
 
-/// start_client takes both a LanguageConfiguration and a LanguageServerConfiguration to ensure that
+/// `start_client` takes both a `LanguageConfiguration` and a `LanguageServerConfiguration` to ensure that
 /// it is only called when it makes sense.
 fn start_client(
     id: LanguageServerId,
@@ -936,7 +940,8 @@ fn start_client(
     {
         // TODO: also show the globset that should be matched: https://github.com/BurntSushi/ripgrep/issues/3274
         warn!(
-            "The lsp {name:?} tried to start at {root_path:?} but failed to match it's 'required_root_patterns'"
+            "The lsp \"{name}\" tried to start at {} but failed to match it's 'required_root_patterns'",
+            root_path.display()
         );
         return Err(StartupError::NoRequiredRootFound);
     }
@@ -956,25 +961,25 @@ fn start_client(
     let client = Arc::new(client);
 
     // Initialize the client asynchronously
-    let _client = client.clone();
+    let cloned_client = client.clone();
     tokio::spawn(async move {
         use futures_util::TryFutureExt;
-        let value = _client
+        let value = cloned_client
             .capabilities
             .get_or_try_init(|| {
-                _client
+                cloned_client
                     .initialize(enable_snippets)
                     .map_ok(|response| response.capabilities)
             })
             .await;
 
         if let Err(e) = value {
-            log::error!("failed to initialize language server: {}", e);
+            log::error!("failed to initialize language server: {e}");
             return;
         }
 
         // next up, notify<initialized>
-        _client.notify::<lsp::notification::Initialized>(lsp::InitializedParams {});
+        cloned_client.notify::<lsp::notification::Initialized>(lsp::InitializedParams {});
 
         initialize_notify.notify_one();
     });
@@ -1049,7 +1054,10 @@ pub fn find_lsp_workspace(
 
 #[cfg(test)]
 mod tests {
-    use super::{OffsetEncoding, lsp, util::*};
+    use super::{
+        OffsetEncoding, lsp,
+        util::{generate_transaction_from_edits, lsp_pos_to_pos},
+    };
     use helix_core::Rope;
 
     #[test]

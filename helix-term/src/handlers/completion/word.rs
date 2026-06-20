@@ -16,7 +16,7 @@ const COMPLETION_KIND: &str = "word";
 pub(super) fn completion(
     editor: &Editor,
     trigger: Trigger,
-    handle: TaskHandle,
+    handle: &TaskHandle,
     savepoint: Arc<SavePoint>,
 ) -> Option<impl FnOnce() -> CompletionResponse + use<>> {
     if !doc!(editor).word_completion_enabled() {
@@ -119,7 +119,7 @@ pub(super) fn retain_valid_completions(
     let cursor = doc.selection(view_id).primary().cursor(text);
     if text
         .get_char(cursor.saturating_sub(1))
-        .is_some_and(|ch| ch.is_whitespace())
+        .is_some_and(char::is_whitespace)
     {
         items.retain(|item| {
             !matches!(

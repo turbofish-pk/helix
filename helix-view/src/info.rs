@@ -1,3 +1,4 @@
+#![allow(clippy::redundant_closure_for_method_calls)]
 use crate::register::Registers;
 use helix_core::unicode::width::UnicodeWidthStr;
 use std::{borrow::Cow, fmt::Write};
@@ -27,7 +28,7 @@ impl Info {
             return Self {
                 height: 1,
                 width: u16::try_from(title.len()).unwrap(),
-                text: "".to_string(),
+                text: String::new(),
                 title,
             };
         }

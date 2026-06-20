@@ -1,3 +1,4 @@
+#![allow(clippy::missing_errors_doc)]
 // Each component declares its own size constraints and gets fitted based on its parent.
 // Q: how does this work with popups?
 // cursive does compositor.screen_mut().add_layer_at(pos::absolute(x, y), <component>)
@@ -122,7 +123,7 @@ impl Compositor {
         if let Some(component) = self.find_id(id) {
             *component = layer;
         } else {
-            self.push(Box::new(layer))
+            self.push(Box::new(layer));
         }
     }
 
@@ -173,11 +174,11 @@ impl Compositor {
                     callbacks.push(callback);
                 }
                 EventResult::Ignored(None) => {}
-            };
+            }
         }
 
         for callback in callbacks {
-            callback(self, cx)
+            callback(self, cx);
         }
 
         consumed
@@ -224,6 +225,7 @@ impl Compositor {
         self.full_redraw = true;
     }
 
+    #[must_use]
     pub fn layer_count(&self) -> usize {
         self.layers.len()
     }

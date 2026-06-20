@@ -66,7 +66,7 @@ pub fn render(context: &mut RenderContext, viewport: Rect, surface: &mut Surface
     for element_id in &config.statusline.left {
         let render = get_render_function(*element_id);
         (render)(context, |context, span| {
-            append(&mut context.parts.left, span, base_style)
+            append(&mut context.parts.left, span, base_style);
         });
     }
 
@@ -82,8 +82,8 @@ pub fn render(context: &mut RenderContext, viewport: Rect, surface: &mut Surface
     for element_id in &config.statusline.right {
         let render = get_render_function(*element_id);
         (render)(context, |context, span| {
-            append(&mut context.parts.right, span, base_style)
-        })
+            append(&mut context.parts.right, span, base_style);
+        });
     }
 
     surface.set_spans(
@@ -101,8 +101,8 @@ pub fn render(context: &mut RenderContext, viewport: Rect, surface: &mut Surface
     for element_id in &config.statusline.center {
         let render = get_render_function(*element_id);
         (render)(context, |context, span| {
-            append(&mut context.parts.center, span, base_style)
-        })
+            append(&mut context.parts.center, span, base_style);
+        });
     }
 
     // Width of the empty space between the left and center area and between the center and right area.
@@ -236,25 +236,25 @@ where
         match sev {
             Severity::Hint if hints > 0 => {
                 write(context, Span::styled("●", context.editor.theme.get("hint")));
-                write(context, format!(" {} ", hints).into());
+                write(context, format!(" {hints} ").into());
             }
             Severity::Info if info > 0 => {
                 write(context, Span::styled("●", context.editor.theme.get("info")));
-                write(context, format!(" {} ", info).into());
+                write(context, format!(" {info} ").into());
             }
             Severity::Warning if warnings > 0 => {
                 write(
                     context,
                     Span::styled("●", context.editor.theme.get("warning")),
                 );
-                write(context, format!(" {} ", warnings).into());
+                write(context, format!(" {warnings} ").into());
             }
             Severity::Error if errors > 0 => {
                 write(
                     context,
                     Span::styled("●", context.editor.theme.get("error")),
                 );
-                write(context, format!(" {} ", errors).into());
+                write(context, format!(" {errors} ").into());
             }
             _ => {}
         }
@@ -276,9 +276,8 @@ where
                 // Errors should tend to be fixed fast, leaving warnings as the most common.
                 Some(DiagnosticSeverity::WARNING) => counts.2 += 1,
                 Some(DiagnosticSeverity::ERROR) => counts.3 += 1,
-                Some(DiagnosticSeverity::HINT) => counts.0 += 1,
                 Some(DiagnosticSeverity::INFORMATION) => counts.1 += 1,
-                // Fallback to `hint`.
+                // Fallback to `hint` (covers `HINT`, any unknown severity, and `None`).
                 _ => counts.0 += 1,
             }
             counts
@@ -303,25 +302,25 @@ where
         match sev {
             Severity::Hint if hints > 0 => {
                 write(context, Span::styled("●", context.editor.theme.get("hint")));
-                write(context, format!(" {} ", hints).into());
+                write(context, format!(" {hints} ").into());
             }
             Severity::Info if info > 0 => {
                 write(context, Span::styled("●", context.editor.theme.get("info")));
-                write(context, format!(" {} ", info).into());
+                write(context, format!(" {info} ").into());
             }
             Severity::Warning if warnings > 0 => {
                 write(
                     context,
                     Span::styled("●", context.editor.theme.get("warning")),
                 );
-                write(context, format!(" {} ", warnings).into());
+                write(context, format!(" {warnings} ").into());
             }
             Severity::Error if errors > 0 => {
                 write(
                     context,
                     Span::styled("●", context.editor.theme.get("error")),
                 );
-                write(context, format!(" {} ", errors).into());
+                write(context, format!(" {errors} ").into());
             }
             _ => {}
         }
@@ -383,7 +382,7 @@ where
 {
     let total_line_numbers = context.doc.text().len_lines();
 
-    write(context, format!(" {} ", total_line_numbers).into());
+    write(context, format!(" {total_line_numbers} ").into());
 }
 
 fn render_position_percentage<'a, F>(context: &mut RenderContext<'a>, write: F)
@@ -413,7 +412,7 @@ fn render_file_line_ending<'a, F>(context: &mut RenderContext<'a>, write: F)
 where
     F: Fn(&mut RenderContext<'a>, Span<'a>) + Copy,
 {
-    use helix_core::LineEnding::*;
+    use helix_core::LineEnding::{Crlf, LF};
     let line_ending = match context.doc.line_ending {
         Crlf => "CRLF",
         LF => "LF",
@@ -431,7 +430,7 @@ where
         PS => "PS", // U+2029 -- ParagraphSeparator
     };
 
-    write(context, format!(" {} ", line_ending).into());
+    write(context, format!(" {line_ending} ").into());
 }
 
 fn render_file_type<'a, F>(context: &mut RenderContext<'a>, write: F)
@@ -440,7 +439,7 @@ where
 {
     let file_type = context.doc.language_name().unwrap_or(DEFAULT_LANGUAGE_NAME);
 
-    write(context, format!(" {} ", file_type).into());
+    write(context, format!(" {file_type} ").into());
 }
 
 fn render_file_name<'a, F>(context: &mut RenderContext<'a>, write: F)
@@ -469,7 +468,7 @@ where
             .path()
             .as_ref()
             .map_or_else(|| SCRATCH_BUFFER_NAME.into(), |p| p.to_string_lossy());
-        format!(" {} ", path)
+        format!(" {path} ")
     };
 
     write(context, title.into());
@@ -523,7 +522,7 @@ where
     let sep = &context.editor.config().statusline.separator;
     let style = context.editor.theme.get("ui.statusline.separator");
 
-    write(context, Span::styled(sep.to_string(), style));
+    write(context, Span::styled(sep.clone(), style));
 }
 
 fn render_spacer<'a, F>(context: &mut RenderContext<'a>, write: F)
@@ -551,7 +550,7 @@ where
     F: Fn(&mut RenderContext<'a>, Span<'a>) + Copy,
 {
     if let Some(reg) = context.editor.selected_register {
-        write(context, format!(" reg={} ", reg).into())
+        write(context, format!(" reg={reg} ").into());
     }
 }
 
@@ -582,7 +581,7 @@ where
         .unwrap_or_default()
         .to_string_lossy()
         .to_string();
-    write(context, cwd.into())
+    write(context, cwd.into());
 }
 
 fn render_code_action_hint<'a, F>(context: &mut RenderContext<'a>, write: F)

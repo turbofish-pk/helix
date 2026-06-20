@@ -1,7 +1,7 @@
 use std::mem;
 
 use helix_core::completion::CompletionProvider;
-use helix_lsp::{lsp, LanguageServerId};
+use helix_lsp::{LanguageServerId, lsp};
 use helix_view::handlers::completion::ResponseContext;
 
 pub struct CompletionResponse {
@@ -88,7 +88,7 @@ impl PartialEq<CompletionItem> for LspCompletionItem {
     fn eq(&self, other: &CompletionItem) -> bool {
         match other {
             CompletionItem::Lsp(other) => self == other,
-            _ => false,
+            CompletionItem::Other(_) => false,
         }
     }
 }
@@ -97,7 +97,7 @@ impl PartialEq<CompletionItem> for helix_core::CompletionItem {
     fn eq(&self, other: &CompletionItem) -> bool {
         match other {
             CompletionItem::Other(other) => self == other,
-            _ => false,
+            CompletionItem::Lsp(_) => false,
         }
     }
 }

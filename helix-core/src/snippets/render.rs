@@ -162,7 +162,7 @@ impl Snippet {
                     indent,
                     at_newline,
                     ctx,
-                    (replacement_start as i128 + off) as usize,
+                    usize::try_from(replacement_start as i128 + off).unwrap(),
                 );
                 off += replacement_start as i128 - replacement_end as i128
                     + i128::try_from(replacement_len).unwrap();
@@ -322,7 +322,7 @@ mod tests {
             rendered_snippet.ranges.last().unwrap().end,
             rendered_text.chars().count()
         );
-        assert_eq!(rendered_snippet.ranges.last().unwrap().start, 0)
+        assert_eq!(rendered_snippet.ranges.last().unwrap().start, 0);
     }
 
     #[test]

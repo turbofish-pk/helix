@@ -32,6 +32,7 @@ pub struct JumpList {
 }
 
 impl JumpList {
+    #[must_use]
     pub fn new(initial: Jump) -> Self {
         let mut jumps = VecDeque::with_capacity(JUMP_LIST_CAPACITY);
         jumps.push_back(initial);
@@ -113,6 +114,7 @@ impl JumpList {
             .min(self.jumps.len());
     }
 
+    #[must_use]
     pub fn iter(&self) -> impl DoubleEndedIterator<Item = &Jump> {
         self.jumps.iter()
     }
@@ -179,11 +181,12 @@ impl fmt::Debug for View {
             .field("id", &self.id)
             .field("area", &self.area)
             .field("doc", &self.doc)
-            .finish()
+            .finish_non_exhaustive()
     }
 }
 
 impl View {
+    #[must_use]
     pub fn new(doc: DocumentId, gutters: GutterConfig) -> Self {
         Self {
             id: ViewId::default(),
@@ -306,9 +309,9 @@ impl View {
 
         if new_anchor {
             let v_off = if at_top {
-                scrolloff_top as isize
+                scrolloff_top.cast_signed()
             } else {
-                viewport.height as isize - scrolloff_bottom as isize - 1
+                usize::from(viewport.height).cast_signed() - scrolloff_bottom.cast_signed() - 1
             };
             (offset.anchor, offset.vertical_offset) =
                 char_idx_at_visual_offset(doc_text, cursor, -v_off, 0, &text_fmt, &annotations);
@@ -334,11 +337,11 @@ impl View {
             let last_col = offset.horizontal_offset + viewport.width.saturating_sub(1) as usize;
             if col > last_col.saturating_sub(scrolloff_right) {
                 // scroll right
-                offset.horizontal_offset += col - (last_col.saturating_sub(scrolloff_right))
+                offset.horizontal_offset += col - (last_col.saturating_sub(scrolloff_right));
             } else if col < offset.horizontal_offset + scrolloff_left {
                 // scroll left
-                offset.horizontal_offset = col.saturating_sub(scrolloff_left)
-            };
+                offset.horizontal_offset = col.saturating_sub(scrolloff_left);
+            }
         }
 
         // if we are not centering return None if view position is unchanged
@@ -489,7 +492,7 @@ impl View {
                 .add_inline_annotations(parameter_inlay_hints, parameter_style)
                 .add_inline_annotations(other_inlay_hints, other_style)
                 .add_inline_annotations(padding_after_inlay_hints, None);
-        };
+        }
         let config = doc.config.load();
 
         if config.lsp.display_color_swatches
@@ -534,7 +537,7 @@ impl View {
         doc: &Document,
         row: u16,
         column: u16,
-        fmt: TextFormat,
+        fmt: &TextFormat,
         annotations: &TextAnnotations,
         ignore_virtual_text: bool,
     ) -> Option<usize> {
@@ -563,7 +566,7 @@ impl View {
         doc: &Document,
         row: u16,
         column: u16,
-        text_fmt: TextFormat,
+        text_fmt: &TextFormat,
         annotations: &TextAnnotations,
         ignore_virtual_text: bool,
     ) -> Option<usize> {
@@ -576,9 +579,9 @@ impl View {
         let (char_idx, virt_lines) = char_idx_at_visual_offset(
             text,
             view_offset.anchor,
-            text_row as isize,
+            text_row.cast_signed(),
             text_col,
-            &text_fmt,
+            text_fmt,
             annotations,
         );
 
@@ -602,7 +605,7 @@ impl View {
             doc,
             row,
             column,
-            doc.text_format(self.inner_width(doc), None),
+            &doc.text_format(self.inner_width(doc), None),
             &self.text_annotations(doc, None),
             ignore_virtual_text,
         )
@@ -619,7 +622,7 @@ impl View {
             doc,
             row,
             column,
-            doc.text_format(self.inner_width(doc), None),
+            &doc.text_format(self.inner_width(doc), None),
             &self.text_annotations(doc, None),
             ignore_virtual_text,
         )
@@ -743,7 +746,7 @@ mod tests {
                 &doc,
                 40,
                 2,
-                TextFormat::default(),
+                &TextFormat::default(),
                 &TextAnnotations::default(),
                 true
             ),
@@ -755,7 +758,7 @@ mod tests {
                 &doc,
                 40,
                 41,
-                TextFormat::default(),
+                &TextFormat::default(),
                 &TextAnnotations::default(),
                 true
             ),
@@ -767,7 +770,7 @@ mod tests {
                 &doc,
                 0,
                 2,
-                TextFormat::default(),
+                &TextFormat::default(),
                 &TextAnnotations::default(),
                 true
             ),
@@ -779,7 +782,7 @@ mod tests {
                 &doc,
                 0,
                 49,
-                TextFormat::default(),
+                &TextFormat::default(),
                 &TextAnnotations::default(),
                 true
             ),
@@ -791,7 +794,7 @@ mod tests {
                 &doc,
                 0,
                 41,
-                TextFormat::default(),
+                &TextFormat::default(),
                 &TextAnnotations::default(),
                 true
             ),
@@ -803,7 +806,7 @@ mod tests {
                 &doc,
                 40,
                 81,
-                TextFormat::default(),
+                &TextFormat::default(),
                 &TextAnnotations::default(),
                 true
             ),
@@ -815,7 +818,7 @@ mod tests {
                 &doc,
                 78,
                 41,
-                TextFormat::default(),
+                &TextFormat::default(),
                 &TextAnnotations::default(),
                 true
             ),
@@ -827,7 +830,7 @@ mod tests {
                 &doc,
                 40,
                 40 + DEFAULT_GUTTER_OFFSET + 3,
-                TextFormat::default(),
+                &TextFormat::default(),
                 &TextAnnotations::default(),
                 true
             ),
@@ -839,7 +842,7 @@ mod tests {
                 &doc,
                 40,
                 80,
-                TextFormat::default(),
+                &TextFormat::default(),
                 &TextAnnotations::default(),
                 true
             ),
@@ -851,7 +854,7 @@ mod tests {
                 &doc,
                 41,
                 40 + DEFAULT_GUTTER_OFFSET + 1,
-                TextFormat::default(),
+                &TextFormat::default(),
                 &TextAnnotations::default(),
                 true
             ),
@@ -863,7 +866,7 @@ mod tests {
                 &doc,
                 41,
                 40 + DEFAULT_GUTTER_OFFSET + 4,
-                TextFormat::default(),
+                &TextFormat::default(),
                 &TextAnnotations::default(),
                 true
             ),
@@ -875,7 +878,7 @@ mod tests {
                 &doc,
                 41,
                 40 + DEFAULT_GUTTER_OFFSET + 7,
-                TextFormat::default(),
+                &TextFormat::default(),
                 &TextAnnotations::default(),
                 true
             ),
@@ -887,7 +890,7 @@ mod tests {
                 &doc,
                 41,
                 80,
-                TextFormat::default(),
+                &TextFormat::default(),
                 &TextAnnotations::default(),
                 true
             ),
@@ -918,7 +921,7 @@ mod tests {
                 &doc,
                 41,
                 40 + DEFAULT_GUTTER_OFFSET_ONLY_DIAGNOSTICS + 1,
-                TextFormat::default(),
+                &TextFormat::default(),
                 &TextAnnotations::default(),
                 true
             ),
@@ -949,7 +952,7 @@ mod tests {
                 &doc,
                 41,
                 40 + 1,
-                TextFormat::default(),
+                &TextFormat::default(),
                 &TextAnnotations::default(),
                 true
             ),
@@ -975,7 +978,7 @@ mod tests {
                 &doc,
                 40,
                 40 + DEFAULT_GUTTER_OFFSET,
-                TextFormat::default(),
+                &TextFormat::default(),
                 &TextAnnotations::default(),
                 true
             ),
@@ -987,7 +990,7 @@ mod tests {
                 &doc,
                 40,
                 40 + DEFAULT_GUTTER_OFFSET + 4,
-                TextFormat::default(),
+                &TextFormat::default(),
                 &TextAnnotations::default(),
                 true
             ),
@@ -998,7 +1001,7 @@ mod tests {
                 &doc,
                 40,
                 40 + DEFAULT_GUTTER_OFFSET + 5,
-                TextFormat::default(),
+                &TextFormat::default(),
                 &TextAnnotations::default(),
                 true
             ),
@@ -1010,7 +1013,7 @@ mod tests {
                 &doc,
                 40,
                 40 + DEFAULT_GUTTER_OFFSET + 6,
-                TextFormat::default(),
+                &TextFormat::default(),
                 &TextAnnotations::default(),
                 true
             ),
@@ -1022,7 +1025,7 @@ mod tests {
                 &doc,
                 40,
                 40 + DEFAULT_GUTTER_OFFSET + 7,
-                TextFormat::default(),
+                &TextFormat::default(),
                 &TextAnnotations::default(),
                 true
             ),
@@ -1034,7 +1037,7 @@ mod tests {
                 &doc,
                 40,
                 40 + DEFAULT_GUTTER_OFFSET + 8,
-                TextFormat::default(),
+                &TextFormat::default(),
                 &TextAnnotations::default(),
                 true
             ),
@@ -1046,6 +1049,7 @@ mod tests {
     fn test_text_pos_at_screen_coords_graphemes() {
         let mut view = View::new(DocumentId::default(), GutterConfig::default());
         view.area = Rect::new(40, 40, 40, 40);
+        #[allow(clippy::unicode_not_nfc)]
         let rope = Rope::from_str("Hèl̀l̀ò world!");
         let mut doc = Document::from(
             rope,
@@ -1060,7 +1064,7 @@ mod tests {
                 &doc,
                 40,
                 40 + DEFAULT_GUTTER_OFFSET,
-                TextFormat::default(),
+                &TextFormat::default(),
                 &TextAnnotations::default(),
                 true
             ),
@@ -1072,7 +1076,7 @@ mod tests {
                 &doc,
                 40,
                 40 + DEFAULT_GUTTER_OFFSET + 1,
-                TextFormat::default(),
+                &TextFormat::default(),
                 &TextAnnotations::default(),
                 true
             ),
@@ -1084,7 +1088,7 @@ mod tests {
                 &doc,
                 40,
                 40 + DEFAULT_GUTTER_OFFSET + 2,
-                TextFormat::default(),
+                &TextFormat::default(),
                 &TextAnnotations::default(),
                 true
             ),
@@ -1096,7 +1100,7 @@ mod tests {
                 &doc,
                 40,
                 40 + DEFAULT_GUTTER_OFFSET + 3,
-                TextFormat::default(),
+                &TextFormat::default(),
                 &TextAnnotations::default(),
                 true
             ),
@@ -1108,7 +1112,7 @@ mod tests {
                 &doc,
                 40,
                 40 + DEFAULT_GUTTER_OFFSET + 4,
-                TextFormat::default(),
+                &TextFormat::default(),
                 &TextAnnotations::default(),
                 true
             ),

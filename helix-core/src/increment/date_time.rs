@@ -315,7 +315,7 @@ mod test {
         ];
 
         for invalid in tests {
-            assert_eq!(increment(invalid, 1), None)
+            assert_eq!(increment(invalid, 1), None);
         }
     }
 }

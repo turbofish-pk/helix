@@ -1,3 +1,4 @@
+#![allow(clippy::missing_errors_doc)]
 use crate::config::{Config, ConfigLoadError};
 use helix_core::config::{default_lang_config, user_lang_config};
 use helix_loader::grammar::load_runtime_file;
@@ -95,7 +96,7 @@ pub fn general() -> std::io::Result<()> {
             .collect::<Vec<_>>()
             .join(";")
     )?;
-    for rt_dir in rt_dirs.iter() {
+    for rt_dir in rt_dirs {
         if let Ok(path) = std::fs::read_link(rt_dir) {
             let msg = format!(
                 "Runtime directory {} is symlinked to: {}",
@@ -107,7 +108,7 @@ pub fn general() -> std::io::Result<()> {
         if !rt_dir.exists() {
             let msg = format!("Runtime directory does not exist: {}", rt_dir.display());
             writeln!(stdout, "{}", msg.yellow())?;
-        } else if rt_dir.read_dir().ok().map(|it| it.count()) == Some(0) {
+        } else if rt_dir.read_dir().ok().map(std::iter::Iterator::count) == Some(0) {
             let msg = format!("Runtime directory is empty: {}", rt_dir.display());
             writeln!(stdout, "{}", msg.yellow())?;
         }
@@ -127,7 +128,7 @@ pub fn clipboard() -> std::io::Result<()> {
         }
         Err(err) => {
             writeln!(stdout, "{}", "Configuration file malformed".red())?;
-            writeln!(stdout, "{}", err)?;
+            writeln!(stdout, "{err}")?;
             return Ok(());
         }
     };
@@ -148,7 +149,7 @@ pub fn clipboard() -> std::io::Result<()> {
                 "https://github.com/helix-editor/helix/wiki/Troubleshooting#copypaste-fromto-system-clipboard-not-working"
             .red().underlined())?;
         }
-        name => writeln!(stdout, "System clipboard provider: {}", name)?,
+        name => writeln!(stdout, "System clipboard provider: {name}")?,
     }
 
     Ok(())
@@ -160,10 +161,10 @@ pub fn languages_all() -> std::io::Result<()> {
 
 pub fn languages_selection() -> std::io::Result<()> {
     let selection = helix_loader::grammar::get_grammar_names().unwrap_or_default();
-    languages(selection)
+    languages(selection.as_ref())
 }
 
-fn languages(selection: Option<HashSet<String>>) -> std::io::Result<()> {
+fn languages(selection: Option<&HashSet<String>>) -> std::io::Result<()> {
     let stdout = std::io::stdout();
     let mut stdout = stdout.lock();
 
@@ -188,13 +189,12 @@ fn languages(selection: Option<HashSet<String>>) -> std::io::Result<()> {
     let mut headings = vec!["Language", "Language servers", "Formatter"];
 
     for feat in TsFeature::all() {
-        headings.push(feat.short_title())
+        headings.push(feat.short_title());
     }
 
     let terminal_cols = termina::PlatformTerminal::new()
         .and_then(|terminal| terminal.get_dimensions())
-        .map(|size| size.cols)
-        .unwrap_or(80);
+        .map_or(80, |size| size.cols);
     let column_width = terminal_cols as usize / headings.len();
     let is_terminal = std::io::stdout().is_terminal();
 
@@ -202,8 +202,7 @@ fn languages(selection: Option<HashSet<String>>) -> std::io::Result<()> {
         format!(
             "{:column_width$}",
             s.get(..column_width - 2)
-                .map(|s| format!("{}…", s))
-                .unwrap_or_else(|| s.to_string())
+                .map_or_else(|| s.to_string(), |s| format!("{s}…"))
         )
         .stylized()
     };
@@ -221,8 +220,8 @@ fn languages(selection: Option<HashSet<String>>) -> std::io::Result<()> {
 
     let check_binary_with_name = |cmd: Option<(&str, &str)>| match cmd {
         Some((name, cmd)) => match helix_stdx::env::which(cmd) {
-            Ok(_) => color(fit(&format!("✓ {}", name)), ColorSpec::BRIGHT_GREEN),
-            Err(_) => color(fit(&format!("✘ {}", name)), ColorSpec::BRIGHT_RED),
+            Ok(_) => color(fit(&format!("✓ {name}")), ColorSpec::BRIGHT_GREEN),
+            Err(_) => color(fit(&format!("✘ {name}")), ColorSpec::BRIGHT_RED),
         },
         None => color(fit("None"), ColorSpec::BRIGHT_YELLOW),
     };
@@ -254,9 +253,10 @@ fn languages(selection: Option<HashSet<String>>) -> std::io::Result<()> {
         write!(stdout, "{}", check_binary(formatter))?;
 
         for ts_feat in TsFeature::all() {
-            match load_runtime_file(&lang.language_id, ts_feat.runtime_filename()).is_ok() {
-                true => write!(stdout, "{}", color(fit("✓"), ColorSpec::BRIGHT_GREEN))?,
-                false => write!(stdout, "{}", color(fit("✘"), ColorSpec::BRIGHT_RED))?,
+            if load_runtime_file(&lang.language_id, ts_feat.runtime_filename()).is_ok() {
+                write!(stdout, "{}", color(fit("✓"), ColorSpec::BRIGHT_GREEN))?;
+            } else {
+                write!(stdout, "{}", color(fit("✘"), ColorSpec::BRIGHT_RED))?;
             }
         }
 
@@ -281,7 +281,7 @@ fn languages(selection: Option<HashSet<String>>) -> std::io::Result<()> {
 
 /// Display diagnostics pertaining to a particular language (LSP,
 /// highlight queries, etc).
-pub fn language(lang_str: String) -> std::io::Result<()> {
+pub fn language(lang_str: &str) -> std::io::Result<()> {
     let stdout = std::io::stdout();
     let mut stdout = stdout.lock();
 
@@ -303,31 +303,28 @@ pub fn language(lang_str: String) -> std::io::Result<()> {
         }
     };
 
-    let lang = match syn_loader_conf
+    let Some(lang) = syn_loader_conf
         .language
         .iter()
         .find(|l| l.language_id == lang_str)
-    {
-        Some(l) => l,
-        None => {
-            let msg = format!("Language '{}' not found", lang_str);
-            writeln!(stdout, "{}", msg.red())?;
-            let suggestions: Vec<&str> = syn_loader_conf
-                .language
-                .iter()
-                .filter(|l| l.language_id.starts_with(lang_str.chars().next().unwrap()))
-                .map(|l| l.language_id.as_str())
-                .collect();
-            if !suggestions.is_empty() {
-                let suggestions = suggestions.join(", ");
-                writeln!(
-                    stdout,
-                    "Did you mean one of these: {} ?",
-                    suggestions.yellow()
-                )?;
-            }
-            return Ok(());
+    else {
+        let msg = format!("Language '{lang_str}' not found");
+        writeln!(stdout, "{}", msg.red())?;
+        let suggestions: Vec<&str> = syn_loader_conf
+            .language
+            .iter()
+            .filter(|l| l.language_id.starts_with(lang_str.chars().next().unwrap()))
+            .map(|l| l.language_id.as_str())
+            .collect();
+        if !suggestions.is_empty() {
+            let suggestions = suggestions.join(", ");
+            writeln!(
+                stdout,
+                "Did you mean one of these: {} ?",
+                suggestions.yellow()
+            )?;
         }
+        return Ok(());
     };
 
     probe_protocols(
@@ -344,13 +341,13 @@ pub fn language(lang_str: String) -> std::io::Result<()> {
         "formatter",
         lang.formatter
             .as_ref()
-            .map(|formatter| formatter.command.to_string()),
+            .map(|formatter| formatter.command.clone()),
     )?;
 
     probe_parser(lang.grammar.as_ref().unwrap_or(&lang.language_id))?;
 
     for ts_feat in TsFeature::all() {
-        probe_treesitter_feature(&lang_str, *ts_feat)?
+        probe_treesitter_feature(lang_str, *ts_feat)?;
     }
 
     Ok(())
@@ -377,7 +374,7 @@ fn probe_protocols<'a, I: Iterator<Item = (&'a str, &'a str)> + 'a>(
     let mut stdout = stdout.lock();
     let mut server_cmds = server_cmds.peekable();
 
-    write!(stdout, "Configured {}s:", protocol_name)?;
+    write!(stdout, "Configured {protocol_name}s:")?;
     if server_cmds.peek().is_none() {
         writeln!(stdout, "{}", " None".yellow())?;
         return Ok(());
@@ -387,7 +384,7 @@ fn probe_protocols<'a, I: Iterator<Item = (&'a str, &'a str)> + 'a>(
     for (name, cmd) in server_cmds {
         let (diag, icon) = match helix_stdx::env::which(cmd) {
             Ok(path) => (path.display().to_string().green(), "✓".green()),
-            Err(_) => (format!("'{}' not found in $PATH", cmd).red(), "✘".red()),
+            Err(_) => (format!("'{cmd}' not found in $PATH").red(), "✘".red()),
         };
         writeln!(stdout, "  {icon} {name}: {diag}")?;
     }
@@ -422,16 +419,17 @@ fn probe_treesitter_feature(lang: &str, feature: TsFeature) -> std::io::Result<(
     let stdout = std::io::stdout();
     let mut stdout = stdout.lock();
 
-    let found = match load_runtime_file(lang, feature.runtime_filename()).is_ok() {
-        true => "✓".green(),
-        false => "✘".red(),
+    let found = if load_runtime_file(lang, feature.runtime_filename()).is_ok() {
+        "✓".green()
+    } else {
+        "✘".red()
     };
     writeln!(stdout, "{} queries: {}", feature.short_title(), found)?;
 
     Ok(())
 }
 
-pub fn print_health(health_arg: Option<String>) -> std::io::Result<()> {
+pub fn print_health(health_arg: &Option<String>) -> std::io::Result<()> {
     match health_arg.as_deref() {
         Some("languages") => languages_selection()?,
         Some("all-languages") => languages_all()?,
@@ -448,7 +446,7 @@ pub fn print_health(health_arg: Option<String>) -> std::io::Result<()> {
             writeln!(std::io::stdout().lock())?;
             languages_all()?;
         }
-        Some(lang) => language(lang.to_string())?,
+        Some(lang) => language(lang)?,
     }
     Ok(())
 }

@@ -42,7 +42,7 @@ pub fn increment(selected_text: &str, amount: i64) -> Option<String> {
     let mut new_text = if radix == 10 {
         let number = &word;
         let value = i128::from_str_radix(number, radix).ok()?;
-        let new_value = value.saturating_add(amount as i128);
+        let new_value = value.saturating_add(i128::from(amount));
 
         let format_length = match (value.is_negative(), new_value.is_negative()) {
             (true, false) => number.len() - 1,
@@ -58,7 +58,7 @@ pub fn increment(selected_text: &str, amount: i64) -> Option<String> {
     } else {
         let number = &word[2..];
         let value = u128::from_str_radix(number, radix).ok()?;
-        let new_value = (value as i128).saturating_add(amount as i128);
+        let new_value = value.cast_signed().saturating_add(i128::from(amount));
         let new_value = if new_value < 0 { 0 } else { new_value };
         let format_length = selected_text.len() - 2 - separator_rtl_indexes.len();
 
@@ -69,8 +69,8 @@ pub fn increment(selected_text: &str, amount: i64) -> Option<String> {
                 let (lower_count, upper_count): (usize, usize) =
                     number.chars().fold((0, 0), |(lower, upper), c| {
                         (
-                            lower + c.is_ascii_lowercase() as usize,
-                            upper + c.is_ascii_uppercase() as usize,
+                            lower + usize::from(c.is_ascii_lowercase()),
+                            upper + usize::from(c.is_ascii_uppercase()),
                         )
                     });
                 if upper_count > lower_count {

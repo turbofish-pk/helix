@@ -65,7 +65,7 @@ mod noop {
 
 #[cfg(not(target_arch = "wasm32"))]
 mod external {
-    use super::*;
+    use super::{ClipboardError, ClipboardType, Cow, Deserialize, Result, Serialize};
 
     #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
     pub struct Command {
@@ -180,12 +180,13 @@ mod external {
     }
 
     impl ClipboardProvider {
+        #[must_use]
         pub fn name(&self) -> Cow<'_, str> {
             fn builtin_name<'a>(
                 name: &'static str,
                 provider: &'static CommandProvider,
             ) -> Cow<'a, str> {
-                if provider.yank.command != provider.paste.command {
+                if provider.yank.command == provider.paste.command {
                     Cow::Owned(format!(
                         "{} ({}+{})",
                         name, provider.yank.command, provider.paste.command
@@ -216,10 +217,10 @@ mod external {
             }
         }
 
-        pub fn get_contents(&self, clipboard_type: &ClipboardType) -> Result<String> {
+        pub fn get_contents(&self, clipboard_type: ClipboardType) -> Result<String> {
             fn yank_from_builtin(
-                provider: CommandProvider,
-                clipboard_type: &ClipboardType,
+                provider: &CommandProvider,
+                clipboard_type: ClipboardType,
             ) -> Result<String> {
                 match clipboard_type {
                     ClipboardType::Clipboard => execute_command(&provider.yank, None, true)?
@@ -236,13 +237,13 @@ mod external {
             }
 
             match self {
-                Self::Pasteboard => yank_from_builtin(PASTEBOARD, clipboard_type),
-                Self::Wayland => yank_from_builtin(WL_CLIPBOARD, clipboard_type),
-                Self::XClip => yank_from_builtin(XCLIP, clipboard_type),
-                Self::XSel => yank_from_builtin(XSEL, clipboard_type),
-                Self::Win32Yank => yank_from_builtin(WIN32, clipboard_type),
-                Self::Tmux => yank_from_builtin(TMUX, clipboard_type),
-                Self::Termux => yank_from_builtin(TERMUX, clipboard_type),
+                Self::Pasteboard => yank_from_builtin(&PASTEBOARD, clipboard_type),
+                Self::Wayland => yank_from_builtin(&WL_CLIPBOARD, clipboard_type),
+                Self::XClip => yank_from_builtin(&XCLIP, clipboard_type),
+                Self::XSel => yank_from_builtin(&XSEL, clipboard_type),
+                Self::Win32Yank => yank_from_builtin(&WIN32, clipboard_type),
+                Self::Tmux => yank_from_builtin(&TMUX, clipboard_type),
+                Self::Termux => yank_from_builtin(&TERMUX, clipboard_type),
                 #[cfg(target_os = "windows")]
                 Self::Windows => match clipboard_type {
                     ClipboardType::Clipboard => {
@@ -264,7 +265,7 @@ mod external {
 
         pub fn set_contents(&self, content: &str, clipboard_type: ClipboardType) -> Result<()> {
             fn paste_to_builtin(
-                provider: CommandProvider,
+                provider: &CommandProvider,
                 content: &str,
                 clipboard_type: ClipboardType,
             ) -> Result<()> {
@@ -283,13 +284,13 @@ mod external {
             }
 
             match self {
-                Self::Pasteboard => paste_to_builtin(PASTEBOARD, content, clipboard_type),
-                Self::Wayland => paste_to_builtin(WL_CLIPBOARD, content, clipboard_type),
-                Self::XClip => paste_to_builtin(XCLIP, content, clipboard_type),
-                Self::XSel => paste_to_builtin(XSEL, content, clipboard_type),
-                Self::Win32Yank => paste_to_builtin(WIN32, content, clipboard_type),
-                Self::Tmux => paste_to_builtin(TMUX, content, clipboard_type),
-                Self::Termux => paste_to_builtin(TERMUX, content, clipboard_type),
+                Self::Pasteboard => paste_to_builtin(&PASTEBOARD, content, clipboard_type),
+                Self::Wayland => paste_to_builtin(&WL_CLIPBOARD, content, clipboard_type),
+                Self::XClip => paste_to_builtin(&XCLIP, content, clipboard_type),
+                Self::XSel => paste_to_builtin(&XSEL, content, clipboard_type),
+                Self::Win32Yank => paste_to_builtin(&WIN32, content, clipboard_type),
+                Self::Tmux => paste_to_builtin(&TMUX, content, clipboard_type),
+                Self::Termux => paste_to_builtin(&TERMUX, content, clipboard_type),
                 #[cfg(target_os = "windows")]
                 Self::Windows => match clipboard_type {
                     ClipboardType::Clipboard => {
@@ -423,7 +424,7 @@ mod external {
         use std::io::Write;
         use std::process::{Command, Stdio};
 
-        let stdin = input.map(|_| Stdio::piped()).unwrap_or_else(Stdio::null);
+        let stdin = input.map_or_else(Stdio::null, |_| Stdio::piped());
         let stdout = pipe_output.then(Stdio::piped).unwrap_or_else(Stdio::null);
 
         let mut command: Command = Command::new(cmd.command.as_ref());

@@ -85,7 +85,7 @@ impl<T: Item> Menu<T> {
             self.scroll = 0;
             self.recalculate = true;
             if let Some(cursor) = &mut self.cursor {
-                *cursor = (*cursor).min(self.matches.len() - 1)
+                *cursor = (*cursor).min(self.matches.len() - 1);
             }
         }
     }
@@ -130,7 +130,7 @@ impl<T: Item> Menu<T> {
         self.cursor = Some(pos);
         self.adjust_scroll();
     }
-
+    #[must_use]
     pub fn auto_close(mut self, auto_close: bool) -> Self {
         self.auto_close = auto_close;
         self
@@ -189,10 +189,10 @@ impl<T: Item> Menu<T> {
             let mut scroll = self.scroll;
             if cursor > (win_height + scroll).saturating_sub(1) {
                 // scroll down
-                scroll += cursor - (win_height + scroll).saturating_sub(1)
+                scroll += cursor - (win_height + scroll).saturating_sub(1);
             } else if cursor < scroll {
                 // scroll up
-                scroll = cursor
+                scroll = cursor;
             }
             self.scroll = scroll;
         }
@@ -337,6 +337,7 @@ impl<T: Item + 'static> Component for Menu<T> {
     }
 
     fn render(&mut self, area: Rect, surface: &mut Surface, cx: &mut Context) {
+        use tui::widgets::TableState;
         let theme = &cx.editor.theme;
         let style = theme
             .try_get("ui.menu")
@@ -369,8 +370,6 @@ impl<T: Item + 'static> Component for Menu<T> {
             .column_spacing(1)
             .widths(&self.widths);
 
-        use tui::widgets::TableState;
-
         table.render_table(
             area.clip_left(u16::try_from(Self::LEFT_PADDING).unwrap())
                 .clip_right(1),
@@ -390,12 +389,12 @@ impl<T: Item + 'static> Component for Menu<T> {
                 area.left(),
                 area.y + u16::try_from(offset_from_top).unwrap(),
             )];
-            left.set_style(selected);
+            let _ = left.set_style(selected);
             let right = &mut surface[(
                 area.right().saturating_sub(1),
                 area.y + u16::try_from(offset_from_top).unwrap(),
             )];
-            right.set_style(selected);
+            let _ = right.set_style(selected);
         }
 
         let fits = len <= win_height;
@@ -415,11 +414,11 @@ impl<T: Item + 'static> Component for Menu<T> {
                 if scroll_line <= i && i < scroll_line + scroll_height {
                     // Draw scroll thumb
                     cell.set_symbol(half_block);
-                    cell.set_fg(scroll_style.fg.unwrap_or(helix_view::theme::Color::Reset));
+                    let _ = cell.set_fg(scroll_style.fg.unwrap_or(helix_view::theme::Color::Reset));
                 } else if !render_borders {
                     // Draw scroll track
                     cell.set_symbol(half_block);
-                    cell.set_fg(scroll_style.bg.unwrap_or(helix_view::theme::Color::Reset));
+                    let _ = cell.set_fg(scroll_style.bg.unwrap_or(helix_view::theme::Color::Reset));
                 }
             }
         }

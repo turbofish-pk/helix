@@ -108,6 +108,7 @@ impl<'a> Span<'a> {
     }
 
     /// Returns the width of the content held by this span.
+    #[must_use]
     pub fn width(&self) -> usize {
         self.content.width()
     }
@@ -370,6 +371,7 @@ impl<'a> Text<'a> {
     /// let text = Text::from("The first line\nThe second line");
     /// assert_eq!(2, text.height());
     /// ```
+    #[must_use]
     pub fn height(&self) -> usize {
         self.lines.len()
     }

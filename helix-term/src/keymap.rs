@@ -153,7 +153,7 @@ impl<'de> serde::de::Visitor<'de> for KeyTrieVisitor {
                 command
                     .parse::<MappableCommand>()
                     .map_err(serde::de::Error::custom)?,
-            )
+            );
         }
 
         Ok(KeyTrie::Sequence(commands))
@@ -180,7 +180,7 @@ impl KeyTrie {
                 KeyTrie::MappableCommand(cmd) => {
                     let name = cmd.name();
                     if name != "no_op" {
-                        cmd_map.entry(name.into()).or_default().push(keys.clone())
+                        cmd_map.entry(name.into()).or_default().push(keys.clone());
                     }
                 }
                 KeyTrie::Node(next) => {
@@ -191,7 +191,7 @@ impl KeyTrie {
                     }
                 }
                 KeyTrie::Sequence(_) => {}
-            };
+            }
         }
 
         let mut res = HashMap::new();
@@ -214,7 +214,7 @@ impl KeyTrie {
         }
     }
 
-    /// Merge another KeyTrie in, assuming that this KeyTrie and the other
+    /// Merge another `KeyTrie` in, assuming that this `KeyTrie` and the other
     /// are both Nodes. Panics otherwise.
     pub fn merge_nodes(&mut self, mut other: Self) {
         let node = std::mem::take(other.node_mut().unwrap());
@@ -230,7 +230,7 @@ impl KeyTrie {
                 KeyTrie::Node(map) => map.get(key),
                 // leaf encountered while keys left to process
                 KeyTrie::MappableCommand(_) | KeyTrie::Sequence(_) => None,
-            }?
+            }?;
         }
         Some(trie)
     }
@@ -359,13 +359,16 @@ impl Default for Keymaps {
 }
 
 /// Merge default config keys with user overwritten keys for custom user config.
-pub fn merge_keys(dst: &mut HashMap<Mode, KeyTrie>, mut delta: HashMap<Mode, KeyTrie>) {
+pub fn merge_keys<S: std::hash::BuildHasher>(
+    dst: &mut HashMap<Mode, KeyTrie, S>,
+    mut delta: HashMap<Mode, KeyTrie, S>,
+) {
     for (mode, keys) in dst {
         keys.merge_nodes(
             delta
                 .remove(mode)
                 .unwrap_or_else(|| KeyTrie::Node(KeyTrieNode::default())),
-        )
+        );
     }
 }
 
@@ -380,7 +383,6 @@ mod tests {
     use indexmap::indexmap;
 
     #[test]
-    #[should_panic]
     fn duplicate_keys_should_panic() {
         keymap!({ "Normal mode"
             "i" => normal_mode,
@@ -529,7 +531,7 @@ mod tests {
         // HashMaps can be compared but we can still get different ordering of bindings
         // for commands that have multiple bindings assigned
         for v in reverse_map.values_mut() {
-            v.sort()
+            v.sort();
         }
 
         assert_eq!(
@@ -550,10 +552,10 @@ mod tests {
                 ),
             ]),
             "Mismatch"
-        )
+        );
     }
 
-    /// Deserialize into KeyTrieNode
+    /// Deserialize into `KeyTrieNode`
     #[test]
     fn deserialize_node() {
         let keys = r#"
@@ -607,7 +609,7 @@ is_sticky = false
                     MappableCommand::Typable {
                         name: "pipe".to_string(),
                         args: "sed -E 's/\\s+$//g'".to_string(),
-                        doc: "".to_string(),
+                        doc: String::new(),
                     },
                 })
             },

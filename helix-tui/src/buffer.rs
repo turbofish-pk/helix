@@ -36,7 +36,7 @@ impl Cell {
             );
             self.symbol.push(REPLACEMENT_CHARACTER);
         }
-        self.width = self.symbol.width() as u8;
+        self.width = u8::try_from(self.symbol.width()).unwrap();
         self
     }
 
@@ -44,7 +44,7 @@ impl Cell {
     /// Used on the render hot path where the width is known.
     pub(crate) fn set_symbol_with_width(&mut self, symbol: &str, width: u8) -> &mut Cell {
         self.symbol.clear();
-        if self.symbol.try_push_str(symbol).is_err() {
+        self.width = if self.symbol.try_push_str(symbol).is_err() {
             debug_assert!(
                 symbol.len() > 28,
                 "Symbols can't exceed 28 bytes.\nTried to push {} (size in bytes: {})",
@@ -52,39 +52,45 @@ impl Cell {
                 symbol.len()
             );
             self.symbol.push(REPLACEMENT_CHARACTER);
-            self.width = REPLACEMENT_CHARACTER.width().unwrap_or(1) as u8;
+            // The replacement character is a single terminal column.
+            1
         } else {
-            self.width = width;
-        }
+            width
+        };
         self
     }
 
     /// Display width (in terminal columns) of the cell's grapheme.
+    #[must_use]
     pub fn width(&self) -> usize {
         self.width as usize
     }
 
     /// Set the cell's grapheme to a [char]
+    #[must_use]
     pub fn set_char(&mut self, ch: char) -> &mut Cell {
         self.symbol.clear();
         self.symbol.push(ch);
-        self.width = ch.width().unwrap_or(0) as u8;
+        self.width = u8::try_from(ch.width().unwrap_or(0)).unwrap();
         self
     }
 
     /// Set the foreground [Color]
+    #[must_use]
     pub fn set_fg(&mut self, color: Color) -> &mut Cell {
         self.fg = color;
         self
     }
 
     /// Set the background [Color]
+    #[must_use]
     pub fn set_bg(&mut self, color: Color) -> &mut Cell {
         self.bg = color;
         self
     }
 
     /// Set the [Style] of the cell
+    #[must_use]
     pub fn set_style(&mut self, style: Style) -> &mut Cell {
         if let Some(c) = style.fg {
             self.fg = c;
@@ -105,6 +111,7 @@ impl Cell {
     }
 
     /// Returns the current style of the cell
+    #[must_use]
     pub fn style(&self) -> Style {
         Style::default()
             .fg(self.fg)
@@ -184,7 +191,7 @@ impl Buffer {
 
     /// Returns a Buffer containing the given lines
     #[must_use]
-    pub fn with_lines<S>(lines: Vec<S>) -> Buffer
+    pub fn with_lines<S>(lines: &[S]) -> Buffer
     where
         S: AsRef<str>,
     {
@@ -201,27 +208,36 @@ impl Buffer {
             height,
         });
         for (y, line) in lines.iter().enumerate() {
-            buffer.set_string(0, y as u16, line.as_ref(), Style::default());
+            buffer.set_string(
+                0,
+                u16::try_from(y).unwrap(),
+                line.as_ref(),
+                Style::default(),
+            );
         }
         buffer
     }
 
     /// Returns the content of the buffer as a slice
+    #[must_use]
     pub fn content(&self) -> &[Cell] {
         &self.content
     }
 
     /// Returns the area covered by this buffer
+    #[must_use]
     pub fn area(&self) -> &Rect {
         &self.area
     }
 
     /// Returns a reference to Cell at the given coordinates
+    #[must_use]
     pub fn get(&self, x: u16, y: u16) -> Option<&Cell> {
         self.index_of_opt(x, y).map(|i| &self.content[i])
     }
 
     /// Returns a mutable reference to Cell at the given coordinates
+    #[must_use]
     pub fn get_mut(&mut self, x: u16, y: u16) -> Option<&mut Cell> {
         self.index_of_opt(x, y).map(|i| &mut self.content[i])
     }
@@ -244,6 +260,7 @@ impl Buffer {
     /// ```
     ///
     /// Global coordinates are offset by the Buffer's area offset (`x`/`y`).
+    #[must_use]
     pub fn in_bounds(&self, x: u16, y: u16) -> bool {
         x >= self.area.left()
             && x < self.area.right()
@@ -269,6 +286,7 @@ impl Buffer {
     /// # Panics
     ///
     /// Panics when given an coordinate that is outside of this Buffer's area.
+    #[must_use]
     pub fn index_of(&self, x: u16, y: u16) -> usize {
         debug_assert!(
             self.in_bounds(x, y),
@@ -282,6 +300,7 @@ impl Buffer {
 
     /// Returns the index in the `Vec<Cell>` for the given global (x, y) coordinates,
     /// or `None` if the coordinates are outside the buffer's area.
+    #[must_use]
     fn index_of_opt(&self, x: u16, y: u16) -> Option<usize> {
         if self.in_bounds(x, y) {
             Some(self.index_of(x, y))
@@ -308,6 +327,7 @@ impl Buffer {
     /// # Panics
     ///
     /// Panics when given an index that is outside the Buffer's content.
+    #[must_use]
     pub fn pos_of(&self, i: usize) -> (u16, u16) {
         debug_assert!(
             i < self.content.len(),
@@ -358,17 +378,17 @@ impl Buffer {
                 break;
             }
 
-            self.content[index].set_symbol(s);
-            self.content[index].set_style(style);
+            let _ = self.content[index].set_symbol(s);
+            let _ = self.content[index].set_style(style);
             // Reset following cells if multi-width (they would be hidden by the grapheme),
             for i in index + 1..index + grapheme_width {
-                self.content[i].reset();
+                let () = self.content[i].reset();
             }
             index += grapheme_width;
             x_offset += grapheme_width;
         }
 
-        (x_offset as u16, y)
+        (u16::try_from(x_offset).unwrap(), y)
     }
 
     /// Fast path: print a single grapheme of pre-computed width with no unicode
@@ -382,12 +402,12 @@ impl Buffer {
     pub fn set_grapheme(&mut self, x: u16, y: u16, grapheme: &str, width: usize, style: Style) {
         let index = self.index_of(x, y);
         let cell = &mut self.content[index];
-        cell.set_symbol_with_width(grapheme, width as u8);
-        cell.set_style(style);
+        cell.set_symbol_with_width(grapheme, u8::try_from(width).unwrap());
+        let _ = cell.set_style(style);
         // Reset following cells if the grapheme spans multiple columns; they
         // would be hidden by the grapheme but must not carry stale content.
         for i in index + 1..index + width {
-            self.content[i].reset();
+            let () = self.content[i].reset();
         }
     }
 
@@ -403,7 +423,7 @@ impl Buffer {
         for (index, (i, ch)) in (self.index_of(x, y)..).zip(tab.char_indices()) {
             let cell = &mut self.content[index];
             cell.set_symbol_with_width(&tab[i..i + ch.len_utf8()], 1);
-            cell.set_style(style);
+            let _ = cell.set_style(style);
         }
     }
 
@@ -449,11 +469,11 @@ impl Buffer {
             }
 
             self.content[index].set_symbol(s);
-            self.content[index].set_style(style(byte_offset));
+            let _ = self.content[index].set_style(style(byte_offset));
 
             // Reset following cells if multi-width (they would be hidden by the grapheme):
             for i in index + 1..index + grapheme_width {
-                self.content[i].reset();
+                let () = self.content[i].reset();
             }
 
             index += grapheme_width;
@@ -495,31 +515,7 @@ impl Buffer {
         let width = if ellipsis { width - 1 } else { width };
         let graphemes = string.grapheme_indices(true);
         let max_offset = min(self.area.right() as usize, width.saturating_add(x as usize));
-        if !truncate_start {
-            for (byte_offset, s) in graphemes {
-                let width = s.width();
-                if width == 0 {
-                    continue;
-                }
-                // `x_offset + width > max_offset` could be integer overflow on 32-bit machines if we
-                // change dimensions to usize or u32 and someone resizes the terminal to 1x2^32.
-                if width > max_offset.saturating_sub(x_offset) {
-                    break;
-                }
-
-                self.content[index].set_symbol(s);
-                self.content[index].set_style(style(byte_offset));
-                // Reset following cells if multi-width (they would be hidden by the grapheme),
-                for i in index + 1..index + width {
-                    self.content[i].reset();
-                }
-                index += width;
-                x_offset += width;
-            }
-            if ellipsis && x_offset - (x as usize) < string.width() {
-                self.content[index].set_symbol("…");
-            }
-        } else {
+        if truncate_start {
             let mut start_index = self.index_of(x, y);
             let mut index = self.index_of(u16::try_from(max_offset).unwrap(), y);
 
@@ -542,12 +538,36 @@ impl Buffer {
                     break;
                 }
                 self.content[start].set_symbol(s);
-                self.content[start].set_style(style(byte_offset));
+                let _ = self.content[start].set_style(style(byte_offset));
                 for i in start + 1..index {
-                    self.content[i].reset();
+                    let () = self.content[i].reset();
                 }
                 index -= width;
                 x_offset += width;
+            }
+        } else {
+            for (byte_offset, s) in graphemes {
+                let width = s.width();
+                if width == 0 {
+                    continue;
+                }
+                // `x_offset + width > max_offset` could be integer overflow on 32-bit machines if we
+                // change dimensions to usize or u32 and someone resizes the terminal to 1x2^32.
+                if width > max_offset.saturating_sub(x_offset) {
+                    break;
+                }
+
+                self.content[index].set_symbol(s);
+                let _ = self.content[index].set_style(style(byte_offset));
+                // Reset following cells if multi-width (they would be hidden by the grapheme),
+                for i in index + 1..index + width {
+                    let () = self.content[i].reset();
+                }
+                index += width;
+                x_offset += width;
+            }
+            if ellipsis && x_offset - (x as usize) < string.width() {
+                self.content[index].set_symbol("…");
             }
         }
         (u16::try_from(x_offset).unwrap(), y)
@@ -585,9 +605,9 @@ impl Buffer {
                     break;
                 }
                 self.content[start].set_symbol(s);
-                self.content[start].set_style(span.style);
+                let _ = self.content[start].set_style(span.style);
                 for i in start + 1..index {
-                    self.content[i].reset();
+                    let () = self.content[i].reset();
                 }
                 index -= width;
                 x_offset += width;
@@ -632,7 +652,7 @@ impl Buffer {
     pub fn set_background(&mut self, area: Rect, color: Color) {
         for y in area.top()..area.bottom() {
             for x in area.left()..area.right() {
-                self[(x, y)].set_bg(color);
+                let _ = self[(x, y)].set_bg(color);
             }
         }
     }
@@ -641,7 +661,7 @@ impl Buffer {
     pub fn set_style(&mut self, area: Rect, style: Style) {
         for y in area.top()..area.bottom() {
             for x in area.left()..area.right() {
-                self[(x, y)].set_style(style);
+                let _ = self[(x, y)].set_style(style);
             }
         }
     }
@@ -653,7 +673,7 @@ impl Buffer {
         if self.content.len() > length {
             self.content.truncate(length);
         } else {
-            self.content.resize(length, Default::default());
+            self.content.resize(length, Cell::default());
         }
         self.area = area;
     }
@@ -661,7 +681,7 @@ impl Buffer {
     /// Reset all cells in the buffer
     pub fn reset(&mut self) {
         for c in &mut self.content {
-            c.reset();
+            let () = c.reset();
         }
     }
 
@@ -669,7 +689,7 @@ impl Buffer {
     pub fn clear(&mut self, area: Rect) {
         for x in area.left()..area.right() {
             for y in area.top()..area.bottom() {
-                self[(x, y)].reset();
+                let () = self[(x, y)].reset();
             }
         }
     }
@@ -679,8 +699,8 @@ impl Buffer {
         for x in area.left()..area.right() {
             for y in area.top()..area.bottom() {
                 let cell = &mut self[(x, y)];
-                cell.reset();
-                cell.set_style(style);
+                let () = cell.reset();
+                let _ = cell.set_style(style);
             }
         }
     }
@@ -688,7 +708,7 @@ impl Buffer {
     /// Merge an other buffer into this one
     pub fn merge(&mut self, other: &Buffer) {
         let area = self.area.union(other.area);
-        let cell: Cell = Default::default();
+        let cell: Cell = Cell::default();
         self.content.resize(area.area(), cell.clone());
 
         // Move original content to the appropriate space
@@ -743,6 +763,7 @@ impl Buffer {
     /// Next:    `aコ`
     /// Updates: `0: a, 1: コ` (double width symbol at index 1 - skip index 2)
     /// ```
+    #[must_use]
     pub fn diff<'a>(&self, other: &'a Buffer) -> Vec<(u16, u16, &'a Cell)> {
         let previous_buffer = &self.content;
         let next_buffer = &other.content;
@@ -819,7 +840,7 @@ mod tests {
         let buf = Buffer::empty(rect);
 
         // There are a total of 100 cells; zero-indexed means that 100 would be the 101st cell.
-        buf.pos_of(100);
+        let _ = buf.pos_of(100);
     }
 
     #[test]
@@ -830,7 +851,7 @@ mod tests {
         let buf = Buffer::empty(rect);
 
         // width is 10; zero-indexed means that 10 would be the 11th cell.
-        buf.index_of(10, 0);
+        let _ = buf.index_of(10, 0);
     }
 
     #[test]
@@ -840,21 +861,21 @@ mod tests {
 
         // Zero-width
         buffer.set_stringn(0, 0, "aaa", 0, Style::default());
-        assert_eq!(buffer, Buffer::with_lines(vec!["     "]));
+        assert_eq!(buffer, Buffer::with_lines(&["     "]));
 
         buffer.set_string(0, 0, "aaa", Style::default());
-        assert_eq!(buffer, Buffer::with_lines(vec!["aaa  "]));
+        assert_eq!(buffer, Buffer::with_lines(&["aaa  "]));
 
         // Width limit:
         buffer.set_stringn(0, 0, "bbbbbbbbbbbbbb", 4, Style::default());
-        assert_eq!(buffer, Buffer::with_lines(vec!["bbbb "]));
+        assert_eq!(buffer, Buffer::with_lines(&["bbbb "]));
 
         buffer.set_string(0, 0, "12345", Style::default());
-        assert_eq!(buffer, Buffer::with_lines(vec!["12345"]));
+        assert_eq!(buffer, Buffer::with_lines(&["12345"]));
 
         // Width truncation:
         buffer.set_string(0, 0, "123456", Style::default());
-        assert_eq!(buffer, Buffer::with_lines(vec!["12345"]));
+        assert_eq!(buffer, Buffer::with_lines(&["12345"]));
     }
 
     #[test]
@@ -868,12 +889,12 @@ mod tests {
         // Leading grapheme with zero width
         let s = "\u{200B}a";
         buffer.set_stringn(0, 0, s, 1, Style::default());
-        assert_eq!(buffer, Buffer::with_lines(vec!["a"]));
+        assert_eq!(buffer, Buffer::with_lines(&["a"]));
 
         // Trailing grapheme with zero width
         let s = "a\u{200B}";
         buffer.set_stringn(0, 0, s, 1, Style::default());
-        assert_eq!(buffer, Buffer::with_lines(vec!["a"]));
+        assert_eq!(buffer, Buffer::with_lines(&["a"]));
     }
 
     #[test]
@@ -881,17 +902,16 @@ mod tests {
         let area = Rect::new(0, 0, 5, 1);
         let mut buffer = Buffer::empty(area);
         buffer.set_string(0, 0, "コン", Style::default());
-        assert_eq!(buffer, Buffer::with_lines(vec!["コン "]));
+        assert_eq!(buffer, Buffer::with_lines(&["コン "]));
 
         // Only 1 space left.
         buffer.set_string(0, 0, "コンピ", Style::default());
-        assert_eq!(buffer, Buffer::with_lines(vec!["コン "]));
+        assert_eq!(buffer, Buffer::with_lines(&["コン "]));
     }
 
     #[test]
     fn buffer_with_lines() {
-        let buffer =
-            Buffer::with_lines(vec!["┌────────┐", "│コンピュ│", "│ーa 上で│", "└────────┘"]);
+        let buffer = Buffer::with_lines(&["┌────────┐", "│コンピュ│", "│ーa 上で│", "└────────┘"]);
         assert_eq!(buffer.area.x, 0);
         assert_eq!(buffer.area.y, 0);
         assert_eq!(buffer.area.width, 10);
@@ -927,14 +947,14 @@ mod tests {
 
     #[test]
     fn buffer_diffing_single_width() {
-        let prev = Buffer::with_lines(vec![
+        let prev = Buffer::with_lines(&[
             "          ",
             "┌Title─┐  ",
             "│      │  ",
             "│      │  ",
             "└──────┘  ",
         ]);
-        let next = Buffer::with_lines(vec![
+        let next = Buffer::with_lines(&[
             "          ",
             "┌TITLE─┐  ",
             "│      │  ",
@@ -944,7 +964,7 @@ mod tests {
         let diff = prev.diff(&next);
         assert_eq!(
             diff,
-            vec![
+            &[
                 (2, 1, &cell("I")),
                 (3, 1, &cell("T")),
                 (4, 1, &cell("L")),
@@ -956,18 +976,18 @@ mod tests {
     #[test]
     #[rustfmt::skip]
     fn buffer_diffing_multi_width() {
-        let prev = Buffer::with_lines(vec![
+        let prev = Buffer::with_lines(&[
             "┌Title─┐  ",
             "└──────┘  ",
         ]);
-        let next = Buffer::with_lines(vec![
+        let next = Buffer::with_lines(&[
             "┌称号──┐  ",
             "└──────┘  ",
         ]);
         let diff = prev.diff(&next);
         assert_eq!(
             diff,
-            vec![
+            &[
                 (1, 0, &cell("称")),
                 // Skipped "i"
                 (3, 0, &cell("号")),
@@ -979,13 +999,13 @@ mod tests {
 
     #[test]
     fn buffer_diffing_multi_width_offset() {
-        let prev = Buffer::with_lines(vec!["┌称号──┐"]);
-        let next = Buffer::with_lines(vec!["┌─称号─┐"]);
+        let prev = Buffer::with_lines(&["┌称号──┐"]);
+        let next = Buffer::with_lines(&["┌─称号─┐"]);
 
         let diff = prev.diff(&next);
         assert_eq!(
             diff,
-            vec![(1, 0, &cell("─")), (2, 0, &cell("称")), (4, 0, &cell("号")),]
+            &[(1, 0, &cell("─")), (2, 0, &cell("称")), (4, 0, &cell("号")),]
         );
     }
 
@@ -1010,7 +1030,7 @@ mod tests {
             Cell::default().set_symbol("2"),
         );
         one.merge(&two);
-        assert_eq!(one, Buffer::with_lines(vec!["11", "11", "22", "22"]));
+        assert_eq!(one, Buffer::with_lines(&["11", "11", "22", "22"]));
     }
 
     #[test]
@@ -1034,10 +1054,7 @@ mod tests {
             Cell::default().set_symbol("2"),
         );
         one.merge(&two);
-        assert_eq!(
-            one,
-            Buffer::with_lines(vec!["22  ", "22  ", "  11", "  11"])
-        );
+        assert_eq!(one, Buffer::with_lines(&["22  ", "22  ", "  11", "  11"]));
     }
 
     #[test]
@@ -1061,7 +1078,7 @@ mod tests {
             Cell::default().set_symbol("2"),
         );
         one.merge(&two);
-        let mut merged = Buffer::with_lines(vec!["222 ", "222 ", "2221", "2221"]);
+        let mut merged = Buffer::with_lines(&["222 ", "222 ", "2221", "2221"]);
         merged.area = Rect {
             x: 1,
             y: 1,
@@ -1110,14 +1127,14 @@ mod tests {
 
         let graphemes: Vec<_> = text.graphemes(true).collect();
         for (i, &g) in graphemes.iter().enumerate() {
-            assert_eq!(&*buffer[(i as u16, 0)].symbol, g);
+            assert_eq!(&*buffer[(u16::try_from(i).unwrap(), 0)].symbol, g);
         }
     }
 
     #[test]
     fn buffer_diffing_with_emoji() {
-        let prev = Buffer::with_lines(vec!["🔥test"]);
-        let next = Buffer::with_lines(vec!["xxtest"]);
+        let prev = Buffer::with_lines(&["🔥test"]);
+        let next = Buffer::with_lines(&["xxtest"]);
 
         let diff = prev.diff(&next);
 

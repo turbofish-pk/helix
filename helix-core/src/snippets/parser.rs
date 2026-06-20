@@ -26,7 +26,7 @@ else        ::= text
 */
 
 use crate::Tendril;
-use helix_parsec::*;
+use helix_parsec::{choice, seq, Parser, filter_map, take_while, or, map, right, optional, zero_or_more, sep, one_or_more};
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum CaseChange {
@@ -386,7 +386,7 @@ mod test {
                 Text("{1:)".into())
             ]),
             parse("match(${1:)")
-        )
+        );
     }
 
     #[test]
@@ -401,7 +401,7 @@ mod test {
                 Text(")".into()),
             ]),
             parse("match(${1:})")
-        )
+        );
     }
 
     #[test]
@@ -420,7 +420,7 @@ mod test {
                 },
             ]),
             parse("local ${1:var} = ${1:value}")
-        )
+        );
     }
 
     #[test]
@@ -437,7 +437,7 @@ mod test {
                 ],
             }]),
             parse("${1:var, $2}")
-        )
+        );
     }
 
     #[test]
@@ -456,7 +456,7 @@ mod test {
                 }]
             }),
             parse("${1:foo ${2:bar}}")
-        )
+        );
     }
 
     #[test]
@@ -557,7 +557,7 @@ mod test {
                 0,
             )
             .0;
-        assert_eq!(rendered_text, parsed_text)
+        assert_eq!(rendered_text, parsed_text);
     }
 
     #[test]
@@ -602,7 +602,7 @@ mod test {
 
     fn assert_snippet(snippet: &str, expect: &[SnippetElement]) {
         let elements = parse(snippet).unwrap();
-        assert_eq!(elements, expect.to_owned())
+        assert_eq!(elements, expect.to_owned());
     }
 
     #[test]

@@ -398,19 +398,19 @@ pub enum KeyCode {
     Null,
     /// Escape key.
     Esc,
-    /// CapsLock key.
+    /// `CapsLock` key.
     CapsLock,
-    /// ScrollLock key.
+    /// `ScrollLock` key.
     ScrollLock,
-    /// NumLock key.
+    /// `NumLock` key.
     NumLock,
-    /// PrintScreen key.
+    /// `PrintScreen` key.
     PrintScreen,
     /// Pause key.
     Pause,
     /// Menu key.
     Menu,
-    /// KeypadBegin key.
+    /// `KeypadBegin` key.
     KeypadBegin,
     /// A media key.
     Media(MediaKeyCode),

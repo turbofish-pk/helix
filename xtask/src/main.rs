@@ -1,3 +1,5 @@
+#![allow(clippy::missing_errors_doc)]
+#![allow(clippy::missing_panics_doc)]
 mod docgen;
 mod helpers;
 mod path;
@@ -11,10 +13,13 @@ pub mod tasks {
     use std::collections::HashSet;
 
     pub fn docgen() -> Result<(), DynError> {
-        use crate::docgen::*;
-        write(TYPABLE_COMMANDS_MD_OUTPUT, &typable_commands()?);
-        write(STATIC_COMMANDS_MD_OUTPUT, &static_commands()?);
-        write(LANG_SUPPORT_MD_OUTPUT, &lang_features()?);
+        use crate::docgen::{
+            LANG_SUPPORT_MD_OUTPUT, STATIC_COMMANDS_MD_OUTPUT, TYPABLE_COMMANDS_MD_OUTPUT,
+            lang_features, static_commands, typable_commands, write,
+        };
+        write(TYPABLE_COMMANDS_MD_OUTPUT, &typable_commands());
+        write(STATIC_COMMANDS_MD_OUTPUT, &static_commands());
+        write(LANG_SUPPORT_MD_OUTPUT, &lang_features());
         Ok(())
     }
 
@@ -47,10 +52,10 @@ pub mod tasks {
 
     pub fn indentcheck(languages: impl Iterator<Item = String>) -> Result<(), DynError> {
         use helix_core::{
-            indent::{
-                is_opaque_interior, is_outdent_token_at, treesitter_indent_for_pos, IndentStyle,
-            },
             Syntax,
+            indent::{
+                IndentStyle, is_opaque_interior, is_outdent_token_at, treesitter_indent_for_pos,
+            },
         };
         use helix_stdx::rope::RopeSliceExt;
         use ropey::Rope;
@@ -77,17 +82,14 @@ pub mod tasks {
             let file = path.file_name().and_then(|s| s.to_str()).unwrap_or("");
 
             // Corpus files are named <language-id>.<ext>; resolve the language by id.
-            let language = match loader
+            let Some((language, _)) = loader
                 .languages()
                 .find(|(_, data)| data.config().language_id == stem)
-            {
-                Some((language, _)) => language,
-                None => {
-                    return Err(format!(
-                        "{file}: no configured language with id '{stem}' (corpus files are named <language-id>.<ext>)"
-                    )
-                    .into())
-                }
+            else {
+                return Err(format!(
+                    "{file}: no configured language with id '{stem}' (corpus files are named <language-id>.<ext>)"
+                )
+                .into());
             };
 
             let config = loader.language(language).config();
@@ -136,7 +138,7 @@ pub mod tasks {
                     false,
                 )
                 .unwrap()
-                .to_string(&indent_style, tab_width);
+                .to_string(indent_style, tab_width);
 
                 let actual = line
                     .get_slice(..pos)
@@ -159,71 +161,76 @@ pub mod tasks {
                 //   - over-indent (computed > canonical) is only acceptable when the next line's leading token is @outdent (a closing
                 //     bracket, case/else/except keyword, ...): entering it dedents the line. An over-indent on a plain statement (e.g.
                 //     a line after `return` that should leave the block but doesn't) has nothing to correct it and is a real failure.
-                if i + 1 < doc.len_lines() {
-                    if let Some(next_pos) = text.line(i + 1).first_non_whitespace_char() {
-                        let next = text.line(i + 1);
-                        let next_trim = next.slice(next_pos..).to_string();
-                        // Lines inside an @opaque body (string/comment) carry literal leading whitespace, not code indent — don't
-                        // assert a typing indent for them.
-                        let next_byte =
-                            text.char_to_byte(text.line_to_char(i + 1) + next_pos) as u32;
+                if i + 1 < doc.len_lines()
+                    && let Some(next_pos) = text.line(i + 1).first_non_whitespace_char()
+                {
+                    let next = text.line(i + 1);
+                    let next_trim = next.slice(next_pos..).to_string();
+                    // Lines inside an @opaque body (string/comment) carry literal leading whitespace, not code indent — don't
+                    // assert a typing indent for them.
+                    let next_byte =
+                        u32::try_from(text.char_to_byte(text.line_to_char(i + 1) + next_pos))
+                            .unwrap();
 
-                        let next_is_opaque =
-                            is_opaque_interior(indent_query, &syntax, text, next_byte);
-                        let next_is_comment = next_is_opaque
-                            || comment_tokens
-                                .iter()
-                                .any(|tok| next_trim.starts_with(tok.as_str()));
+                    let next_is_opaque = is_opaque_interior(indent_query, &syntax, text, next_byte);
+                    let next_is_comment = next_is_opaque
+                        || comment_tokens
+                            .iter()
+                            .any(|tok| next_trim.starts_with(tok.as_str()));
 
-                        if !next_is_comment {
-                            let typed = treesitter_indent_for_pos(
+                    if !next_is_comment {
+                        let typed = treesitter_indent_for_pos(
+                            indent_query,
+                            &syntax,
+                            &loader,
+                            tab_width,
+                            indent_style.indent_width(tab_width),
+                            text,
+                            i,
+                            text.line_to_char(i + 1) - 1,
+                            true,
+                        )
+                        .unwrap()
+                        .to_string(indent_style, tab_width);
+
+                        let next_actual = next
+                            .get_slice(..next_pos)
+                            .map(|s| s.to_string())
+                            .unwrap_or_default();
+
+                        let typed_cols = typed.chars().count();
+                        let want_cols = next_actual.chars().count();
+                        let leading_outdent = || {
+                            let byte = text.char_to_byte(text.line_to_char(i + 1) + next_pos);
+                            is_outdent_token_at(
                                 indent_query,
                                 &syntax,
-                                &loader,
-                                tab_width,
-                                indent_style.indent_width(tab_width),
                                 text,
-                                i,
-                                text.line_to_char(i + 1) - 1,
-                                true,
+                                u32::try_from(byte).unwrap(),
                             )
-                            .unwrap()
-                            .to_string(&indent_style, tab_width);
+                        };
 
-                            let next_actual = next
-                                .get_slice(..next_pos)
-                                .map(|s| s.to_string())
-                                .unwrap_or_default();
-
-                            let typed_cols = typed.chars().count();
-                            let want_cols = next_actual.chars().count();
-                            let leading_outdent = || {
-                                let byte = text.char_to_byte(text.line_to_char(i + 1) + next_pos);
-                                is_outdent_token_at(indent_query, &syntax, text, byte as u32)
-                            };
-
-                            if typed_cols < want_cols {
-                                errors += 1;
-                                println!(
-                                    "{file}:{}: typing under-indents: computed {} columns, expected {} | {}",
-                                    i + 2,
-                                    typed_cols,
-                                    want_cols,
-                                    next_trim.trim_end(),
-                                );
-                            } else if typed_cols > want_cols && !leading_outdent() {
-                                // Over-indents are reported but not failed: every over-indent sits at a legitimate dedent point, and
-                                // for indent-delimited languages (python after a block) the editor genuinely cannot know how far to
-                                // dedent. Surfaced so a regression shows up in the diff; gate on under-indents only.
-                                over_notes += 1;
-                                println!(
-                                    "{file}:{}: note: typing over-indents: computed {} columns, expected {} (no leading outdent; review) | {}",
-                                    i + 2,
-                                    typed_cols,
-                                    want_cols,
-                                    next_trim.trim_end(),
-                                );
-                            }
+                        if typed_cols < want_cols {
+                            errors += 1;
+                            println!(
+                                "{file}:{}: typing under-indents: computed {} columns, expected {} | {}",
+                                i + 2,
+                                typed_cols,
+                                want_cols,
+                                next_trim.trim_end(),
+                            );
+                        } else if typed_cols > want_cols && !leading_outdent() {
+                            // Over-indents are reported but not failed: every over-indent sits at a legitimate dedent point, and
+                            // for indent-delimited languages (python after a block) the editor genuinely cannot know how far to
+                            // dedent. Surfaced so a regression shows up in the diff; gate on under-indents only.
+                            over_notes += 1;
+                            println!(
+                                "{file}:{}: note: typing over-indents: computed {} columns, expected {} (no leading outdent; review) | {}",
+                                i + 2,
+                                typed_cols,
+                                want_cols,
+                                next_trim.trim_end(),
+                            );
                         }
                     }
                 }
@@ -231,7 +238,9 @@ pub mod tasks {
         }
 
         if over_notes > 0 {
-            println!("Indent check: {over_notes} typing over-indent note(s) (not failures; review for regressions)");
+            println!(
+                "Indent check: {over_notes} typing over-indent note(s) (not failures; review for regressions)"
+            );
         }
         match errors {
             0 => {
@@ -266,23 +275,22 @@ pub mod tasks {
                 errors_present = true;
                 println!("Theme '{name}' loaded with errors:");
                 for warning in warnings {
-                    println!("\t* {}", warning);
+                    println!("\t* {warning}");
                 }
             }
         }
 
-        match errors_present {
-            true => Err("Errors found when loading bundled themes".into()),
-            false => {
-                println!("Theme check successful!");
-                Ok(())
-            }
+        if errors_present {
+            Err("Errors found when loading bundled themes".into())
+        } else {
+            println!("Theme check successful!");
+            Ok(())
         }
     }
 
     pub fn highlightcheck(args: impl Iterator<Item = String>) -> Result<(), DynError> {
-        use helix_core::syntax::{HighlightEvent, Loader, Syntax};
         use helix_core::Language;
+        use helix_core::syntax::{HighlightEvent, Loader, Syntax};
         use ropey::Rope;
 
         // The highlighter yields a `Highlight` index into the loader's scope
@@ -348,15 +356,15 @@ pub mod tasks {
             let mut hl = syntax.highlighter(rope.slice(..), loader, ..);
             let mut active: Vec<u32> = Vec::new();
             let mut start: u32 = 0;
-            let len = source.len() as u32;
+            let len = u32::try_from(source.len()).unwrap();
             let mut out = Vec::new();
             loop {
                 let off = hl.next_event_offset();
                 let cur = if off == u32::MAX { len } else { off };
-                if cur > start {
-                    if let Some(idx) = active.last() {
-                        out.push((start as usize, cur as usize, scopes[*idx as usize].clone()));
-                    }
+                if cur > start
+                    && let Some(idx) = active.last()
+                {
+                    out.push((start as usize, cur as usize, scopes[*idx as usize].clone()));
                 }
                 if off == u32::MAX {
                     break;
@@ -437,16 +445,11 @@ pub mod tasks {
         let mut errors = 0usize;
         let mut checks = 0usize;
         for (lang, path) in files {
-            let language = match loader
+            let Some((language, _)) = loader
                 .languages()
                 .find(|(_, d)| d.config().language_id == lang)
-            {
-                Some((language, _)) => language,
-                None => {
-                    return Err(
-                        format!("{}: no configured language '{lang}'", path.display()).into(),
-                    )
-                }
+            else {
+                return Err(format!("{}: no configured language '{lang}'", path.display()).into());
             };
             let source = std::fs::read_to_string(&path)?;
             let Some(sp) = spans(&loader, &scopes, language, &source) else {
@@ -573,8 +576,8 @@ fn main() -> Result<(), DynError> {
             "indent-check" => tasks::indentcheck(args)?,
             "highlight-check" => tasks::highlightcheck(args)?,
             "theme-check" => tasks::themecheck(args)?,
-            invalid => return Err(format!("Invalid task name: {}", invalid).into()),
+            invalid => return Err(format!("Invalid task name: {invalid}").into()),
         },
-    };
+    }
     Ok(())
 }

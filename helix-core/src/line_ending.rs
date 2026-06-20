@@ -30,7 +30,7 @@ impl LineEnding {
     pub const fn len_chars(&self) -> usize {
         match self {
             Self::Crlf => 2,
-            _ => 1,
+            Self::LF => 1,
         }
     }
 

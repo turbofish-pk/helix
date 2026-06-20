@@ -86,7 +86,7 @@ impl FromStr for Mode {
             "normal" => Ok(Mode::Normal),
             "select" => Ok(Mode::Select),
             "insert" => Ok(Mode::Insert),
-            _ => bail!("Invalid mode '{}'", s),
+            _ => bail!("Invalid mode '{s}'"),
         }
     }
 }
@@ -137,7 +137,7 @@ pub enum DocumentOpenError {
     #[error(transparent)]
     IoError(#[from] io::Error),
 }
-
+#[allow(clippy::struct_excessive_bools, clippy::struct_field_names)]
 pub struct Document {
     pub(crate) id: DocumentId,
     text: Rope,
@@ -218,7 +218,7 @@ pub struct Document {
 
     /// Annotations for LSP document color swatches
     pub color_swatches: Option<DocumentColorSwatches>,
-    /// Cached LSP document links for navigation (e.g. goto_file).
+    /// Cached LSP document links for navigation (e.g. `goto_file`).
     pub document_links: Vec<DocumentLink>,
     // NOTE: ideally this would live on the handler for color swatches. This is blocked on a
     // large refactor that would make `&mut Editor` available on the `DocumentDidChange` event.
@@ -299,6 +299,7 @@ pub struct DocumentInlayHints {
 
 impl DocumentInlayHints {
     /// Generate an empty list of inlay hints with the given ID.
+    #[must_use]
     pub fn empty_with_id(id: DocumentInlayHintsId) -> Self {
         Self {
             id,
@@ -332,26 +333,81 @@ impl fmt::Debug for Document {
             .field("id", &self.id)
             .field("text", &self.text)
             .field("selections", &self.selections)
-            .field("inlay_hints_oudated", &self.inlay_hints_oudated)
-            .field("text_annotations", &self.inlay_hints)
             .field("view_data", &self.view_data)
+            .field(
+                "active_snippet",
+                &self.active_snippet.as_ref().map(|_| "ActiveSnippet"),
+            )
+            .field("inlay_hints", &self.inlay_hints)
+            .field("jump_labels", &self.jump_labels)
+            .field("document_highlights", &self.document_highlights)
+            .field("inlay_hints_oudated", &self.inlay_hints_oudated)
             .field("path", &self.path)
-            .field("encoding", &self.encoding)
+            .field("relative_path", &"OnceCell<Option<PathBuf>>")
+            .field("workspace_root", &"OnceCell<PathBuf>")
+            .field("encoding", &"&'static Encoding")
+            .field("has_bom", &self.has_bom)
             .field("restore_cursor", &self.restore_cursor)
+            .field("indent_style", &self.indent_style)
+            .field("editor_config", &self.editor_config)
+            .field("line_ending", &self.line_ending)
             .field("syntax", &self.syntax)
             .field("language", &self.language)
             .field("changes", &self.changes)
             .field("old_state", &self.old_state)
-            // .field("history", &self.history)
+            .field("history", &"Cell<History>")
+            .field("config", &"Arc<dyn DynAccess<Config>>")
+            .field("savepoints", &"Vec<Weak<SavePoint>>")
             .field("last_saved_time", &self.last_saved_time)
             .field("last_saved_revision", &self.last_saved_revision)
             .field("version", &self.version)
             .field("modified_since_accessed", &self.modified_since_accessed)
             .field("diagnostics", &self.diagnostics)
-            // .field("language_server", &self.language_server)
+            .field("language_servers", &self.language_servers)
+            .field("diff_handle", &self.diff_handle)
+            .field("version_control_head", &self.version_control_head.is_some())
+            .field("focused_at", &self.focused_at)
+            .field("readonly", &self.readonly)
+            .field("previous_diagnostic_ids", &self.previous_diagnostic_ids)
+            .field("color_swatches", &self.color_swatches)
+            .field("document_links", &self.document_links)
+            .field("color_swatch_controller", &"TaskController")
+            .field(
+                "document_highlight_controllers",
+                &"HashMap<ViewId, TaskController>",
+            )
+            .field("pull_diagnostic_controller", &"TaskController")
+            .field("document_link_controller", &"TaskController")
+            .field("syn_loader", &"Arc<ArcSwap<syntax::Loader>>")
             .finish()
     }
 }
+// impl fmt::Debug for Document {
+//     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+//         f.debug_struct("Document")
+//             .field("id", &self.id)
+//             .field("text", &self.text)
+//             .field("selections", &self.selections)
+//             .field("inlay_hints_oudated", &self.inlay_hints_oudated)
+//             .field("text_annotations", &self.inlay_hints)
+//             .field("view_data", &self.view_data)
+//             .field("path", &self.path)
+//             .field("encoding", &self.encoding)
+//             .field("restore_cursor", &self.restore_cursor)
+//             .field("syntax", &self.syntax)
+//             .field("language", &self.language)
+//             .field("changes", &self.changes)
+//             .field("old_state", &self.old_state)
+//             // .field("history", &self.history)
+//             .field("last_saved_time", &self.last_saved_time)
+//             .field("last_saved_revision", &self.last_saved_revision)
+//             .field("version", &self.version)
+//             .field("modified_since_accessed", &self.modified_since_accessed)
+//             .field("diagnostics", &self.diagnostics)
+//             // .field("language_server", &self.language_server)
+//             .finish()
+//     }
+// }
 
 impl fmt::Debug for DocumentInlayHintsId {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -580,7 +636,7 @@ pub fn read_to_string<R: std::io::Read + ?Sized>(
                 }
                 encoding::CoderResult::OutputFull => {
                     debug_assert!(slice.len() > total_read);
-                    buf_string.reserve(buf.len())
+                    buf_string.reserve(buf.len());
                 }
             }
         }
@@ -601,7 +657,7 @@ pub fn read_to_string<R: std::io::Read + ?Sized>(
 /// and detects the encoding.
 ///
 /// By default, the encoding of the text is auto-detected by
-/// `encoding_rs` for_bom, and if it fails, from `chardetng`
+/// `encoding_rs` `for_bom`, and if it fails, from `chardetng`
 /// crate which requires sample data from the reader.
 /// As a manual override to this auto-detection is possible, the
 /// same data is read into `buf` to ensure symmetry in the upcoming
@@ -715,7 +771,7 @@ where
     *mut_ref = f(mem::take(mut_ref));
 }
 
-use helix_lsp::{lsp, Client, LanguageServerId, LanguageServerName};
+use helix_lsp::{Client, LanguageServerId, LanguageServerName, lsp};
 use helix_stdx::Url;
 
 impl Document {
@@ -742,7 +798,7 @@ impl Document {
             selections: HashMap::default(),
             inlay_hints: HashMap::default(),
             inlay_hints_oudated: false,
-            view_data: Default::default(),
+            view_data: HashMap::default(),
             indent_style: DEFAULT_INDENT,
             editor_config: EditorConfig::default(),
             line_ending,
@@ -858,6 +914,7 @@ impl Document {
         &self,
         editor: &Editor,
     ) -> Option<BoxFuture<'static, Result<Transaction, FormatterError>>> {
+        use std::process::Stdio;
         if let Some((fmt_cmd, fmt_args)) = self
             .language_config()
             .and_then(|c| c.formatter.as_ref())
@@ -873,7 +930,6 @@ impl Document {
                 self.display_name(),
                 fmt_cmd.display(),
             );
-            use std::process::Stdio;
             let text = self.text().clone();
 
             let mut process = tokio::process::Command::new(&fmt_cmd);
@@ -926,7 +982,7 @@ impl Document {
                 if !output.status.success() {
                     if !output.stderr.is_empty() {
                         let err = String::from_utf8_lossy(&output.stderr).to_string();
-                        log::error!("Formatter error: {}", err);
+                        log::error!("Formatter error: {err}");
                         return Err(FormatterError::NonZeroExitStatus(Some(err)));
                     }
 
@@ -944,7 +1000,7 @@ impl Document {
                 Ok(helix_core::diff::compare_ropes(&text, &Rope::from(str)))
             };
             return Some(formatting_future.boxed());
-        };
+        }
 
         let text = self.text.clone();
         // finds first language server that supports formatting and then formats
@@ -966,8 +1022,8 @@ impl Document {
             let edits = request
                 .await
                 .unwrap_or_else(|e| {
-                    log::warn!("LSP formatting failed: {}", e);
-                    Default::default()
+                    log::warn!("LSP formatting failed: {e}");
+                    Option::default()
                 })
                 .unwrap_or_default();
             Ok(helix_lsp::util::generate_transaction_from_edits(
@@ -987,7 +1043,7 @@ impl Document {
         impl Future<Output = Result<DocumentSavedEvent, anyhow::Error>> + 'static + Send,
         anyhow::Error,
     > {
-        let path = path.map(|path| path.into());
+        let path = path.map(std::convert::Into::into);
         self.save_impl(path, force)
 
         // futures_util::future::Ready<_>,
@@ -1012,14 +1068,13 @@ impl Document {
         // state without blocking any further edits.
         let text = self.text().clone();
 
-        let path = match path {
-            Some(path) => helix_stdx::path::canonicalize(path),
-            None => {
-                if self.path.is_none() {
-                    bail!("Can't save with no path set!");
-                }
-                self.path.as_ref().unwrap().clone()
+        let path = if let Some(path) = path {
+            helix_stdx::path::canonicalize(path)
+        } else {
+            if self.path.is_none() {
+                bail!("Can't save with no path set!");
             }
+            self.path.as_ref().unwrap().clone()
         };
 
         let identifier = self.path().map(|_| self.identifier());
@@ -1124,7 +1179,7 @@ impl Document {
                 // Ignore ENOTSUP/EOPNOTSUPP (Operation not supported) errors from sync_all()
                 // This is known to occur on SMB filesystems on macOS where fsync is not supported
                 match dst.sync_all().await {
-                    Ok(_) => (),
+                    Ok(()) => (),
                     Err(err) if err.kind() == io::ErrorKind::Unsupported => (),
                     // Some extra OS errors are thrown on macOS for example if fsync is not
                     // available for this filesystem. NOTE: on macOS, ENOTSUP and EOPNOTSUPP are
@@ -1153,7 +1208,7 @@ impl Document {
                         // Restore backup
                         let _ = tokio::fs::copy(&backup, &write_path).await.map_err(|e| {
                             delete = false;
-                            log::error!("Failed to restore backup on write failure: {e}")
+                            log::error!("Failed to restore backup on write failure: {e}");
                         });
                     }
 
@@ -1259,16 +1314,14 @@ impl Document {
                     Ok(mtime) => mtime,
                     Err(err) => {
                         log::debug!(
-                            "Could not fetch file system's mtime, falling back to current system time: {}",
-                            err
+                            "Could not fetch file system's mtime, falling back to current system time: {err}"
                         );
                         SystemTime::now()
                     }
                 },
                 Err(err) => {
                     log::debug!(
-                        "Could not fetch file system's mtime, falling back to current system time: {}",
-                        err
+                        "Could not fetch file system's mtime, falling back to current system time: {err}"
                     );
                     SystemTime::now()
                 }
@@ -1296,10 +1349,13 @@ impl Document {
         let encoding = self.encoding;
         let path = match self.path() {
             None => return Ok(()),
-            Some(path) => match path.exists() {
-                true => path.to_owned(),
-                false => bail!("can't find file to reload from {:?}", self.display_name()),
-            },
+            Some(path) => {
+                if path.exists() {
+                    path.to_owned()
+                } else {
+                    bail!("can't find file to reload from {:?}", self.display_name())
+                }
+            }
         };
 
         // Once we have a valid path we check if its readonly status has changed
@@ -1319,7 +1375,7 @@ impl Document {
         self.detect_indent_and_line_ending();
 
         match provider_registry.get_diff_base(&path, trust_full) {
-            Some(diff_base) => self.set_diff_base(diff_base),
+            Some(diff_base) => self.set_diff_base(diff_base.as_slice()),
             None => self.diff_handle = None,
         }
 
@@ -1394,7 +1450,7 @@ impl Document {
     ) -> anyhow::Result<()> {
         let language = loader
             .language_for_name(language_id)
-            .ok_or_else(|| anyhow!("invalid language id: {}", language_id))?;
+            .ok_or_else(|| anyhow!("invalid language id: {language_id}"))?;
         let config = loader.language(language).config().clone();
         self.set_language(Some(config), loader);
         Ok(())
@@ -1408,7 +1464,7 @@ impl Document {
         helix_event::dispatch(SelectionDidChange {
             doc: self,
             view: view_id,
-        })
+        });
     }
 
     /// Find the origin selection of the text in a document, i.e. where
@@ -1429,7 +1485,7 @@ impl Document {
         self.set_selection(view_id, Selection::single(origin.anchor, origin.head));
     }
 
-    /// Initializes a new selection and view_data for the given view
+    /// Initializes a new selection and `view_data` for the given view
     /// if it does not already have them.
     pub fn ensure_view_init(&mut self, view_id: ViewId) {
         if !self.selections.contains_key(&view_id) {
@@ -1515,7 +1571,7 @@ impl Document {
                         true
                     }
                     None => false,
-                })
+                });
         }
 
         // update tree-sitter syntax tree
@@ -1562,7 +1618,7 @@ impl Document {
         }));
         self.diagnostics.retain_mut(|diagnostic| {
             if diagnostic.zero_width {
-                diagnostic.range.end = diagnostic.range.start
+                diagnostic.range.end = diagnostic.range.start;
             } else if diagnostic.range.start >= diagnostic.range.end {
                 return false;
             }
@@ -1733,7 +1789,7 @@ impl Document {
             .savepoints
             .iter()
             .rev()
-            .find_map(|savepoint| savepoint.upgrade())
+            .find_map(std::sync::Weak::upgrade)
         {
             let transaction = savepoint.revert.lock();
             if savepoint.view == view.id
@@ -1769,7 +1825,7 @@ impl Document {
         let mut revert = savepoint.revert.lock();
         self.apply_inner(&revert, view.id, emit_lsp_notification);
         *revert = Transaction::new(self.text()).with_selection(self.selection(view.id).clone());
-        self.savepoints.push(savepoint_ref)
+        self.savepoints.push(savepoint_ref);
     }
 
     fn earlier_later_impl(&mut self, view: &mut View, uk: UndoKind, earlier: bool) -> bool {
@@ -1922,7 +1978,10 @@ impl Document {
     ) -> Option<&'a LanguageConfiguration> {
         match self.syntax() {
             Some(syntax) => {
-                let layer = syntax.layer_for_byte_range(byte_pos as u32, byte_pos as u32);
+                let layer = syntax.layer_for_byte_range(
+                    u32::try_from(byte_pos).unwrap(),
+                    u32::try_from(byte_pos).unwrap(),
+                );
                 Some(&**loader.language(syntax.layer(layer).language).config())
             }
             None => self.language_config(),
@@ -1946,7 +2005,7 @@ impl Document {
             .unwrap_or_else(|| self.config.load().path_completion)
     }
 
-    /// maintains the order as configured in the language_servers TOML array
+    /// maintains the order as configured in the `language_servers` TOML array
     pub fn language_servers(&self) -> impl Iterator<Item = &helix_lsp::Client> {
         self.language_config().into_iter().flat_map(move |config| {
             config.language_servers.iter().filter_map(move |features| {
@@ -1994,13 +2053,13 @@ impl Document {
     }
 
     /// Intialize/updates the differ for this document with a new base.
-    pub fn set_diff_base(&mut self, diff_base: Vec<u8>) {
-        if let Ok((diff_base, ..)) = from_reader(&mut diff_base.as_slice(), Some(self.encoding)) {
+    pub fn set_diff_base(&mut self, diff_base: &[u8]) {
+        if let Ok((diff_base, ..)) = from_reader(&mut &diff_base[..], Some(self.encoding)) {
             if let Some(differ) = &self.diff_handle {
                 let _ = differ.update_diff_base(diff_base);
                 return;
             }
-            self.diff_handle = Some(DiffHandle::new(diff_base, self.text.clone()))
+            self.diff_handle = Some(DiffHandle::new(diff_base, self.text.clone()));
         } else {
             self.diff_handle = None;
         }
@@ -2025,16 +2084,15 @@ impl Document {
 
     /// The width that the tab character is rendered at
     pub fn tab_width(&self) -> usize {
-        self.editor_config
-            .tab_width
-            .map(|n| n.get() as usize)
-            .unwrap_or_else(|| {
+        self.editor_config.tab_width.map_or_else(
+            || {
                 self.language_config()
                     .and_then(|config| config.indent.as_ref())
                     .map_or(DEFAULT_TAB_WIDTH, |config| config.tab_width)
-            })
+            },
+            |n| n.get() as usize,
+        )
     }
-
     // The width (in spaces) of a level of indentation.
     pub fn indent_width(&self) -> usize {
         self.indent_style.indent_width(self.tab_width())
@@ -2124,14 +2182,12 @@ impl Document {
     /// `.jj`, or `.helix`. Falls back to the current working directory's workspace when the
     /// document has no path (scratch buffers). Lazily memoised on first call.
     pub fn workspace_root(&self) -> &Path {
-        self.workspace_root
-            .get_or_init(|| match self.path.as_deref() {
-                Some(p) => p
-                    .parent()
-                    .map(|dir| helix_loader::find_workspace_in(dir).0)
-                    .unwrap_or_else(|| helix_loader::find_workspace().0),
-                None => helix_loader::find_workspace().0,
-            })
+        self.workspace_root.get_or_init(|| {
+            self.path.as_deref().and_then(|p| p.parent()).map_or_else(
+                || helix_loader::find_workspace().0,
+                |dir| helix_loader::find_workspace_in(dir).0,
+            )
+        })
     }
 
     pub fn display_name(&self) -> Cow<'_, str> {
@@ -2173,21 +2229,26 @@ impl Document {
         provider: DiagnosticProvider,
         offset_encoding: helix_lsp::OffsetEncoding,
     ) -> Option<Diagnostic> {
-        use helix_core::diagnostic::{Range, Severity::*};
+        use helix_core::diagnostic::{
+            Range,
+            Severity::{Error, Hint, Info, Warning},
+        };
 
         // TODO: convert inside server
-        let start =
-            if let Some(start) = lsp_pos_to_pos(text, diagnostic.range.start, offset_encoding) {
-                start
-            } else {
-                log::warn!("lsp position out of bounds - {:?}", diagnostic);
-                return None;
-            };
+        // let start =
+        //     if let Some(start) = lsp_pos_to_pos(text, diagnostic.range.start, offset_encoding) {
+        //         start
+        //     } else {
+        //         log::warn!("lsp position out of bounds - {diagnostic:?}");
+        //         return None;
+        //     };
+        let Some(start) = lsp_pos_to_pos(text, diagnostic.range.start, offset_encoding) else {
+            log::warn!("lsp position out of bounds - {diagnostic:?}");
+            return None;
+        };
 
-        let end = if let Some(end) = lsp_pos_to_pos(text, diagnostic.range.end, offset_encoding) {
-            end
-        } else {
-            log::warn!("lsp position out of bounds - {:?}", diagnostic);
+        let Some(end) = lsp_pos_to_pos(text, diagnostic.range.end, offset_encoding) else {
+            log::warn!("lsp position out of bounds - {diagnostic:?}");
             return None;
         };
 
@@ -2197,7 +2258,7 @@ impl Document {
             lsp::DiagnosticSeverity::INFORMATION => Some(Info),
             lsp::DiagnosticSeverity::HINT => Some(Hint),
             severity => {
-                log::error!("unrecognized diagnostic severity: {:?}", severity);
+                log::error!("unrecognized diagnostic severity: {severity:?}");
                 None
             }
         });
@@ -2489,7 +2550,7 @@ impl Document {
     /// Completely removes all the inlay hints saved for the document, dropping them to free memory
     /// (since it often means inlay hints have been fully deactivated).
     pub fn reset_all_inlay_hints(&mut self) {
-        self.inlay_hints = Default::default();
+        self.inlay_hints = HashMap::default();
     }
 
     pub fn has_language_server_with_feature(&self, feature: LanguageServerFeature) -> bool {
@@ -2520,12 +2581,12 @@ impl Display for FormatterError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::SpawningFailed { command, error } => {
-                write!(f, "Failed to spawn formatter {}: {:?}", command, error)
+                write!(f, "Failed to spawn formatter {command}: {error:?}")
             }
             Self::BrokenStdin => write!(f, "Could not write to formatter stdin"),
             Self::WaitForOutputFailed => write!(f, "Waiting for formatter output failed"),
             Self::InvalidUtf8Output => write!(f, "Invalid UTF-8 formatter output"),
-            Self::NonZeroExitStatus(Some(output)) => write!(f, "Formatter error: {}", output),
+            Self::NonZeroExitStatus(Some(output)) => write!(f, "Formatter error: {output}"),
             Self::NonZeroExitStatus(None) => {
                 write!(f, "Formatter exited with non zero exit status")
             }
@@ -2640,7 +2701,7 @@ mod test {
                     lsp::Position::new(0, 5),
                     lsp::Position::new(0, 11)
                 )),
-                text: "".into(),
+                text: String::new(),
                 range_length: None,
             }]
         );

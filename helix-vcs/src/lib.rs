@@ -2,7 +2,7 @@
 //! Currently `git` is the only supported provider for diffs, but this architecture allows
 //! for other providers to be added in the future.
 
-use anyhow::{anyhow, bail, Result};
+use anyhow::{Result, anyhow, bail};
 use arc_swap::ArcSwap;
 use std::{
     path::{Path, PathBuf},
@@ -45,6 +45,7 @@ impl DiffProviderRegistry {
     }
 
     /// Get the current name of the current [HEAD](https://stackoverflow.com/questions/2304087/what-is-head-in-git).
+    #[must_use]
     pub fn get_current_head_name(
         &self,
         file: &Path,
@@ -96,8 +97,8 @@ impl Default for DiffProviderRegistry {
     }
 }
 
-/// A union type that includes all types that implement [DiffProvider]. We need this type to allow
-/// cloning [DiffProviderRegistry] as `Clone` cannot be used in trait objects.
+/// A union type that includes all types that implement [`DiffProvider`]. We need this type to allow
+/// cloning [`DiffProviderRegistry`] as `Clone` cannot be used in trait objects.
 ///
 /// `Copy` is simply to ensure the `clone()` call is the simplest it can be.
 #[derive(Copy, Clone)]
@@ -108,7 +109,7 @@ enum DiffProvider {
 }
 
 impl DiffProvider {
-    fn get_diff_base(&self, file: &Path, trust_full: bool) -> Result<Vec<u8>> {
+    fn get_diff_base(self, file: &Path, trust_full: bool) -> Result<Vec<u8>> {
         match self {
             #[cfg(feature = "git")]
             Self::Git => git::get_diff_base(file, trust_full),
@@ -117,7 +118,7 @@ impl DiffProvider {
     }
 
     fn get_current_head_name(
-        &self,
+        self,
         file: &Path,
         trust_full: bool,
     ) -> Result<Arc<ArcSwap<Box<str>>>> {
@@ -129,7 +130,7 @@ impl DiffProvider {
     }
 
     fn for_each_changed_file(
-        &self,
+        self,
         cwd: &Path,
         trust_full: bool,
         f: impl Fn(Result<FileChange>) -> bool,

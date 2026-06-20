@@ -1,3 +1,4 @@
+#![allow(clippy::redundant_closure_for_method_calls)]
 use std::iter;
 
 use crate::tree_sitter::Node;

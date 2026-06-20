@@ -1,7 +1,7 @@
 use helix_core::diagnostic::Severity;
 use helix_core::doc_formatter::{FormattedGrapheme, TextFormat};
 use helix_core::text_annotations::LineAnnotation;
-use helix_core::{softwrapped_dimensions, Diagnostic, Position};
+use helix_core::{Diagnostic, Position, softwrapped_dimensions};
 use serde::{Deserialize, Serialize};
 
 use crate::Document;
@@ -60,6 +60,7 @@ pub struct InlineDiagnosticsConfig {
 }
 
 impl InlineDiagnosticsConfig {
+    #[must_use]
     pub fn disabled(&self) -> bool {
         matches!(
             self,
@@ -70,7 +71,7 @@ impl InlineDiagnosticsConfig {
             }
         )
     }
-
+    #[must_use]
     pub fn prepare(&self, width: u16, enable_cursor_line: bool) -> Self {
         let mut config = self.clone();
         if width < self.min_diagnostic_width + self.prefix_len {
@@ -82,10 +83,12 @@ impl InlineDiagnosticsConfig {
         config
     }
 
+    #[must_use]
     pub fn max_diagnostic_start(&self, width: u16) -> u16 {
         width - self.min_diagnostic_width - self.prefix_len
     }
 
+    #[must_use]
     pub fn text_fmt(&self, anchor_col: u16, width: u16) -> TextFormat {
         let width = if anchor_col > self.max_diagnostic_start(width) {
             self.min_diagnostic_width
@@ -153,6 +156,7 @@ impl<'a> InlineDiagnosticAccumulator<'a> {
         self.next_anchor(conceal_end_char_idx)
     }
 
+    #[must_use]
     pub fn next_anchor(&self, current_char_idx: usize) -> usize {
         let next_diag_start = self
             .doc
@@ -224,6 +228,7 @@ impl<'a> InlineDiagnosticAccumulator<'a> {
         self.next_anchor(grapheme.char_idx + 1)
     }
 
+    #[must_use]
     pub fn filter(&self) -> DiagnosticFilter {
         if self.cursor_line {
             self.config.cursor_line
@@ -244,9 +249,10 @@ impl<'a> InlineDiagnosticAccumulator<'a> {
             return;
         };
         self.stack.retain(|(diag, _)| diag.severity() >= filter);
-        self.stack.truncate(self.config.max_diagnostics)
+        self.stack.truncate(self.config.max_diagnostics);
     }
 
+    #[must_use]
     pub fn has_multi(&self, width: u16) -> bool {
         self.stack
             .last()
@@ -308,6 +314,6 @@ impl LineAnnotation for InlineDiagnostics<'_> {
                 softwrapped_dimensions(diag.message.as_str().trim().into(), &text_fmt).0
             })
             .sum();
-        Position::new(multi as usize + diagostic_height, 0)
+        Position::new(usize::from(multi) + diagostic_height, 0)
     }
 }

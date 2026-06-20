@@ -46,9 +46,8 @@ pub fn highlighted_code_block<'a>(
     let text_style = get_theme(Markdown::TEXT_STYLE);
     let code_style = get_theme(Markdown::BLOCK_STYLE);
 
-    let theme = match theme {
-        Some(t) => t,
-        None => return styled_multiline_text(text, code_style),
+    let Some(theme) = theme else {
+        return styled_multiline_text(text, code_style);
     };
 
     let ropeslice = RopeSlice::from(text);
@@ -77,7 +76,7 @@ pub fn highlighted_code_block<'a>(
             if event == HighlightEvent::Refresh {
                 overlay_highlight_stack.clear();
             }
-            overlay_highlight_stack.extend(new_highlights)
+            overlay_highlight_stack.extend(new_highlights);
         }
 
         let start = pos;
@@ -254,7 +253,7 @@ impl Markdown {
                         .last()
                         .unwrap_or(&None) // use the '- ' bullet in case the list stack would be empty
                         .map_or((String::from("• "), unnumbered_list_style), |number| {
-                            (format!("{}. ", number), numbered_list_style)
+                            (format!("{number}. "), numbered_list_style)
                         });
 
                     // increment the current list number if there is one
@@ -344,7 +343,7 @@ impl Markdown {
                 }
                 // TaskListMarker(bool) true if checked
                 _ => {
-                    log::warn!("unhandled markdown event {:?}", event);
+                    log::warn!("unhandled markdown event {event:?}");
                 }
             }
             // build up a vec of Paragraph tui widgets

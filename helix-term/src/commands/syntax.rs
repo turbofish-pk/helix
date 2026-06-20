@@ -8,28 +8,27 @@ use std::{
 use dashmap::DashMap;
 use futures_util::FutureExt;
 use grep_regex::RegexMatcherBuilder;
-use grep_searcher::{sinks, BinaryDetection, SearcherBuilder};
+use grep_searcher::{BinaryDetection, SearcherBuilder, sinks};
 use helix_core::{
-    syntax::{Loader, QueryMatchIterEvent},
     Rope, RopeSlice, Selection, Syntax, Uri,
+    syntax::{Loader, QueryMatchIterEvent},
 };
 use helix_stdx::{
     path,
     rope::{self, RopeSliceExt},
 };
 use helix_view::{
-    align_view,
-    document::{from_reader, SCRATCH_BUFFER_NAME},
-    Align, Document, DocumentId, Editor,
+    Align, Document, DocumentId, Editor, align_view,
+    document::{SCRATCH_BUFFER_NAME, from_reader},
 };
 use ignore::{DirEntry, WalkBuilder, WalkState};
 
 use crate::{
     filter_picker_entry,
     ui::{
+        Picker, PickerColumn,
         overlay::overlaid,
         picker::{Injector, PathOrId},
-        Picker, PickerColumn,
     },
 };
 
@@ -51,7 +50,7 @@ enum TagKind {
 }
 
 impl TagKind {
-    fn as_str(&self) -> &'static str {
+    fn as_str(self) -> &'static str {
         match self {
             Self::Class => "class",
             Self::Constant => "constant",
@@ -121,61 +120,61 @@ fn tags_iter<'a>(
 ) -> impl Iterator<Item = Tag> + 'a {
     let mut tags_iter = syntax.tags(text, loader, ..);
 
-    iter::from_fn(move || loop {
-        let QueryMatchIterEvent::Match(mat) = tags_iter.next()? else {
-            continue;
-        };
-        let query = &loader
-            .tag_query(tags_iter.current_language())
-            .expect("must have a tags query to emit matches")
-            .query;
+    iter::from_fn(move || {
+        loop {
+            let QueryMatchIterEvent::Match(mat) = tags_iter.next()? else {
+                continue;
+            };
+            let query = &loader
+                .tag_query(tags_iter.current_language())
+                .expect("must have a tags query to emit matches")
+                .query;
 
-        // Find the @definition.* and optional @name captures in this match.
-        let mut def_capture = None::<(TagKind, std::ops::Range<u32>)>;
-        let mut name_range = None::<std::ops::Range<u32>>;
-        let name_capture = query.get_capture("name");
+            // Find the @definition.* and optional @name captures in this match.
+            let mut def_capture = None::<(TagKind, std::ops::Range<u32>)>;
+            let mut name_range = None::<std::ops::Range<u32>>;
+            let name_capture = query.get_capture("name");
 
-        for node in mat.nodes.iter() {
-            let capture_name = query.capture_name(node.capture);
-            if let Some(kind) = capture_name
-                .strip_prefix("definition.")
-                .and_then(TagKind::from_name)
-            {
-                def_capture = Some((kind, node.node.byte_range()));
-            } else if name_capture == Some(node.capture) {
-                name_range = Some(node.node.byte_range());
+            for node in &mat.nodes {
+                let capture_name = query.capture_name(node.capture);
+                if let Some(kind) = capture_name
+                    .strip_prefix("definition.")
+                    .and_then(TagKind::from_name)
+                {
+                    def_capture = Some((kind, node.node.byte_range()));
+                } else if name_capture == Some(node.capture) {
+                    name_range = Some(node.node.byte_range());
+                }
             }
-        }
 
-        let Some((kind, def_byte_range)) = def_capture else {
-            continue;
-        };
-        let name_byte_range = name_range.unwrap_or_else(|| def_byte_range.clone());
+            let Some((kind, def_byte_range)) = def_capture else {
+                continue;
+            };
+            let name_byte_range = name_range.unwrap_or_else(|| def_byte_range.clone());
 
-        if pattern.is_some_and(|re| {
-            !re.is_match(
-                text.regex_input_at_bytes(
+            if pattern.is_some_and(|re| {
+                !re.is_match(text.regex_input_at_bytes(
                     name_byte_range.start as usize..name_byte_range.end as usize,
-                ),
-            )
-        }) {
-            continue;
+                ))
+            }) {
+                continue;
+            }
+
+            let name_start = text.byte_to_char(name_byte_range.start as usize);
+            let name_end = text.byte_to_char(name_byte_range.end as usize);
+            let def_start = text.byte_to_char(def_byte_range.start as usize);
+            let def_end = text.byte_to_char(def_byte_range.end as usize);
+
+            return Some(Tag {
+                kind,
+                name: text.slice(name_start..name_end).to_string(),
+                start: def_start,
+                end: def_end,
+                start_line: text.char_to_line(def_start),
+                end_line: text.char_to_line(def_end),
+                doc: doc.clone(),
+            });
         }
-
-        let name_start = text.byte_to_char(name_byte_range.start as usize);
-        let name_end = text.byte_to_char(name_byte_range.end as usize);
-        let def_start = text.byte_to_char(def_byte_range.start as usize);
-        let def_end = text.byte_to_char(def_byte_range.end as usize);
-
-        return Some(Tag {
-            kind,
-            name: text.slice(name_start..name_end).to_string(),
-            start: def_start,
-            end: def_end,
-            start_line: text.char_to_line(def_start),
-            end_line: text.char_to_line(def_end),
-            doc: doc.clone(),
-        });
     })
 }
 
@@ -192,8 +191,8 @@ pub fn syntax_symbol_picker(cx: &mut Context) {
     let tags = tags_iter(syntax, &loader, text, UriOrDocumentId::Id(doc.id()), None);
 
     let columns = vec![
-        PickerColumn::new("kind", |tag: &Tag, _| tag.kind.as_str().into()),
-        PickerColumn::new("name", |tag: &Tag, _| tag.name.as_str().into()),
+        PickerColumn::new("kind", |tag: &Tag, ()| tag.kind.as_str().into()),
+        PickerColumn::new("name", |tag: &Tag, ()| tag.name.as_str().into()),
     ];
 
     let picker = Picker::new(
@@ -207,7 +206,7 @@ pub fn syntax_symbol_picker(cx: &mut Context) {
             let doc = doc_mut!(cx.editor, &doc_id);
             doc.set_selection(view.id, Selection::single(tag.start, tag.end));
             if action.align_view(view, doc.id()) {
-                align_view(doc, view, Align::Center)
+                align_view(doc, view, Align::Center);
             }
         },
     )
@@ -318,8 +317,7 @@ pub fn syntax_workspace_symbol_picker(cx: &mut Context) {
             let text = doc.text().slice(..);
             let uri_or_id = doc
                 .uri()
-                .map(UriOrDocumentId::Uri)
-                .unwrap_or_else(|| UriOrDocumentId::Id(doc.id()));
+                .map_or_else(|| UriOrDocumentId::Id(doc.id()), UriOrDocumentId::Uri);
             for tag in tags_iter(syntax, &loader, text.slice(..), uri_or_id, Some(&pattern)) {
                 if injector.push(tag).is_err() {
                     return async { Ok(()) }.boxed();
@@ -337,10 +335,7 @@ pub fn syntax_workspace_symbol_picker(cx: &mut Context) {
                 matcher
             }
             Err(err) => {
-                log::info!(
-                    "Failed to compile search pattern in workspace symbol search: {}",
-                    err
-                );
+                log::info!("Failed to compile search pattern in workspace symbol search: {err}");
                 return async { Err(anyhow::anyhow!("Failed to compile regex")) }.boxed();
             }
         };
@@ -365,9 +360,8 @@ pub fn syntax_workspace_symbol_picker(cx: &mut Context) {
                 let pattern = pattern.clone();
                 let syntax_cache = &state.syntax_cache;
                 Box::new(move |entry: Result<DirEntry, ignore::Error>| -> WalkState {
-                    let entry = match entry {
-                        Ok(entry) => entry,
-                        Err(_) => return WalkState::Continue,
+                    let Ok(entry) = entry else {
+                        return WalkState::Continue;
                     };
                     if !entry.path().is_file() {
                         return WalkState::Continue;
@@ -376,7 +370,7 @@ pub fn syntax_workspace_symbol_picker(cx: &mut Context) {
                     // If this document is open, skip it because we've already processed it above.
                     if documents.contains(path) {
                         return WalkState::Continue;
-                    };
+                    }
                     let mut quit = false;
                     let sink = sinks::UTF8(|_line, _content| {
                         if !syntax_cache.contains_key(path) {
@@ -384,7 +378,7 @@ pub fn syntax_workspace_symbol_picker(cx: &mut Context) {
                             // and parse it with tree-sitter. Save the Rope and Syntax for future
                             // queries.
                             syntax_cache.insert(path.to_path_buf(), syntax_for_path(path, &loader));
-                        };
+                        }
                         let entry = syntax_cache.get(path).unwrap();
                         let Some((text, syntax)) = entry.value() else {
                             // If the file couldn't be parsed, move on.
@@ -449,7 +443,7 @@ pub fn syntax_workspace_symbol_picker(cx: &mut Context) {
             }
             doc.set_selection(view.id, Selection::single(tag.start, tag.end));
             if action.align_view(view, doc.id()) {
-                align_view(doc, view, Align::Center)
+                align_view(doc, view, Align::Center);
             }
         },
     )

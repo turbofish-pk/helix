@@ -47,7 +47,7 @@ fn workspace_for_uri(uri: lsp::Url) -> WorkspaceFolder {
             .path()
             .rsplit('/')
             .find(|segment| !segment.is_empty())
-            .map(|basename| basename.to_string())
+            .map(std::string::ToString::to_string)
             .unwrap_or_default(),
         uri,
     }
@@ -182,10 +182,10 @@ impl Client {
             // and that we can therefore reuse the client (but are done now)
             return;
         }
-        self.did_change_workspace(vec![workspace_for_uri(root_uri)], Vec::new())
+        self.did_change_workspace(vec![workspace_for_uri(root_uri)], Vec::new());
     }
 
-    /// Merge FormattingOptions with 'config.format' and return it
+    /// Merge `FormattingOptions` with 'config.format' and return it
     fn get_merged_formatting_options(
         &self,
         options: lsp::FormattingOptions,
@@ -224,7 +224,7 @@ impl Client {
         UnboundedReceiver<(LanguageServerId, Call)>,
         Arc<Notify>,
     )> {
-        info!("Starting lsp {name:?} in root {root_path:?}");
+        info!("Starting lsp {name:?} in root {}", root_path.display());
         // Resolve path to the binary
         let cmd = helix_stdx::env::which(cmd)?;
 
@@ -316,9 +316,13 @@ impl Client {
     /// Client has to be initialized otherwise this function panics
     #[inline]
     pub fn supports_feature(&self, feature: LanguageServerFeature) -> bool {
+        use lsp::{
+            CallHierarchyServerCapability, CodeActionProviderCapability, ColorProviderCapability,
+            DeclarationCapability, HoverProviderCapability, ImplementationProviderCapability,
+            InlayHintServerCapabilities, OneOf, TypeDefinitionProviderCapability,
+        };
         let capabilities = self.capabilities();
 
-        use lsp::*;
         match feature {
             LanguageServerFeature::Format => matches!(
                 capabilities.document_formatting_provider,
@@ -387,7 +391,7 @@ impl Client {
             LanguageServerFeature::PullDiagnostics => capabilities.diagnostic_provider.is_some(),
             LanguageServerFeature::RenameSymbol => matches!(
                 capabilities.rename_provider,
-                Some(OneOf::Left(true)) | Some(OneOf::Right(_))
+                Some(OneOf::Left(true) | OneOf::Right(_))
             ),
             LanguageServerFeature::InlayHints => matches!(
                 capabilities.inlay_hint_provider,
@@ -433,9 +437,7 @@ impl Client {
         self.config.as_ref()
     }
 
-    pub async fn workspace_folders(
-        &self,
-    ) -> parking_lot::MutexGuard<'_, Vec<lsp::WorkspaceFolder>> {
+    pub fn workspace_folders(&self) -> parking_lot::MutexGuard<'_, Vec<lsp::WorkspaceFolder>> {
         self.workspace_folders.lock()
     }
 
@@ -574,7 +576,7 @@ impl Client {
 
     pub(crate) async fn initialize(&self, enable_snippets: bool) -> Result<lsp::InitializeResult> {
         if let Some(config) = &self.config {
-            log::info!("Using custom LSP config: {}", config);
+            log::info!("Using custom LSP config: {config}");
         }
 
         #[allow(deprecated)]
@@ -583,7 +585,7 @@ impl Client {
             workspace_folders: Some(self.workspace_folders.lock().clone()),
             // root_path is obsolete, but some clients like pyright still use it so we specify both.
             // clients will prefer _uri if possible
-            root_path: self.root_path.to_str().map(|path| path.to_owned()),
+            root_path: self.root_path.to_str().map(std::borrow::ToOwned::to_owned),
             root_uri: self.root_uri.clone(),
             initialization_options: self.config.clone(),
             capabilities: lsp::ClientCapabilities {
@@ -783,7 +785,7 @@ impl Client {
     }
 
     pub fn exit(&self) {
-        self.notify::<lsp::notification::Exit>(())
+        self.notify::<lsp::notification::Exit>(());
     }
 
     /// Tries to shut down the language server but returns
@@ -834,13 +836,13 @@ impl Client {
     pub fn did_change_configuration(&self, settings: Value) {
         self.notify::<lsp::notification::DidChangeConfiguration>(
             lsp::DidChangeConfigurationParams { settings },
-        )
+        );
     }
 
     pub fn did_change_workspace(&self, added: Vec<WorkspaceFolder>, removed: Vec<WorkspaceFolder>) {
         self.notify::<DidChangeWorkspaceFolders>(DidChangeWorkspaceFoldersParams {
             event: WorkspaceFoldersChangeEvent { added, removed },
-        })
+        });
     }
 
     fn file_operation_uri(path: &Path, is_dir: bool) -> Option<String> {
@@ -968,7 +970,7 @@ impl Client {
                 version,
                 text: String::from(doc),
             },
-        })
+        });
     }
 
     #[must_use]
@@ -978,14 +980,9 @@ impl Client {
         changeset: &ChangeSet,
         offset_encoding: OffsetEncoding,
     ) -> Vec<lsp::TextDocumentContentChangeEvent> {
-        let mut iter = changeset.changes().iter().peekable();
-        let mut old_pos = 0;
-        let mut new_pos = 0;
-
-        let mut changes = Vec::new();
-
         use crate::util::pos_to_lsp_pos;
-        use helix_core::Operation::*;
+        use helix_core::Operation::{Delete, Insert, Retain};
+        use helix_core::RopeSlice;
 
         // this is dumb. TextEdit describes changes to the initial doc (concurrent), but
         // TextDocumentContentChangeEvent describes a series of changes (sequential).
@@ -993,7 +990,6 @@ impl Client {
         //
         // Calculation is therefore a bunch trickier.
 
-        use helix_core::RopeSlice;
         fn traverse(
             pos: lsp::Position,
             text: RopeSlice,
@@ -1024,6 +1020,11 @@ impl Client {
             }
             lsp::Position { line, character }
         }
+        let mut iter = changeset.changes().iter().peekable();
+        let mut old_pos = 0;
+        let mut new_pos = 0;
+
+        let mut changes = Vec::new();
 
         let old_text = old_text.slice(..);
 
@@ -1045,7 +1046,7 @@ impl Client {
                     // deletion
                     changes.push(lsp::TextDocumentContentChangeEvent {
                         range: Some(lsp::Range::new(start, end)),
-                        text: "".to_string(),
+                        text: String::new(),
                         range_length: None,
                     });
                 }
@@ -1092,16 +1093,15 @@ impl Client {
         let capabilities = self.capabilities.get().unwrap();
 
         // Return early if the server does not support document sync.
-        let sync_capabilities = match capabilities.text_document_sync {
-            Some(
-                lsp::TextDocumentSyncCapability::Kind(kind)
-                | lsp::TextDocumentSyncCapability::Options(lsp::TextDocumentSyncOptions {
-                    change: Some(kind),
-                    ..
-                }),
-            ) => kind,
-            // None | SyncOptions { changes: None }
-            _ => return None,
+        let Some(
+            lsp::TextDocumentSyncCapability::Kind(sync_capabilities)
+            | lsp::TextDocumentSyncCapability::Options(lsp::TextDocumentSyncOptions {
+                change: Some(sync_capabilities),
+                ..
+            }),
+        ) = capabilities.text_document_sync
+        else {
+            return None;
         };
 
         let changes = match sync_capabilities {
@@ -1130,7 +1130,7 @@ impl Client {
     pub fn text_document_did_close(&self, text_document: lsp::TextDocumentIdentifier) {
         self.notify::<lsp::notification::DidCloseTextDocument>(lsp::DidCloseTextDocumentParams {
             text_document,
-        })
+        });
     }
 
     // will_save / will_save_wait_until
@@ -1357,7 +1357,7 @@ impl Client {
         match capabilities.document_formatting_provider {
             Some(lsp::OneOf::Left(true) | lsp::OneOf::Right(_)) => (),
             _ => return None,
-        };
+        }
 
         let options = self.get_merged_formatting_options(options);
 
@@ -1383,7 +1383,7 @@ impl Client {
         match capabilities.document_range_formatting_provider {
             Some(lsp::OneOf::Left(true) | lsp::OneOf::Right(_)) => (),
             _ => return None,
-        };
+        }
 
         let options = self.get_merged_formatting_options(options);
 
@@ -1817,6 +1817,6 @@ impl Client {
     pub fn did_change_watched_files(&self, changes: Vec<lsp::FileEvent>) {
         self.notify::<lsp::notification::DidChangeWatchedFiles>(lsp::DidChangeWatchedFilesParams {
             changes,
-        })
+        });
     }
 }

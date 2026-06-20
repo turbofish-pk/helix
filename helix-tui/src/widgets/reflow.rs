@@ -1,5 +1,6 @@
 use crate::text::StyledGrapheme;
 use helix_core::{line_ending::str_is_line_ending, unicode::width::UnicodeWidthStr};
+
 use unicode_segmentation::UnicodeSegmentation;
 
 const NBSP: &str = "\u{00a0}";
@@ -235,14 +236,14 @@ fn trim_offset(src: &str, mut offset: usize) -> &str {
 mod test {
     use super::*;
     use unicode_segmentation::UnicodeSegmentation;
-
+    #[derive(Clone, Copy)]
     enum Composer {
         WordWrapper { trim: bool },
         LineTruncator,
     }
 
     fn run_composer(which: Composer, text: &str, text_area_width: u16) -> (Vec<String>, Vec<u16>) {
-        let style = Default::default();
+        let style = helix_view::graphics::Style::default();
         let mut styled =
             UnicodeSegmentation::graphemes(text, true).map(|g| StyledGrapheme { symbol: g, style });
         let mut composer: Box<dyn LineComposer> = match which {
@@ -395,7 +396,7 @@ mod test {
         assert_eq!(line_truncator, vec!["", "a"]);
     }
 
-    /// Tests WordWrapper with words some of which exceed line length and some not.
+    /// Tests `WordWrapper` with words some of which exceed line length and some not.
     #[test]
     fn line_composer_word_wrapper_mixed_length() {
         let width = 20;
@@ -410,7 +411,7 @@ mod test {
                 "mnopab cdefghi j",
                 "klmno",
             ]
-        )
+        );
     }
 
     #[test]

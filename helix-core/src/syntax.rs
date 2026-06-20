@@ -338,7 +338,7 @@ impl Loader {
     pub fn language(&self, lang: Language) -> &LanguageData {
         &self.languages[lang.idx()]
     }
-
+    #[allow(clippy::needless_pass_by_value)]
     pub fn language_for_name(&self, name: impl PartialEq<String>) -> Option<Language> {
         self.languages.iter().enumerate().find_map(|(idx, config)| {
             (name == config.config.language_id).then_some(Language(u32::try_from(idx).unwrap()))
@@ -485,7 +485,7 @@ impl Default for FileTypeGlobMatcher {
     fn default() -> Self {
         Self {
             matcher: globset::GlobSet::empty(),
-            file_types: Default::default(),
+            file_types: Vec::default(),
         }
     }
 }
@@ -716,7 +716,7 @@ impl Syntax {
 pub type Highlighter<'a> = highlighter::Highlighter<'a, 'a, Loader>;
 
 fn generate_edits(old_text: RopeSlice, changeset: &ChangeSet) -> Vec<InputEdit> {
-    use crate::Operation::*;
+    use crate::Operation::{Delete, Insert, Retain};
     use tree_sitter::Point;
 
     let mut old_pos = 0;
@@ -915,7 +915,7 @@ impl OverlayHighlighter {
         let pos = self.next_event_offset();
 
         if self.next_highlight_end == pos {
-            for overlay in self.overlays.iter_mut() {
+            for overlay in &mut self.overlays {
                 if overlay
                     .active_highlight
                     .is_some_and(|(_highlight, end)| end == pos)
@@ -984,7 +984,7 @@ impl OverlayHighlighter {
             event,
             self.overlays
                 .iter()
-                .flat_map(|overlay| overlay.active_highlight)
+                .filter_map(|overlay| overlay.active_highlight)
                 .map(|(highlight, _end)| highlight)
                 .skip(start),
         )
@@ -1092,7 +1092,7 @@ impl TextObjectQuery {
 pub struct TagQuery {
     pub query: Query,
 }
-
+#[allow(clippy::needless_pass_by_value)]
 pub fn pretty_print_tree<W: fmt::Write>(fmt: &mut W, node: Node) -> fmt::Result {
     if node.child_count() == 0 {
         if node_is_visible(&node) {
@@ -1256,7 +1256,7 @@ mod test {
                 matches[0].byte_range(),
                 range,
                 "@{capture} expected {range:?}"
-            )
+            );
         };
 
         test("quantified_nodes", 1..37);

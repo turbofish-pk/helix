@@ -65,6 +65,7 @@ pub enum Config {
 }
 
 impl Config {
+    #[must_use]
     pub fn choose(&self, preference: Option<Mode>) -> &str {
         match self {
             Config::Constant(theme) => theme,
@@ -80,6 +81,7 @@ impl Config {
         }
     }
 
+    #[must_use]
     pub fn is_adaptive(&self) -> bool {
         matches!(self, Self::Adaptive { .. })
     }
@@ -95,6 +97,7 @@ impl Loader {
     ///
     /// The provided directories should be ordered from highest to lowest priority.
     /// The directories will have their "themes" subdirectory searched.
+    #[must_use]
     pub fn new(dirs: &[PathBuf]) -> Self {
         Self {
             theme_dirs: dirs.iter().map(|p| p.join("themes")).collect(),
@@ -106,7 +109,7 @@ impl Loader {
         let (theme, warnings) = self.load_with_warnings(name)?;
 
         for warning in warnings {
-            warn!("Theme '{}': {}", name, warning);
+            warn!("Theme '{name}': {warning}");
         }
 
         Ok(theme)
@@ -151,7 +154,7 @@ impl Loader {
 
         let theme_toml = if let Some(parent_theme_name) = inherits {
             let parent_theme_name = parent_theme_name.as_str().ok_or_else(|| {
-                anyhow!("Expected 'inherits' to be a string: {}", parent_theme_name)
+                anyhow!("Expected 'inherits' to be a string: {parent_theme_name}")
             })?;
 
             let parent_theme_toml = match parent_theme_name {
@@ -169,6 +172,7 @@ impl Loader {
         Ok(theme_toml)
     }
 
+    #[must_use]
     pub fn read_names(path: &Path) -> Vec<String> {
         std::fs::read_dir(path)
             .map(|entries| {
@@ -185,6 +189,7 @@ impl Loader {
     }
 
     // merge one theme into the parent theme
+    #[allow(clippy::unused_self)]
     fn merge_themes(&self, parent_theme_toml: Value, theme_toml: Value) -> Value {
         let parent_palette = parent_theme_toml.get("palette");
         let palette = theme_toml.get("palette");
@@ -211,6 +216,7 @@ impl Loader {
     }
 
     // Loads the theme data as `toml::Value`
+    #[allow(clippy::unused_self)]
     fn load_toml(&self, path: PathBuf) -> Result<Value> {
         let data = std::fs::read_to_string(path)?;
         let value = toml::from_str(&data)?;
@@ -222,7 +228,7 @@ impl Loader {
     ///
     /// Ignores paths already visited and follows directory priority order.
     fn path(&self, name: &str, visited_paths: &mut HashSet<PathBuf>) -> Result<PathBuf> {
-        let filename = format!("{}.toml", name);
+        let filename = format!("{name}.toml");
 
         let mut cycle_found = false; // track if there was a path, but it was in a cycle
         self.theme_dirs
@@ -242,13 +248,14 @@ impl Loader {
             })
             .ok_or_else(|| {
                 if cycle_found {
-                    anyhow!("Cycle found in inheriting: {}", name)
+                    anyhow!("Cycle found in inheriting: {name}")
                 } else {
-                    anyhow!("File not found for: {}", name)
+                    anyhow!("File not found for: {name}")
                 }
             })
     }
 
+    #[must_use]
     pub fn default_theme(&self, true_color: bool) -> Theme {
         if true_color {
             self.default()
@@ -287,7 +294,7 @@ impl From<Value> for Theme {
     fn from(value: Value) -> Self {
         let (theme, warnings) = Theme::from_toml(value);
         for warning in warnings {
-            warn!("{}", warning);
+            warn!("{warning}");
         }
         theme
     }
@@ -301,7 +308,7 @@ impl<'de> Deserialize<'de> for Theme {
         let values = Map::<String, Value>::deserialize(deserializer)?;
         let (theme, warnings) = Theme::from_keys(values);
         for warning in warnings {
-            warn!("{}", warning);
+            warn!("{warning}");
         }
         Ok(theme)
     }
@@ -342,7 +349,7 @@ fn build_theme_values(
 
     for (i, style) in values
         .remove("rainbow")
-        .and_then(|value| match palette.parse_style_array(value) {
+        .and_then(|value| match palette.parse_style_array(&value) {
             Ok(styles) => Some(styles),
             Err(err) => {
                 warnings.push(err);
@@ -399,6 +406,7 @@ impl Theme {
     }
 
     /// Create a Highlight that represents an RGB color
+    #[must_use]
     pub fn rgb_highlight(r: u8, g: u8, b: u8) -> Highlight {
         // -1 because highlight is "non-max": u32::MAX is reserved for the null pointer
         // optimization.
@@ -406,6 +414,7 @@ impl Theme {
     }
 
     #[inline]
+    #[must_use]
     pub fn highlight(&self, highlight: Highlight) -> Style {
         if let Some((red, green, blue)) = Self::decode_rgb_highlight(highlight) {
             Style::new().fg(Color::Rgb(red, green, blue))
@@ -415,14 +424,17 @@ impl Theme {
     }
 
     #[inline]
+    #[must_use]
     pub fn scope(&self, highlight: Highlight) -> &str {
         &self.scopes[highlight.idx()]
     }
 
+    #[must_use]
     pub fn name(&self) -> &str {
         &self.name
     }
 
+    #[must_use]
     pub fn get(&self, scope: &str) -> Style {
         self.try_get(scope).unwrap_or_default()
     }
@@ -430,6 +442,7 @@ impl Theme {
     /// Get the style of a scope, falling back to dot separated broader
     /// scopes. For example if `ui.text.focus` is not defined in the theme,
     /// `ui.text` is tried and then `ui` is tried.
+    #[must_use]
     pub fn try_get(&self, scope: &str) -> Option<Style> {
         std::iter::successors(Some(scope), |s| Some(s.rsplit_once('.')?.0))
             .find_map(|s| self.styles.get(s).copied())
@@ -438,19 +451,23 @@ impl Theme {
     /// Get the style of a scope, without falling back to dot separated broader
     /// scopes. For example if `ui.text.focus` is not defined in the theme, it
     /// will return `None`, even if `ui.text` is.
+    #[must_use]
     pub fn try_get_exact(&self, scope: &str) -> Option<Style> {
         self.styles.get(scope).copied()
     }
 
     #[inline]
+    #[must_use]
     pub fn scopes(&self) -> &[String] {
         &self.scopes
     }
 
+    #[must_use]
     pub fn find_highlight_exact(&self, scope: &str) -> Option<Highlight> {
         self.scope_index.get(scope).copied()
     }
 
+    #[must_use]
     pub fn find_highlight(&self, mut scope: &str) -> Option<Highlight> {
         loop {
             if let Some(highlight) = self.find_highlight_exact(scope) {
@@ -463,7 +480,7 @@ impl Theme {
             }
         }
     }
-
+    #[must_use]
     pub fn is_16_color(&self) -> bool {
         self.styles.iter().all(|(_, style)| {
             [style.fg, style.bg]
@@ -472,6 +489,7 @@ impl Theme {
         })
     }
 
+    #[must_use]
     pub fn rainbow_length(&self) -> usize {
         self.rainbow_length
     }
@@ -480,7 +498,7 @@ impl Theme {
         if let Value::Table(table) = value {
             Theme::from_keys(table)
         } else {
-            warn!("Expected theme TOML value to be a table, found {:?}", value);
+            warn!("Expected theme TOML value to be a table, found {value:?}");
             Default::default()
         }
     }
@@ -492,7 +510,7 @@ impl Theme {
         let scope_index = scopes
             .iter()
             .enumerate()
-            .map(|(i, s)| (s.clone(), Highlight::new(i as u32)))
+            .map(|(i, s)| (s.clone(), Highlight::new(u32::try_from(i).unwrap())))
             .collect();
 
         let theme = Self {
@@ -559,17 +577,15 @@ impl ThemePalette {
         if let Ok(index) = s.parse::<u8>() {
             return Ok(Color::Indexed(index));
         }
-        Err(format!("Malformed ANSI: {}", s))
+        Err(format!("Malformed ANSI: {s}"))
     }
 
     fn parse_value_as_str(value: &Value) -> Result<&str, String> {
-        value
-            .as_str()
-            .ok_or(format!("Unrecognized value: {}", value))
+        value.as_str().ok_or(format!("Unrecognized value: {value}"))
     }
 
-    pub fn parse_color(&self, value: Value) -> Result<Color, String> {
-        let value = Self::parse_value_as_str(&value)?;
+    pub fn parse_color(&self, value: &Value) -> Result<Color, String> {
+        let value = Self::parse_value_as_str(value)?;
 
         self.palette
             .get(value)
@@ -582,26 +598,26 @@ impl ThemePalette {
         value
             .as_str()
             .and_then(|s| s.parse().ok())
-            .ok_or(format!("Invalid modifier: {}", value))
+            .ok_or(format!("Invalid modifier: {value}"))
     }
 
     pub fn parse_underline_style(value: &Value) -> Result<UnderlineStyle, String> {
         value
             .as_str()
             .and_then(|s| s.parse().ok())
-            .ok_or(format!("Invalid underline style: {}", value))
+            .ok_or(format!("Invalid underline style: {value}"))
     }
 
     pub fn parse_style(&self, style: &mut Style, value: Value) -> Result<(), String> {
         if let Value::Table(entries) = value {
             for (name, mut value) in entries {
                 match name.as_str() {
-                    "fg" => *style = style.fg(self.parse_color(value)?),
-                    "bg" => *style = style.bg(self.parse_color(value)?),
+                    "fg" => *style = style.fg(self.parse_color(&value)?),
+                    "bg" => *style = style.bg(self.parse_color(&value)?),
                     "underline" => {
                         let table = value.as_table_mut().ok_or("Underline must be table")?;
                         if let Some(value) = table.remove("color") {
-                            *style = style.underline_color(self.parse_color(value)?);
+                            *style = style.underline_color(self.parse_color(&value)?);
                         }
                         if let Some(value) = table.remove("style") {
                             *style = style.underline_style(Self::parse_underline_style(&value)?);
@@ -622,16 +638,16 @@ impl ThemePalette {
                             }
                         }
                     }
-                    _ => return Err(format!("Invalid style attribute: {}", name)),
+                    _ => return Err(format!("Invalid style attribute: {name}")),
                 }
             }
         } else {
-            *style = style.fg(self.parse_color(value)?);
+            *style = style.fg(self.parse_color(&value)?);
         }
         Ok(())
     }
 
-    fn parse_style_array(&self, value: Value) -> Result<Vec<Style>, String> {
+    fn parse_style_array(&self, value: &Value) -> Result<Vec<Style>, String> {
         let mut styles = Vec::new();
 
         for v in value
@@ -651,9 +667,8 @@ impl TryFrom<Value> for ThemePalette {
     type Error = String;
 
     fn try_from(value: Value) -> Result<Self, Self::Error> {
-        let map = match value {
-            Value::Table(entries) => entries,
-            _ => return Ok(Self::default()),
+        let Value::Table(map) = value else {
+            return Ok(Self::default());
         };
 
         let mut palette = HashMap::with_capacity(map.len());
@@ -761,6 +776,6 @@ mod tests {
     #[should_panic(expected = "index out of bounds: the len is 0 but the index is 4278190078")]
     fn out_of_bounds() {
         let highlight = Highlight::new(Theme::rgb_highlight(0, 0, 0).get() - 1);
-        Theme::default().highlight(highlight);
+        let _ = Theme::default().highlight(highlight);
     }
 }

@@ -28,18 +28,13 @@ fn buffer_view(buffer: &Buffer) -> String {
             if skip == 0 {
                 view.push_str(&c.symbol);
             } else {
-                overwritten.push((x, &c.symbol))
+                overwritten.push((x, &c.symbol));
             }
             skip = std::cmp::max(skip, c.symbol.width()).saturating_sub(1);
         }
         view.push('"');
         if !overwritten.is_empty() {
-            write!(
-                &mut view,
-                " Hidden by multi-width symbols: {:?}",
-                overwritten
-            )
-            .unwrap();
+            write!(&mut view, " Hidden by multi-width symbols: {overwritten:?}").unwrap();
         }
         view.push('\n');
     }
@@ -47,6 +42,7 @@ fn buffer_view(buffer: &Buffer) -> String {
 }
 
 impl TestBackend {
+    #[must_use]
     pub fn new(width: u16, height: u16) -> TestBackend {
         TestBackend {
             width,
@@ -56,7 +52,7 @@ impl TestBackend {
             pos: (0, 0),
         }
     }
-
+    #[must_use]
     pub fn buffer(&self) -> &Buffer {
         &self.buffer
     }
@@ -94,10 +90,7 @@ impl TestBackend {
             .enumerate()
             .map(|(i, (x, y, cell))| {
                 let expected_cell = expected.get(*x, *y);
-                format!(
-                    "{}: at ({}, {}) expected {:?} got {:?}",
-                    i, x, y, expected_cell, cell
-                )
+                format!("{i}: at ({x}, {y}) expected {expected_cell:?} got {cell:?}")
             })
             .collect::<Vec<String>>()
             .join("\n");

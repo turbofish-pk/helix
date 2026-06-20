@@ -583,7 +583,7 @@ mod tests {
             ..CompletionItemCapability::default()
         };
 
-        test_deserialization(r#"{}"#, &empty);
+        test_deserialization(r"{}", &empty);
         test_deserialization(r#"{"tagSupport": false}"#, &empty);
 
         let t = CompletionItemCapability {

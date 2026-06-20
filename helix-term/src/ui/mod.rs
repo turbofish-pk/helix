@@ -1,3 +1,4 @@
+#![allow(clippy::missing_errors_doc)]
 mod completion;
 mod document;
 pub(crate) mod editor;
@@ -165,7 +166,7 @@ pub fn raw_regex_prompt(
                                 let callback = async move {
                                     let call: job::Callback = Callback::EditorCompositor(Box::new(
                                         move |_editor: &mut Editor, compositor: &mut Compositor| {
-                                            let contents = Text::new(format!("{}", err));
+                                            let contents = Text::new(format!("{err}"));
                                             let size = compositor.size();
                                             let popup = Popup::new("invalid-regex", contents)
                                                 .position(Some(helix_core::Position::new(
@@ -217,7 +218,7 @@ pub struct FilePickerData {
 }
 type FilePicker = Picker<PathBuf, FilePickerData>;
 
-pub fn file_picker(editor: &Editor, root: PathBuf) -> FilePicker {
+pub fn file_picker(editor: &Editor, root: &PathBuf) -> FilePicker {
     use ignore::WalkBuilder;
     use std::time::Instant;
 
@@ -232,7 +233,7 @@ pub fn file_picker(editor: &Editor, root: PathBuf) -> FilePicker {
     let dedup_symlinks = config.file_picker.deduplicate_links;
     let absolute_root = root.canonicalize().unwrap_or_else(|_| root.clone());
 
-    let mut walk_builder = WalkBuilder::new(&root);
+    let mut walk_builder = WalkBuilder::new(root);
 
     let mut files = walk_builder
         .hidden(config.file_picker.hidden)
@@ -350,7 +351,7 @@ pub fn file_explorer(root: PathBuf, editor: &Editor) -> Result<FileExplorer, std
                 cx.jobs.callback(callback);
             } else if let Err(e) = cx.editor.open(path, action) {
                 let err = if let Some(err) = e.source() {
-                    format!("{}", err)
+                    format!("{err}")
                 } else {
                     format!("unable to open \"{}\"", path.display())
                 };
@@ -443,9 +444,10 @@ pub mod completers {
 
     pub fn buffer(editor: &Editor, input: &str) -> Vec<Completion> {
         let names = editor.documents.values().map(|doc| {
-            doc.relative_path()
-                .map(|p| p.display().to_string().into())
-                .unwrap_or_else(|| Cow::from(SCRATCH_BUFFER_NAME))
+            doc.relative_path().map_or_else(
+                || Cow::from(SCRATCH_BUFFER_NAME),
+                |p| p.display().to_string().into(),
+            )
         });
 
         fuzzy_match(input, names, true)
@@ -473,9 +475,9 @@ pub mod completers {
     /// Recursive function to get all keys from this value and add them to vec
     fn get_keys(value: &serde_json::Value, vec: &mut Vec<String>, scope: Option<&str>) {
         if let Some(map) = value.as_object() {
-            for (key, value) in map.iter() {
+            for (key, value) in map {
                 let key = match scope {
-                    Some(scope) => format!("{}.{}", scope, key),
+                    Some(scope) => format!("{scope}.{key}"),
                     None => key.clone(),
                 };
                 get_keys(value, vec, Some(&key));
@@ -488,7 +490,7 @@ pub mod completers {
 
     /// Completes names of language servers which are running for the current document.
     pub fn active_language_servers(editor: &Editor, input: &str) -> Vec<Completion> {
-        let language_servers = doc!(editor).language_servers().map(|ls| ls.name());
+        let language_servers = doc!(editor).language_servers().map(helix_lsp::Client::name);
 
         fuzzy_match(input, language_servers, false)
             .into_iter()
@@ -741,7 +743,7 @@ pub mod completers {
         static PROGRAMS_IN_PATH: Lazy<BTreeSet<String>> = Lazy::new(|| {
             // Go through the entire PATH and read all files into a set.
             let Some(path) = std::env::var_os("PATH") else {
-                return Default::default();
+                return BTreeSet::default();
             };
 
             std::env::split_paths(&path)
@@ -765,7 +767,7 @@ pub mod completers {
             .collect()
     }
 
-    /// This expects input to be a raw string of arguments, because this is what Signature's raw_after does.
+    /// This expects input to be a raw string of arguments, because this is what Signature's `raw_after` does.
     pub fn repeating_filenames(editor: &Editor, input: &str) -> Vec<Completion> {
         let token = match Tokenizer::new(input, false).last() {
             Some(token) => token.unwrap(),
@@ -775,7 +777,7 @@ pub mod completers {
         let offset = token.content_start;
 
         let mut completions = filename(editor, &input[offset..]);
-        for completion in completions.iter_mut() {
+        for completion in &mut completions {
             completion.0.start += offset;
         }
         completions
@@ -789,7 +791,7 @@ pub mod completers {
         }
 
         let mut completions = repeating_filenames(editor, args);
-        for completion in completions.iter_mut() {
+        for completion in &mut completions {
             // + 1 for separator between `command` and `args`
             completion.0.start += command.len() + 1;
         }

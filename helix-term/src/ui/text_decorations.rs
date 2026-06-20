@@ -103,7 +103,7 @@ impl<'a> DecorationManager<'a> {
 
     pub fn prepare_for_rendering(&mut self, first_visible_char: usize) {
         for (decoration, next_position) in &mut self.decorations {
-            *next_position = decoration.reset_pos(first_visible_char)
+            *next_position = decoration.reset_pos(first_visible_char);
         }
     }
 
@@ -113,10 +113,10 @@ impl<'a> DecorationManager<'a> {
                 match (*hook_char_idx).cmp(&grapheme.char_idx) {
                     // this grapheme has been concealed or we are at the first grapheme
                     Ordering::Less => {
-                        *hook_char_idx = decoration.skip_concealed_anchor(grapheme.char_idx)
+                        *hook_char_idx = decoration.skip_concealed_anchor(grapheme.char_idx);
                     }
                     Ordering::Equal => {
-                        *hook_char_idx = decoration.decorate_grapheme(renderer, grapheme)
+                        *hook_char_idx = decoration.decorate_grapheme(renderer, grapheme);
                     }
                     Ordering::Greater => break,
                 }

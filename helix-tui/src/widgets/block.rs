@@ -17,6 +17,7 @@ pub enum BorderType {
 }
 
 impl BorderType {
+    #[must_use]
     pub fn line_symbols(border_type: Self) -> line::Set {
         match border_type {
             Self::Plain => line::NORMAL,
@@ -58,6 +59,7 @@ pub struct Block<'a> {
 }
 
 impl<'a> Block<'a> {
+    #[must_use]
     pub const fn new() -> Self {
         Self {
             title: None,
@@ -67,13 +69,13 @@ impl<'a> Block<'a> {
             style: Style::new(),
         }
     }
-
+    #[must_use]
     pub const fn bordered() -> Self {
         let mut block = Self::new();
         block.borders = Borders::ALL;
         block
     }
-
+    #[must_use]
     pub fn title<T>(mut self, title: T) -> Block<'a>
     where
         T: Into<Spans<'a>>,
@@ -81,28 +83,29 @@ impl<'a> Block<'a> {
         self.title = Some(title.into());
         self
     }
-
+    #[must_use]
     pub const fn border_style(mut self, style: Style) -> Block<'a> {
         self.border_style = style;
         self
     }
-
+    #[must_use]
     pub const fn style(mut self, style: Style) -> Block<'a> {
         self.style = style;
         self
     }
-
+    #[must_use]
     pub const fn borders(mut self, flag: Borders) -> Block<'a> {
         self.borders = flag;
         self
     }
-
+    #[must_use]
     pub const fn border_type(mut self, border_type: BorderType) -> Block<'a> {
         self.border_type = border_type;
         self
     }
 
     /// Compute the inner area of a block based on its border visibility rules.
+    #[must_use]
     pub fn inner(&self, area: Rect) -> Rect {
         let mut inner = area;
         if self.borders.intersects(Borders::LEFT) {
@@ -134,14 +137,14 @@ impl Widget for Block<'_> {
         // Sides
         if self.borders.intersects(Borders::LEFT) {
             for y in area.top()..area.bottom() {
-                buf[(area.left(), y)]
+                let _ = buf[(area.left(), y)]
                     .set_symbol(symbols.vertical)
                     .set_style(self.border_style);
             }
         }
         if self.borders.intersects(Borders::TOP) {
             for x in area.left()..area.right() {
-                buf[(x, area.top())]
+                let _ = buf[(x, area.top())]
                     .set_symbol(symbols.horizontal)
                     .set_style(self.border_style);
             }
@@ -149,7 +152,7 @@ impl Widget for Block<'_> {
         if self.borders.intersects(Borders::RIGHT) {
             let x = area.right() - 1;
             for y in area.top()..area.bottom() {
-                buf[(x, y)]
+                let _ = buf[(x, y)]
                     .set_symbol(symbols.vertical)
                     .set_style(self.border_style);
             }
@@ -157,7 +160,7 @@ impl Widget for Block<'_> {
         if self.borders.intersects(Borders::BOTTOM) {
             let y = area.bottom() - 1;
             for x in area.left()..area.right() {
-                buf[(x, y)]
+                let _ = buf[(x, y)]
                     .set_symbol(symbols.horizontal)
                     .set_style(self.border_style);
             }
@@ -165,22 +168,22 @@ impl Widget for Block<'_> {
 
         // Corners
         if self.borders.contains(Borders::RIGHT | Borders::BOTTOM) {
-            buf[(area.right() - 1, area.bottom() - 1)]
+            let _ = buf[(area.right() - 1, area.bottom() - 1)]
                 .set_symbol(symbols.bottom_right)
                 .set_style(self.border_style);
         }
         if self.borders.contains(Borders::RIGHT | Borders::TOP) {
-            buf[(area.right() - 1, area.top())]
+            let _ = buf[(area.right() - 1, area.top())]
                 .set_symbol(symbols.top_right)
                 .set_style(self.border_style);
         }
         if self.borders.contains(Borders::LEFT | Borders::BOTTOM) {
-            buf[(area.left(), area.bottom() - 1)]
+            let _ = buf[(area.left(), area.bottom() - 1)]
                 .set_symbol(symbols.bottom_left)
                 .set_style(self.border_style);
         }
         if self.borders.contains(Borders::LEFT | Borders::TOP) {
-            buf[(area.left(), area.top())]
+            let _ = buf[(area.left(), area.top())]
                 .set_symbol(symbols.top_left)
                 .set_style(self.border_style);
         }

@@ -1,3 +1,4 @@
+#![allow(clippy::missing_errors_doc)]
 use futures_util::stream::FuturesUnordered;
 use std::collections::HashSet;
 use std::mem;
@@ -26,7 +27,7 @@ pub(super) fn register_hooks(handlers: &Handlers) {
     register_hook!(move |event: &mut DiagnosticsDidChange<'_>| {
         if event.editor.mode != Mode::Insert {
             for (view, _) in event.editor.tree.views_mut() {
-                send_blocking(&view.diagnostics_handler.events, DiagnosticEvent::Refresh)
+                send_blocking(&view.diagnostics_handler.events, DiagnosticEvent::Refresh);
             }
         }
         Ok(())
@@ -69,7 +70,7 @@ pub(super) fn register_hooks(handlers: &Handlers) {
                             }
                         })
                 })
-                .map(|language_server| language_server.id())
+                .map(helix_lsp::Client::id)
                 .collect();
 
             send_blocking(
@@ -122,7 +123,7 @@ impl helix_event::AsyncHook for PullDiagnosticsHandler {
             for document_id in document_ids {
                 request_document_diagnostics(editor, document_id);
             }
-        })
+        });
     }
 }
 
@@ -152,17 +153,17 @@ impl helix_event::AsyncHook for PullAllDocumentsDiagnosticHandler {
                 request_document_diagnostics_for_language_servers(
                     editor,
                     document,
-                    language_servers.clone(),
+                    &language_servers.clone(),
                 );
             }
-        })
+        });
     }
 }
 
 fn request_document_diagnostics_for_language_servers(
     editor: &mut Editor,
     doc_id: DocumentId,
-    language_servers: HashSet<LanguageServerId>,
+    language_servers: &HashSet<LanguageServerId>,
 ) {
     let Some(doc) = editor.document_mut(doc_id) else {
         return;
@@ -219,7 +220,7 @@ fn request_document_diagnostics_for_language_servers(
             match cancelable_future(futures.next(), &cancel).await {
                 Some(Some((Ok(result), provider, uri))) => {
                     job::dispatch(move |editor, _| {
-                        handle_pull_diagnostics_response(editor, result, provider, uri, doc_id);
+                        handle_pull_diagnostics_response(editor, result, &provider, uri, doc_id);
                     })
                     .await;
                 }
@@ -250,7 +251,7 @@ fn request_document_diagnostics_for_language_servers(
                 request_document_diagnostics_for_language_servers(
                     editor,
                     doc_id,
-                    retry_language_servers,
+                    &retry_language_servers,
                 );
             })
             .await;
@@ -278,18 +279,18 @@ pub fn request_document_diagnostics(editor: &mut Editor, doc_id: DocumentId) {
         return;
     };
 
-    let language_servers = doc
+    let language_servers: HashSet<LanguageServerId> = doc
         .language_servers_with_feature(LanguageServerFeature::PullDiagnostics)
-        .map(|language_servers| language_servers.id())
+        .map(helix_lsp::Client::id)
         .collect();
 
-    request_document_diagnostics_for_language_servers(editor, doc_id, language_servers);
+    request_document_diagnostics_for_language_severs(editor, doc_id, &language_servers);
 }
 
 fn handle_pull_diagnostics_response(
     editor: &mut Editor,
     result: lsp::DocumentDiagnosticReportResult,
-    provider: DiagnosticProvider,
+    provider: &DiagnosticProvider,
     uri: Uri,
     document_id: DocumentId,
 ) {
@@ -298,7 +299,7 @@ fn handle_pull_diagnostics_response(
             let result_id = match report {
                 lsp::DocumentDiagnosticReport::Full(report) => {
                     editor.handle_lsp_diagnostics(
-                        &provider,
+                        provider,
                         uri,
                         None,
                         report.full_document_diagnostic_report.items,
@@ -323,8 +324,8 @@ fn handle_pull_diagnostics_response(
                         doc.previous_diagnostic_ids.remove(&server_id);
                     }
                 }
-            };
+            }
         }
         lsp::DocumentDiagnosticReportResult::Partial(_) => {}
-    };
+    }
 }

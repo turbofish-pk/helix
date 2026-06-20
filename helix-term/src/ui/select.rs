@@ -29,7 +29,7 @@ impl<T: Item> Select<T> {
             // Options are non-empty (asserted above) and an option is selected by default,
             // so `option` must be Some here.
             let option = &option.unwrap();
-            callback(editor, option, event)
+            callback(editor, option, event);
         })
         .auto_close(true);
         // Select the first option by default.

@@ -50,9 +50,10 @@ impl Handlers {
             }
             SignatureHelpInvoked::Manual => lsp::SignatureHelpEvent::Invoked,
         };
-        send_blocking(&self.signature_hints, event)
+        send_blocking(&self.signature_hints, event);
     }
 
+    #[must_use]
     pub fn word_index(&self) -> &word_index::WordIndex {
         &self.word_index.index
     }

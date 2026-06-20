@@ -52,7 +52,7 @@ impl FileOperationFilter {
                     file_globs.add(glob.clone());
                     dir_globs.add(glob);
                 }
-            };
+            }
         }
         let file_globs = file_globs.build().unwrap_or_else(|err| {
             log::error!("invalid globs send by LS: {err}");

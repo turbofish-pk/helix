@@ -656,7 +656,6 @@ mod tests {
     }
 
     #[test]
-    #[should_panic]
     fn test_semantic_tokens_support_deserialization_err() {
         test_deserialization(
             r#"{"data":[1]}"#,

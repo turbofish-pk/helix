@@ -116,7 +116,7 @@ where
 
     if let Some(val) = num.as_u64() {
         return Ok(val);
-    };
+    }
 
     // Accept floats as long as they represent positive whole numbers.
     // The JSONRPC spec says "Numbers SHOULD NOT contain fractional parts" so we should try to
@@ -127,6 +127,7 @@ where
         .as_f64()
         .filter(|f| f.is_sign_positive() && f.fract() == 0.0)
     {
+        #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
         return Ok(val as u64);
     }
 
@@ -405,15 +406,15 @@ fn serialize_skip_none_params() {
 fn id_deserialize() {
     use serde_json;
 
-    let id = r#"8"#;
+    let id = r"8";
     let deserialized: Id = serde_json::from_str(id).unwrap();
     assert_eq!(deserialized, Id::Num(8));
 
-    let id = r#"4.0"#;
+    let id = r"4.0";
     let deserialized: Id = serde_json::from_str(id).unwrap();
     assert_eq!(deserialized, Id::Num(4));
 
-    let id = r#"0.01"#;
+    let id = r"0.01";
     assert!(serde_json::from_str::<Id>(id).is_err());
 }
 

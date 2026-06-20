@@ -27,7 +27,7 @@ async fn append_line() {
             before: 1..1,
             after: 1..2
         }]
-    )
+    );
 }
 
 #[tokio::test]
@@ -40,7 +40,7 @@ async fn prepend_line() {
             before: 0..0,
             after: 0..1
         }]
-    )
+    );
 }
 
 #[tokio::test]
@@ -53,7 +53,7 @@ async fn modify() {
             before: 0..1,
             after: 0..1
         }]
-    )
+    );
 }
 
 #[tokio::test]
@@ -66,7 +66,7 @@ async fn delete_line() {
             before: 1..2,
             after: 1..1
         }]
-    )
+    );
 }
 
 #[tokio::test]
@@ -85,7 +85,7 @@ async fn delete_line_and_modify() {
                 after: 2..3
             },
         ]
-    )
+    );
 }
 
 #[tokio::test]
@@ -101,7 +101,7 @@ async fn add_use() {
             before: 1..1,
             after: 1..2
         },]
-    )
+    );
 }
 
 #[tokio::test]
@@ -121,7 +121,7 @@ async fn update_document() {
                 after: 2..3
             },
         ]
-    )
+    );
 }
 
 #[tokio::test]
@@ -141,5 +141,5 @@ async fn update_base() {
                 after: 2..3
             },
         ]
-    )
+    );
 }

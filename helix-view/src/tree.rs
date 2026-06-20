@@ -1,4 +1,4 @@
-use crate::{graphics::Rect, View, ViewId};
+use crate::{View, ViewId, graphics::Rect};
 use slotmap::SlotMap;
 
 // the dimensions are recomputed on window resize/tree change.
@@ -30,13 +30,14 @@ pub enum Content {
 }
 
 impl Node {
+    #[must_use]
     pub fn container(layout: Layout) -> Self {
         Self {
             parent: ViewId::default(),
             content: Content::Container(Box::new(Container::new(layout))),
         }
     }
-
+    #[must_use]
     pub fn view(view: View) -> Self {
         Self {
             parent: ViewId::default(),
@@ -68,6 +69,7 @@ pub struct Container {
 }
 
 impl Container {
+    #[must_use]
     pub fn new(layout: Layout) -> Self {
         Self {
             layout,
@@ -84,6 +86,7 @@ impl Default for Container {
 }
 
 impl Tree {
+    #[must_use]
     pub fn new(area: Rect) -> Self {
         let root = Node::container(Layout::Vertical);
 
@@ -111,12 +114,12 @@ impl Tree {
         let node = self.nodes.insert(node);
         self.get_mut(node).id = node;
 
-        let container = match &mut self.nodes[parent] {
-            Node {
-                content: Content::Container(container),
-                ..
-            } => container,
-            _ => unreachable!(),
+        let Node {
+            content: Content::Container(container),
+            ..
+        } = &mut self.nodes[parent]
+        else {
+            unreachable!()
         };
 
         // insert node after the current item if there is children already
@@ -149,15 +152,15 @@ impl Tree {
         let node = self.nodes.insert(node);
         self.get_mut(node).id = node;
 
-        let container = match &mut self.nodes[parent] {
-            Node {
-                content: Content::Container(container),
-                ..
-            } => container,
-            _ => unreachable!(),
+        let Node {
+            content: Content::Container(container),
+            ..
+        } = &mut self.nodes[parent]
+        else {
+            unreachable!()
         };
+
         if container.layout == layout {
-            // insert node after the current item if there is children already
             let pos = if container.children.is_empty() {
                 0
             } else {
@@ -175,24 +178,25 @@ impl Tree {
             split.parent = parent;
             let split = self.nodes.insert(split);
 
-            let container = match &mut self.nodes[split] {
-                Node {
-                    content: Content::Container(container),
-                    ..
-                } => container,
-                _ => unreachable!(),
+            let Node {
+                content: Content::Container(container),
+                ..
+            } = &mut self.nodes[split]
+            else {
+                unreachable!()
             };
+
             container.children.push(focus);
             container.children.push(node);
             self.nodes[focus].parent = split;
             self.nodes[node].parent = split;
 
-            let container = match &mut self.nodes[parent] {
-                Node {
-                    content: Content::Container(container),
-                    ..
-                } => container,
-                _ => unreachable!(),
+            let Node {
+                content: Content::Container(container),
+                ..
+            } = &mut self.nodes[parent]
+            else {
+                unreachable!()
             };
 
             let pos = container
@@ -214,9 +218,9 @@ impl Tree {
         node
     }
 
-    /// Get a mutable reference to a [Container] by index.
+    /// Get a mutable reference to a [`Container`] by index.
     /// # Panics
-    /// Panics if `index` is not in self.nodes, or if the node's content is not a [Content::Container].
+    /// Panics if `index` is not in self.nodes, or if the node's content is not a [`Content::Container`].
     fn container_mut(&mut self, index: ViewId) -> &mut Container {
         match &mut self.nodes[index] {
             Node {
@@ -266,7 +270,7 @@ impl Tree {
             self.remove_or_replace(parent, Some(sibling));
         }
 
-        self.recalculate()
+        self.recalculate();
     }
 
     pub fn views(&self) -> impl Iterator<Item = (&View, bool)> {
@@ -296,7 +300,8 @@ impl Tree {
     /// Get reference to a [View] by index.
     /// # Panics
     ///
-    /// Panics if `index` is not in self.nodes, or if the node's content is not [Content::View]. This can be checked with [Self::contains].
+    /// Panics if `index` is not in self.nodes, or if the node's content is not [`Content::View`]. This can be checked with [`Self::contains`].
+    #[must_use]
     pub fn get(&self, index: ViewId) -> &View {
         self.try_get(index).unwrap()
     }
@@ -304,6 +309,7 @@ impl Tree {
     /// Try to get reference to a [View] by index. Returns `None` if node content is not a [`Content::View`].
     ///
     /// Does not panic if the view does not exists anymore.
+    #[must_use]
     pub fn try_get(&self, index: ViewId) -> Option<&View> {
         match self.nodes.get(index) {
             Some(Node {
@@ -317,7 +323,7 @@ impl Tree {
     /// Get a mutable reference to a [View] by index.
     /// # Panics
     ///
-    /// Panics if `index` is not in self.nodes, or if the node's content is not [Content::View]. This can be checked with [Self::contains].
+    /// Panics if `index` is not in self.nodes, or if the node's content is not [`Content::View`]. This can be checked with [`Self::contains`].
     pub fn get_mut(&mut self, index: ViewId) -> &mut View {
         match &mut self.nodes[index] {
             Node {
@@ -329,10 +335,12 @@ impl Tree {
     }
 
     /// Check if tree contains a [Node] with a given index.
+    #[must_use]
     pub fn contains(&self, index: ViewId) -> bool {
         self.nodes.contains_key(index)
     }
 
+    #[must_use]
     pub fn is_empty(&self) -> bool {
         match &self.nodes[self.root] {
             Node {
@@ -383,7 +391,7 @@ impl Tree {
                         Layout::Horizontal => {
                             let len = container.children.len();
 
-                            let height = area.height /  u16::try_from(len).unwrap();
+                            let height = area.height / u16::try_from(len).unwrap();
 
                             let mut child_y = area.y;
 
@@ -407,7 +415,7 @@ impl Tree {
                         }
                         Layout::Vertical => {
                             let len = container.children.len();
-                            let len_u16 =  u16::try_from(len).unwrap();
+                            let len_u16 = u16::try_from(len).unwrap();
 
                             let inner_gap = 1u16;
                             let total_gap = inner_gap * len_u16.saturating_sub(2);
@@ -441,11 +449,13 @@ impl Tree {
         }
     }
 
+    #[must_use]
     pub fn traverse(&self) -> Traverse<'_> {
         Traverse::new(self)
     }
 
     // Finds the split in the given direction if it exists
+    #[must_use]
     pub fn find_split_in_direction(&self, id: ViewId, direction: Direction) -> Option<ViewId> {
         let parent = self.nodes[id].parent;
         // Base case, we found the root of the tree
@@ -459,19 +469,15 @@ impl Tree {
         };
 
         match (direction, parent_container.layout) {
-            (Direction::Up, Layout::Vertical)
-            | (Direction::Left, Layout::Horizontal)
-            | (Direction::Right, Layout::Horizontal)
-            | (Direction::Down, Layout::Vertical) => {
+            (Direction::Up | Direction::Down, Layout::Vertical)
+            | (Direction::Left | Direction::Right, Layout::Horizontal) => {
                 // The desired direction of movement is not possible within
                 // the parent container so the search must continue closer to
                 // the root of the split tree.
                 self.find_split_in_direction(parent, direction)
             }
-            (Direction::Up, Layout::Horizontal)
-            | (Direction::Down, Layout::Horizontal)
-            | (Direction::Left, Layout::Vertical)
-            | (Direction::Right, Layout::Vertical) => {
+            (Direction::Up | Direction::Down, Layout::Horizontal)
+            | (Direction::Left | Direction::Right, Layout::Vertical) => {
                 // It's possible to move in the desired direction within
                 // the parent container so an attempt is made to find the
                 // correct child.
@@ -526,7 +532,7 @@ impl Tree {
                             Content::View(view) => view.area.left(),
                             Content::Container(container) => container.area.left(),
                         };
-                        (current_x as i16 - x as i16).abs()
+                        (current_x.cast_signed() - x.cast_signed()).abs()
                     })?;
                 }
                 (_, Layout::Horizontal) => {
@@ -537,7 +543,7 @@ impl Tree {
                             Content::View(view) => view.area.top(),
                             Content::Container(container) => container.area.top(),
                         };
-                        (current_y as i16 - y as i16).abs()
+                        (current_y.cast_signed() - y.cast_signed()).abs()
                     })?;
                 }
             }
@@ -545,6 +551,7 @@ impl Tree {
         Some(child_id)
     }
 
+    #[must_use]
     pub fn prev(&self) -> ViewId {
         // This function is very dumb, but that's because we don't store any parent links.
         // (we'd be able to go parent.prev_sibling() recursively until we find something)
@@ -565,6 +572,7 @@ impl Tree {
         }
     }
 
+    #[must_use]
     pub fn next(&self) -> ViewId {
         // This function is very dumb, but that's because we don't store any parent links.
         // (we'd be able to go parent.next_sibling() recursively until we find something)
@@ -666,6 +674,7 @@ impl Tree {
         }
     }
 
+    #[must_use]
     pub fn area(&self) -> Rect {
         self.area
     }
@@ -725,8 +734,8 @@ impl DoubleEndedIterator for Traverse<'_> {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::editor::GutterConfig;
     use crate::DocumentId;
+    use crate::editor::GutterConfig;
 
     #[test]
     fn find_split_in_direction() {
@@ -784,6 +793,21 @@ mod test {
 
     #[test]
     fn swap_split_in_direction() {
+        // Views in test
+        // | L0  | L2 |    |
+        // |    L1    | R0 |
+
+        // Document IDs in test
+        // | l0  | l2 |    |
+        // |    l1    | r0 |
+
+        fn doc_id(tree: &Tree, view_id: ViewId) -> Option<DocumentId> {
+            if let Content::View(view) = &tree.nodes[view_id].content {
+                Some(view.doc)
+            } else {
+                None
+            }
+        }
         let mut tree = Tree::new(Rect {
             x: 0,
             y: 0,
@@ -798,8 +822,8 @@ mod test {
 
         let l0 = tree.focus;
 
-        let doc_r0 = DocumentId::default();
-        let view = View::new(doc_r0, GutterConfig::default());
+        let doc_rrrr0 = DocumentId::default();
+        let view = View::new(doc_rrrr0, GutterConfig::default());
         tree.split(view, Layout::Vertical);
         let r0 = tree.focus;
 
@@ -817,22 +841,6 @@ mod test {
         tree.split(view, Layout::Vertical);
         let l2 = tree.focus;
 
-        // Views in test
-        // | L0  | L2 |    |
-        // |    L1    | R0 |
-
-        // Document IDs in test
-        // | l0  | l2 |    |
-        // |    l1    | r0 |
-
-        fn doc_id(tree: &Tree, view_id: ViewId) -> Option<DocumentId> {
-            if let Content::View(view) = &tree.nodes[view_id].content {
-                Some(view.doc)
-            } else {
-                None
-            }
-        }
-
         tree.focus = l0;
         // `*` marks the view in focus from view table (here L0)
         // | l0*  | l2 |    |
@@ -844,7 +852,7 @@ mod test {
         assert_eq!(doc_id(&tree, l0), Some(doc_l1));
         assert_eq!(doc_id(&tree, l1), Some(doc_l0));
         assert_eq!(doc_id(&tree, l2), Some(doc_l2));
-        assert_eq!(doc_id(&tree, r0), Some(doc_r0));
+        assert_eq!(doc_id(&tree, r0), Some(doc_rrrr0));
 
         tree.swap_split_in_direction(Direction::Right);
 
@@ -852,7 +860,7 @@ mod test {
         // |    r0    | l0* |
         assert_eq!(tree.focus, l0);
         assert_eq!(doc_id(&tree, l0), Some(doc_l1));
-        assert_eq!(doc_id(&tree, l1), Some(doc_r0));
+        assert_eq!(doc_id(&tree, l1), Some(doc_rrrr0));
         assert_eq!(doc_id(&tree, l2), Some(doc_l2));
         assert_eq!(doc_id(&tree, r0), Some(doc_l0));
 
@@ -862,7 +870,7 @@ mod test {
         // |    r0    | l0* |
         assert_eq!(tree.focus, l0);
         assert_eq!(doc_id(&tree, l0), Some(doc_l1));
-        assert_eq!(doc_id(&tree, l1), Some(doc_r0));
+        assert_eq!(doc_id(&tree, l1), Some(doc_rrrr0));
         assert_eq!(doc_id(&tree, l2), Some(doc_l2));
         assert_eq!(doc_id(&tree, r0), Some(doc_l0));
 
@@ -872,7 +880,7 @@ mod test {
         // |    r0    | l0* |
         assert_eq!(tree.focus, l0);
         assert_eq!(doc_id(&tree, l0), Some(doc_l1));
-        assert_eq!(doc_id(&tree, l1), Some(doc_r0));
+        assert_eq!(doc_id(&tree, l1), Some(doc_rrrr0));
         assert_eq!(doc_id(&tree, l2), Some(doc_l2));
         assert_eq!(doc_id(&tree, r0), Some(doc_l0));
 
@@ -886,7 +894,7 @@ mod test {
         assert_eq!(tree.focus, l2);
         assert_eq!(doc_id(&tree, l0), Some(doc_l1));
         assert_eq!(doc_id(&tree, l1), Some(doc_l2));
-        assert_eq!(doc_id(&tree, l2), Some(doc_r0));
+        assert_eq!(doc_id(&tree, l2), Some(doc_rrrr0));
         assert_eq!(doc_id(&tree, r0), Some(doc_l0));
 
         tree.swap_split_in_direction(Direction::Up);
@@ -895,7 +903,7 @@ mod test {
         assert_eq!(tree.focus, l2);
         assert_eq!(doc_id(&tree, l0), Some(doc_l2));
         assert_eq!(doc_id(&tree, l1), Some(doc_l1));
-        assert_eq!(doc_id(&tree, l2), Some(doc_r0));
+        assert_eq!(doc_id(&tree, l2), Some(doc_rrrr0));
         assert_eq!(doc_id(&tree, r0), Some(doc_l0));
     }
 

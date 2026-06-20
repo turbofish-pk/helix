@@ -5,8 +5,8 @@ use arc_swap::access::DynAccess;
 use helix_core::NATIVE_LINE_ENDING;
 
 use crate::{
-    clipboard::{ClipboardError, ClipboardProvider, ClipboardType},
     Editor,
+    clipboard::{ClipboardError, ClipboardProvider, ClipboardType},
 };
 
 /// A key-value store for saving sets of values.
@@ -32,9 +32,10 @@ pub struct Registers {
 }
 
 impl Registers {
+    #[must_use]
     pub fn new(clipboard_provider: Box<dyn DynAccess<ClipboardProvider>>) -> Self {
         Self {
-            inner: Default::default(),
+            inner: HashMap::default(),
             clipboard_provider,
             last_search_register: '/',
         }
@@ -115,11 +116,13 @@ impl Registers {
                 let contents = self
                     .clipboard_provider
                     .load()
-                    .get_contents(&clipboard_type)?;
+                    .get_contents(clipboard_type)?;
                 let saved_values = self.inner.entry(name).or_default();
 
                 if !contents_are_saved(saved_values, &contents) {
-                    anyhow::bail!("Failed to push to register {name}: clipboard does not match register contents");
+                    anyhow::bail!(
+                        "Failed to push to register {name}: clipboard does not match register contents"
+                    );
                 }
 
                 saved_values.push(value.clone());
@@ -178,7 +181,7 @@ impl Registers {
     pub fn clear(&mut self) {
         self.clear_clipboard(ClipboardType::Clipboard);
         self.clear_clipboard(ClipboardType::Selection);
-        self.inner.clear()
+        self.inner.clear();
     }
 
     pub fn remove(&mut self, name: char) -> bool {
@@ -210,10 +213,11 @@ impl Registers {
                     ClipboardType::Clipboard => "system",
                     ClipboardType::Selection => "primary",
                 }
-            )
+            );
         }
     }
 
+    #[must_use]
     pub fn clipboard_provider_name(&self) -> String {
         self.clipboard_provider.load().name().into_owned()
     }
@@ -224,7 +228,7 @@ fn read_from_clipboard<'a>(
     saved_values: Option<&'a Vec<String>>,
     clipboard_type: ClipboardType,
 ) -> RegisterValues<'a> {
-    match provider.get_contents(&clipboard_type) {
+    match provider.get_contents(clipboard_type) {
         Ok(contents) => {
             // If we're pasting the same values that we just yanked, re-use
             // the saved values. This allows pasting multiple selections
@@ -291,8 +295,8 @@ pub struct RegisterValues<'a> {
 impl<'a> RegisterValues<'a> {
     fn new(
         iter: impl DoubleEndedIterator<Item = Cow<'a, str>>
-            + ExactSizeIterator<Item = Cow<'a, str>>
-            + 'a,
+        + ExactSizeIterator<Item = Cow<'a, str>>
+        + 'a,
     ) -> Self {
         Self {
             iter: Box::new(iter),

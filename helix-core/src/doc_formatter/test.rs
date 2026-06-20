@@ -106,8 +106,8 @@ fn long_word_softwrap() {
 fn softwrap_multichar_grapheme() {
     assert_eq!(
         softwrap_text("xxxx xxxx xxx a\u{0301}bc\n"),
-        "xxxx xxxx xxx \n.ábc \n "
-    )
+        "xxxx xxxx xxx \n.ábc \n "
+    );
 }
 
 fn softwrap_text_at_text_width(text: &str) -> String {

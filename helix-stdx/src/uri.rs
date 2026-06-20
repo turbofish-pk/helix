@@ -303,7 +303,7 @@ mod tests {
             "/weird/100%/qu?ery&x=1", // '%', '?', '&'
         ] {
             let url = Url::from_file_path(path).unwrap();
-            assert_eq!(url.to_file_path().unwrap(), PathBuf::from(path), "{}", url);
+            assert_eq!(url.to_file_path().unwrap(), PathBuf::from(path), "{url}");
         }
     }
 

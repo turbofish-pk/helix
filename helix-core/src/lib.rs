@@ -1,5 +1,6 @@
+#![allow(clippy::missing_errors_doc)]
+#![allow(clippy::missing_panics_doc)]
 pub use encoding_rs as encoding;
-
 pub mod auto_pairs;
 pub mod case_conversion;
 pub mod chars;
@@ -45,7 +46,7 @@ pub use helix_loader::find_workspace;
 mod rope_reader;
 
 pub use rope_reader::RopeReader;
-pub use ropey::{self, str_utils, Rope, RopeBuilder, RopeSlice};
+pub use ropey::{self, Rope, RopeBuilder, RopeSlice, str_utils};
 
 // pub use tendril::StrTendril as Tendril;
 pub use smartstring::SmartString;
@@ -56,14 +57,14 @@ pub type Tendril = SmartString<smartstring::LazyCompact>;
 pub use {regex, tree_house::tree_sitter};
 
 pub use position::{
-    char_idx_at_visual_offset, coords_at_pos, pos_at_coords, softwrapped_dimensions,
-    visual_offset_from_anchor, visual_offset_from_block, Position, VisualOffsetError,
+    Position, VisualOffsetError, char_idx_at_visual_offset, coords_at_pos, pos_at_coords,
+    softwrapped_dimensions, visual_offset_from_anchor, visual_offset_from_block,
 };
 #[allow(deprecated)]
 pub use position::{pos_at_visual_coords, visual_coords_at_pos};
 
 pub use selection::{Range, Selection};
-pub use smallvec::{smallvec, SmallVec};
+pub use smallvec::{SmallVec, smallvec};
 pub use syntax::Syntax;
 
 pub use completion::CompletionItem;

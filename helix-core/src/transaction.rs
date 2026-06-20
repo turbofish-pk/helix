@@ -1126,6 +1126,7 @@ mod test {
 
     #[test]
     fn optimized_composition() {
+        use Operation::*;
         let mut state = State {
             doc: "".into(),
             selection: Selection::point(0),
@@ -1160,13 +1161,13 @@ mod test {
             .compose(t4.changes)
             .compose(t5.changes);
 
-        use Operation::*;
         assert_eq!(changes.changes, &[Insert("hello".into())]);
         // instead of insert h, insert e, insert l, insert l, insert o
     }
 
     #[test]
     fn combine_with_empty() {
+        use Operation::*;
         let empty = Rope::from("");
         let a = ChangeSet::new(empty.slice(..));
 
@@ -1175,12 +1176,12 @@ mod test {
 
         let changes = a.compose(b);
 
-        use Operation::*;
         assert_eq!(changes.changes, &[Insert("a".into())]);
     }
 
     #[test]
     fn combine_with_utf8() {
+        use Operation::*;
         const TEST_CASE: &str = "Hello, これはヘリックスエディターです！";
 
         let empty = Rope::from("");
@@ -1191,7 +1192,6 @@ mod test {
 
         let changes = a.compose(b);
 
-        use Operation::*;
         assert_eq!(changes.changes, &[Insert(TEST_CASE.into())]);
         assert_eq!(changes.len_after, TEST_CASE.chars().count());
     }

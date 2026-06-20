@@ -7,16 +7,16 @@ use std::{borrow::Cow, iter, sync::Arc, time::Duration};
 
 use foldhash::HashMap;
 use helix_core::{
-    chars::char_is_word, diff::compare_ropes, fuzzy::fuzzy_match, ChangeSet, Rope, RopeSlice,
+    ChangeSet, Rope, RopeSlice, chars::char_is_word, diff::compare_ropes, fuzzy::fuzzy_match,
 };
-use helix_event::{register_hook, AsyncHook, TaskController, TaskHandle};
+use helix_event::{AsyncHook, TaskController, TaskHandle, register_hook};
 use helix_stdx::rope::RopeSliceExt as _;
 use parking_lot::RwLock;
 use tokio::{sync::mpsc, time::Instant};
 
 use crate::{
-    events::{ConfigDidChange, DocumentDidChange, DocumentDidClose, DocumentDidOpen},
     DocumentId,
+    events::{ConfigDidChange, DocumentDidChange, DocumentDidClose, DocumentDidOpen},
 };
 
 use super::Handlers;
@@ -59,7 +59,7 @@ pub struct Handler {
     hook: mpsc::Sender<Event>,
     /// A sender to a tokio task which coordinates the indexing of documents.
     ///
-    /// See [WordIndex::run]. A supervisor-like task is in charge of spawning tasks to update the
+    /// See [`WordIndex::run`]. A supervisor-like task is in charge of spawning tasks to update the
     /// index. This ensures that consecutive edits to a document trigger the correct order of
     /// insertions and deletions into the word set.
     coordinator: mpsc::UnboundedSender<Event>,
@@ -67,12 +67,13 @@ pub struct Handler {
     ///
     /// Indexing a large document runs on a blocking task which cannot be preempted. Without this,
     /// dropping the tokio runtime on shutdown would block until that task finishes, keeping the
-    /// process alive and unresponsive. The indexing task holds a [TaskHandle] from this
+    /// process alive and unresponsive. The indexing task holds a [`TaskHandle`] from this
     /// controller and checks it periodically.
     _cancel: TaskController,
 }
 
 impl Handler {
+    #[must_use]
     pub fn spawn() -> Self {
         let index = WordIndex::default();
         let (tx, rx) = mpsc::unbounded_channel();
@@ -219,6 +220,7 @@ pub struct WordIndex {
 }
 
 impl WordIndex {
+    #[must_use]
     pub fn matches(&self, pattern: &str) -> Vec<String> {
         let inner = self.inner.read();
         let mut matches = fuzzy_match(pattern, inner.words(), false);
@@ -389,56 +391,60 @@ fn changed_windows<'a>(
     new_text: RopeSlice<'a>,
     changes: &'a ChangeSet,
 ) -> impl Iterator<Item = (RopeSlice<'a>, RopeSlice<'a>)> {
-    use helix_core::Operation::*;
+    use helix_core::Operation::{Delete, Insert, Retain};
 
     let mut operations = changes.changes().iter().peekable();
     let mut old_pos = 0;
     let mut new_pos = 0;
-    iter::from_fn(move || loop {
-        let operation = operations.next()?;
-        let old_start = old_pos;
-        let new_start = new_pos;
-        let len = operation.len_chars();
-        match operation {
-            Retain(_) => {
-                old_pos += len;
-                new_pos += len;
-                continue;
-            }
-            Insert(_) => new_pos += len,
-            Delete(_) => old_pos += len,
-        }
-
-        // Scan ahead until a `Retain` is found which would end a window.
-        while let Some(o) = operations.next_if(|op| !matches!(op, Retain(n) if *n > MAX_WORD_LEN)) {
-            let len = o.len_chars();
-            match o {
+    iter::from_fn(move || {
+        loop {
+            let operation = operations.next()?;
+            let old_start = old_pos;
+            let new_start = new_pos;
+            let len = operation.len_chars();
+            match operation {
                 Retain(_) => {
                     old_pos += len;
                     new_pos += len;
+                    continue;
                 }
-                Delete(_) => old_pos += len,
                 Insert(_) => new_pos += len,
+                Delete(_) => old_pos += len,
             }
+
+            // Scan ahead until a `Retain` is found which would end a window.
+            while let Some(o) =
+                operations.next_if(|op| !matches!(op, Retain(n) if *n > MAX_WORD_LEN))
+            {
+                let len = o.len_chars();
+                match o {
+                    Retain(_) => {
+                        old_pos += len;
+                        new_pos += len;
+                    }
+                    Delete(_) => old_pos += len,
+                    Insert(_) => new_pos += len,
+                }
+            }
+
+            let old_window = old_start.saturating_sub(MAX_WORD_LEN)
+                ..(old_pos + MAX_WORD_LEN).min(old_text.len_chars());
+            let new_window = new_start.saturating_sub(MAX_WORD_LEN)
+                ..(new_pos + MAX_WORD_LEN).min(new_text.len_chars());
+
+            return Some((old_text.slice(old_window), new_text.slice(new_window)));
         }
-
-        let old_window = old_start.saturating_sub(MAX_WORD_LEN)
-            ..(old_pos + MAX_WORD_LEN).min(old_text.len_chars());
-        let new_window = new_start.saturating_sub(MAX_WORD_LEN)
-            ..(new_pos + MAX_WORD_LEN).min(new_text.len_chars());
-
-        return Some((old_text.slice(old_window), new_text.slice(new_window)));
     })
 }
 
 /// Estimates whether a changeset is significant or small.
 fn is_changeset_significant(changes: &ChangeSet) -> bool {
-    use helix_core::Operation::*;
+    use helix_core::Operation::{Delete, Insert, Retain};
 
     let mut diff = 0;
     for operation in changes.changes() {
         match operation {
-            Retain(_) => continue,
+            Retain(_) => {}
             Delete(_) | Insert(_) => diff += operation.len_chars(),
         }
     }
@@ -534,7 +540,10 @@ mod tests {
     impl WordIndex {
         fn words(&self) -> HashSet<String> {
             let inner = self.inner.read();
-            inner.words().map(|w| w.to_string()).collect()
+            inner
+                .words()
+                .map(std::string::ToString::to_string)
+                .collect()
         }
 
         /// The full reference-counted word multiset. Unlike [`WordIndex::words`] this keeps the

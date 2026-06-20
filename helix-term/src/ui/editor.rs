@@ -208,7 +208,7 @@ impl EditorView {
             let x = area.right();
             let border_style = theme.get("ui.window");
             for y in area.top()..area.bottom() {
-                surface[(x, y)]
+                let _ = surface[(x, y)]
                     .set_symbol(tui::symbols::line::VERTICAL)
                     //.set_symbol(" ")
                     .set_style(border_style);
@@ -261,7 +261,7 @@ impl EditorView {
             })
             .filter(|ruler| ruler < &viewport.width)
             .map(|ruler| viewport.clip_left(ruler).with_width(1))
-            .for_each(|area| surface.set_style(area, ruler_theme))
+            .for_each(|area| surface.set_style(area, ruler_theme));
     }
 
     fn viewport_byte_range(
@@ -342,12 +342,12 @@ impl EditorView {
         theme: &Theme,
         overlay_highlights: &mut Vec<OverlayHighlights>,
     ) {
+        use helix_core::diagnostic::{DiagnosticTag, Range, Severity};
         // Skip redundant work if no diagnostics.
         if doc.diagnostics().is_empty() {
             return;
         }
 
-        use helix_core::diagnostic::{DiagnosticTag, Range, Severity};
         let get_scope_of = |scope| {
             theme
                 .find_highlight_exact(scope)
@@ -382,7 +382,7 @@ impl EditorView {
                     // we will discard some part of `diagnostic`. This implies that
                     // `doc.diagnostics()` is not sorted by `diagnostic.range`.
                     debug_assert!(existing_range.start <= range.start);
-                    existing_range.end = range.end.max(existing_range.end)
+                    existing_range.end = range.end.max(existing_range.end);
                 }
                 _ => vec.push(range.start..range.end),
             }
@@ -415,12 +415,12 @@ impl EditorView {
                 match tag {
                     DiagnosticTag::Unnecessary => {
                         if unnecessary.is_some() {
-                            push_diagnostic(&mut unnecessary_vec, diagnostic.range)
+                            push_diagnostic(&mut unnecessary_vec, diagnostic.range);
                         }
                     }
                     DiagnosticTag::Deprecated => {
                         if deprecated.is_some() {
-                            push_diagnostic(&mut deprecated_vec, diagnostic.range)
+                            push_diagnostic(&mut deprecated_vec, diagnostic.range);
                         }
                     }
                 }
@@ -733,11 +733,11 @@ impl EditorView {
             let cursors = cursors.clone();
             let gutter_decoration = move |renderer: &mut TextRenderer, pos: LinePos| {
                 // TODO handle softwrap in gutters
-                let selected = cursors.contains(&pos.doc_line);
+                let selected = cursors.contains(&pos.doc_line_index);
                 let x = viewport.x + offset;
-                let y = pos.visual_line;
+                let y = pos.vertical_offset;
 
-                let gutter_style = match (selected, pos.first_visual_line) {
+                let gutter_style = match (selected, pos.is_first_visual) {
                     (false, true) => gutter_style,
                     (true, true) => gutter_selected_style,
                     (false, false) => gutter_style_virtual,
@@ -745,7 +745,7 @@ impl EditorView {
                 };
 
                 if let Some(style) =
-                    gutter(pos.doc_line, selected, pos.first_visual_line, &mut text)
+                    gutter(pos.doc_line_index, selected, pos.is_first_visual, &mut text)
                 {
                     renderer.set_stringn(x, y, &text, width, gutter_style.patch(style));
                 } else {
@@ -853,10 +853,10 @@ impl EditorView {
         let viewport = view.area;
 
         move |renderer: &mut TextRenderer, pos: LinePos| {
-            let area = Rect::new(viewport.x, pos.visual_line, viewport.width, 1);
-            if primary_line == pos.doc_line {
+            let area = Rect::new(viewport.x, pos.vertical_offset, viewport.width, 1);
+            if primary_line == pos.doc_line_index {
                 renderer.set_style(area, primary_style);
-            } else if secondary_lines.binary_search(&pos.doc_line).is_ok() {
+            } else if secondary_lines.binary_search(&pos.doc_line_index).is_ok() {
                 renderer.set_style(area, secondary_style);
             }
         }
@@ -890,7 +890,7 @@ impl EditorView {
         let view_offset = doc.view_offset(view.id);
         let primary = selection.primary();
         let text_format = doc.text_format(viewport.width, None);
-        for range in selection.iter() {
+        for range in selection {
             let is_primary = primary == *range;
             let cursor = range.cursor(text);
 
@@ -908,17 +908,17 @@ impl EditorView {
                     view.area.height,
                 );
                 if is_primary {
-                    surface.set_style(area, primary_style)
+                    surface.set_style(area, primary_style);
                 } else {
-                    surface.set_style(area, secondary_style)
+                    surface.set_style(area, secondary_style);
                 }
             }
         }
     }
 
     /// Handle events by looking them up in `self.keymaps`. Returns None
-    /// if event was handled (a command was executed or a subkeymap was
-    /// activated). Only KeymapResult::{NotFound, Cancelled} is returned
+    /// if event was handled (a command was executed or a `subkeymap` was
+    /// activated). Only `KeymapResult::{NotFound, Cancelled}` is returned
     /// otherwise.
     fn handle_keymap_event(
         &mut self,
@@ -929,7 +929,10 @@ impl EditorView {
         let mut last_mode = mode;
         self.pseudo_pending.extend(self.keymaps.pending());
         let key_result = self.keymaps.get(mode, event);
-        cxt.editor.autoinfo = self.keymaps.sticky().map(|node| node.infobox());
+        cxt.editor.autoinfo = self
+            .keymaps
+            .sticky()
+            .map(super::super::keymap::KeyTrieNode::infobox);
 
         let mut execute_command = |command: &commands::MappableCommand| {
             command.execute(cxt);
@@ -978,7 +981,7 @@ impl EditorView {
                     if !self.on_next_key(OnKeyCallbackKind::Fallback, cx, event)
                         && let Some(ch) = event.char()
                     {
-                        commands::insert::insert_char(cx, ch)
+                        commands::insert::insert_char(cx, ch);
                     }
                 }
                 KeymapResult::Cancelled(pending) => {
@@ -1079,7 +1082,7 @@ impl EditorView {
                     self.on_next_key(OnKeyCallbackKind::Fallback, cxt, event);
                 }
                 if self.keymaps.pending().is_empty() {
-                    cxt.editor.count = None
+                    cxt.editor.count = None;
                 } else {
                     cxt.editor.selected_register = cxt.register.take();
                 }
@@ -1136,7 +1139,7 @@ impl EditorView {
                             }
                             commands::insert::insert_char(cx, c);
                         }
-                    }))
+                    }));
                 }
                 CompleteAction::Selected { savepoint } => {
                     let (view, doc) = current!(editor);
@@ -1191,11 +1194,11 @@ impl EditorView {
 
     fn handle_mouse_event(
         &mut self,
-        event: &MouseEvent,
+        event: MouseEvent,
         cxt: &mut commands::Context,
     ) -> EventResult {
         if event.kind != MouseEventKind::Moved {
-            self.handle_non_key_input(cxt)
+            self.handle_non_key_input(cxt);
         }
 
         let config = cxt.editor.config();
@@ -1205,7 +1208,7 @@ impl EditorView {
             column,
             modifiers,
             ..
-        } = *event;
+        } = event;
 
         let pos_and_view = |editor: &Editor, row, column, ignore_virtual_text| {
             editor.tree.views().find_map(|(view, _focus)| {
@@ -1228,7 +1231,7 @@ impl EditorView {
 
         match kind {
             MouseEventKind::Down(MouseButton::Left) => {
-                let editor = &mut cxt.editor;
+                let editor = &mut *cxt.editor;
 
                 if let Some((pos, view_id)) = pos_and_view(editor, row, column, true) {
                     editor.focus(view_id);
@@ -1270,11 +1273,12 @@ impl EditorView {
                         return EventResult::Ignored(None);
                     };
 
-                    if let Some(_char_idx) =
-                        view.pos_at_visual_coords(doc, coords.row as u16, coords.col as u16, true)
-                    {
-
-
+                    if let Some(_char_idx) = view.pos_at_visual_coords(
+                        doc,
+                        u16::try_from(coords.row).unwrap(),
+                        u16::try_from(coords.col).unwrap(),
+                        true,
+                    ) {
                         return EventResult::Consumed(None);
                     }
                 }
@@ -1285,9 +1289,8 @@ impl EditorView {
             MouseEventKind::Drag(MouseButton::Left) => {
                 let (view, doc) = current!(cxt.editor);
 
-                let pos = match view.pos_at_screen_coords(doc, row, column, true) {
-                    Some(pos) => pos,
-                    None => return EventResult::Ignored(None),
+                let Some(pos) = view.pos_at_screen_coords(doc, row, column, true) else {
+                    return EventResult::Ignored(None);
                 };
 
                 let mut selection = doc.selection(view.id).clone();
@@ -1376,7 +1379,7 @@ impl EditorView {
             }
 
             MouseEventKind::Up(MouseButton::Middle) => {
-                let editor = &mut cxt.editor;
+                let editor = &mut *cxt.editor;
                 if !config.middle_click_paste {
                     return EventResult::Ignored(None);
                 }
@@ -1516,7 +1519,7 @@ impl Component for EditorView {
                                     if let Some(cb) = self.clear_completion(cx.editor) {
                                         if consumed {
                                             cx.on_next_key_callback =
-                                                Some((cb, OnKeyCallbackKind::Fallback))
+                                                Some((cb, OnKeyCallbackKind::Fallback));
                                         } else {
                                             self.on_next_key =
                                                 Some((cb, OnKeyCallbackKind::Fallback));
@@ -1568,7 +1571,7 @@ impl Component for EditorView {
                 } else {
                     let callback: crate::compositor::Callback = Box::new(move |compositor, cx| {
                         for callback in callbacks {
-                            callback(compositor, cx)
+                            callback(compositor, cx);
                         }
                     });
                     Some(callback)
@@ -1577,7 +1580,7 @@ impl Component for EditorView {
                 EventResult::Consumed(callback)
             }
 
-            Event::Mouse(event) => self.handle_mouse_event(event, &mut cx),
+            Event::Mouse(event) => self.handle_mouse_event(*event, &mut cx),
             Event::IdleTimeout => self.handle_idle_timeout(&mut cx),
             Event::FocusGained => {
                 self.terminal_focused = true;
@@ -1592,7 +1595,7 @@ impl Component for EditorView {
                         code_actions: false,
                     };
                     if let Err(e) = commands::typed::write_all_impl(context, options) {
-                        context.editor.set_error(format!("{}", e));
+                        context.editor.set_error(format!("{e}"));
                     }
                 }
                 self.terminal_focused = false;
@@ -1602,12 +1605,12 @@ impl Component for EditorView {
     }
 
     fn render(&mut self, area: Rect, surface: &mut Surface, cx: &mut Context) {
+        use helix_view::editor::BufferLine;
         // clear with background color
         surface.set_style(area, cx.editor.theme.get("ui.background"));
         let config = cx.editor.config();
 
         // check if bufferline should be rendered
-        use helix_view::editor::BufferLine;
         let use_bufferline = match config.bufferline {
             BufferLine::Always => true,
             BufferLine::Multiple if cx.editor.documents.len() > 1 => true,
@@ -1636,7 +1639,7 @@ impl Component for EditorView {
             && let Some(mut info) = cx.editor.autoinfo.take()
         {
             info.render(area, surface, cx);
-            cx.editor.autoinfo = Some(info)
+            cx.editor.autoinfo = Some(info);
         }
 
         let key_width = 15u16; // for showing pending keys
@@ -1644,8 +1647,8 @@ impl Component for EditorView {
 
         // render status msg
         if let Some((status_msg, severity)) = &cx.editor.status_msg {
-            status_msg_width = status_msg.width();
             use helix_view::editor::Severity;
+            status_msg_width = status_msg.width();
             let style = if *severity == Severity::Error {
                 cx.editor.theme.get("error")
             } else {
@@ -1660,10 +1663,14 @@ impl Component for EditorView {
             );
         }
 
-        if area.width.saturating_sub(status_msg_width as u16) > key_width {
+        if area
+            .width
+            .saturating_sub(u16::try_from(status_msg_width).unwrap())
+            > key_width
+        {
             let mut disp = String::new();
             if let Some(count) = cx.editor.count {
-                disp.push_str(&count.to_string())
+                disp.push_str(&count.to_string());
             }
             for key in self.keymaps.pending() {
                 disp.push_str(&key.key_sequence_format());
@@ -1702,7 +1709,7 @@ impl Component for EditorView {
                 );
             }
             if let Some((reg, _)) = cx.editor.macro_recording {
-                let disp = format!("[{}]", reg);
+                let disp = format!("[{reg}]");
                 let style = style
                     .fg(helix_view::graphics::Color::Yellow)
                     .add_modifier(Modifier::BOLD);
@@ -1742,6 +1749,6 @@ fn canonicalize_key(key: &mut KeyEvent) {
         modifiers: _,
     } = key
     {
-        key.modifiers.remove(KeyModifiers::SHIFT)
+        key.modifiers.remove(KeyModifiers::SHIFT);
     }
 }

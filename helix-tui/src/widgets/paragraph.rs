@@ -92,42 +92,43 @@ pub struct Wrap {
 }
 
 impl<'a> Paragraph<'a> {
+    #[must_use]
     pub fn new(text: &'a Text) -> Paragraph<'a> {
         Paragraph {
             block: None,
-            style: Default::default(),
+            style: Style::default(),
             wrap: None,
             text,
             scroll: (0, 0),
             alignment: Alignment::Left,
         }
     }
-
+    #[must_use]
     pub fn block(mut self, block: Block<'a>) -> Paragraph<'a> {
         self.block = Some(block);
         self
     }
-
+    #[must_use]
     pub fn style(mut self, style: Style) -> Paragraph<'a> {
         self.style = style;
         self
     }
-
+    #[must_use]
     pub fn wrap(mut self, wrap: Wrap) -> Paragraph<'a> {
         self.wrap = Some(wrap);
         self
     }
-
+    #[must_use]
     pub fn scroll(mut self, offset: (u16, u16)) -> Paragraph<'a> {
         self.scroll = offset;
         self
     }
-
+    #[must_use]
     pub fn alignment(mut self, alignment: Alignment) -> Paragraph<'a> {
         self.alignment = alignment;
         self
     }
-
+    #[must_use]
     pub fn required_size(&self, max_text_width: u16) -> (u16, u16) {
         let style = self.style;
         let mut styled = self.text.lines.iter().flat_map(|spans| {
@@ -205,7 +206,7 @@ impl Widget for Paragraph<'_> {
             if y >= self.scroll.0 {
                 let mut x = get_line_offset(current_line_width, text_area.width, self.alignment);
                 for StyledGrapheme { symbol, style } in current_line {
-                    buf[(text_area.left() + x, text_area.top() + y - self.scroll.0)]
+                    let _ = buf[(text_area.left() + x, text_area.top() + y - self.scroll.0)]
                         .set_symbol(if symbol.is_empty() {
                             // If the symbol is empty, the last char which rendered last time will
                             // leave on the line. It's a quick fix.

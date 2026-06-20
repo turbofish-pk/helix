@@ -1,3 +1,4 @@
+#![allow(clippy::missing_errors_doc)]
 use anyhow::Result;
 use helix_core::Position;
 use helix_view::tree::Layout;
@@ -5,6 +6,7 @@ use indexmap::IndexMap;
 use std::path::{Path, PathBuf};
 
 #[derive(Default)]
+#[allow(clippy::struct_excessive_bools)]
 pub struct Args {
     pub display_help: bool,
     pub display_version: bool,
@@ -92,7 +94,7 @@ impl Args {
                     }
                 },
                 arg if arg.starts_with("--") => {
-                    anyhow::bail!("unexpected double dash argument: {}", arg)
+                    anyhow::bail!("unexpected double dash argument: {arg}")
                 }
                 arg if arg.starts_with('-') => {
                     let arg = arg.get(1..).unwrap().chars();
@@ -101,17 +103,15 @@ impl Args {
                             'v' => args.verbosity += 1,
                             'V' => args.display_version = true,
                             'h' => args.display_help = true,
-                            _ => anyhow::bail!("unexpected short arg {}", chr),
+                            _ => anyhow::bail!("unexpected short arg {chr}"),
                         }
                     }
                 }
                 "+" => line_number = usize::MAX,
-                arg if arg.starts_with('+') => {
-                    match arg[1..].parse::<usize>() {
-                        Ok(n) => line_number = n.saturating_sub(1),
-                        _ => insert_file_with_position(arg),
-                    };
-                }
+                arg if arg.starts_with('+') => match arg[1..].parse::<usize>() {
+                    Ok(n) => line_number = n.saturating_sub(1),
+                    _ => insert_file_with_position(arg),
+                },
                 arg => insert_file_with_position(arg),
             }
         }

@@ -76,17 +76,17 @@ pub fn move_vertically_visual(
 
     // Compute the new position.
     let mut row_off = match dir {
-        Direction::Forward => count as isize,
-        Direction::Backward => -(count as isize),
+        Direction::Forward => count.cast_signed(),
+        Direction::Backward => -(count.cast_signed()),
     };
 
     // Compute visual offset relative to block start to avoid trasversing the block twice
-    row_off += visual_pos.row as isize;
+    row_off += visual_pos.row.cast_signed();
     let (mut new_pos, virtual_rows) = char_idx_at_visual_offset(
         slice,
         block_off,
         row_off,
-        new_col as usize,
+        usize::try_from(new_col).unwrap(),
         text_fmt,
         annotations,
     );
@@ -479,7 +479,7 @@ impl CharHelpers for Chars<'_> {
                 break;
             }
         }
-        if prev_ch.map(char_is_line_ending).unwrap_or(false) {
+        if prev_ch.is_some_and(char_is_line_ending) {
             anchor = head;
         }
 
@@ -790,7 +790,7 @@ mod test {
                 &TextFormat::default(),
                 &mut TextAnnotations::default(),
             );
-            assert_eq!(coords_at_pos(slice, range.head), coordinates.into())
+            assert_eq!(coords_at_pos(slice, range.head), coordinates.into());
         }
     }
 
@@ -893,15 +893,15 @@ mod test {
 
     #[test]
     fn vertical_moves_jumping_column() {
+        enum Axis {
+            H,
+            V,
+        }
         let text = Rope::from(MULTILINE_SAMPLE);
         let slice = text.slice(..);
         let position = pos_at_coords(slice, (0, 0).into(), true);
         let mut range = Range::point(position);
 
-        enum Axis {
-            H,
-            V,
-        }
         let moves_and_expected_coordinates = [
             // Places cursor at the end of line
             ((Axis::H, Direction::Forward, 8usize), (0, 8)),
@@ -945,11 +945,6 @@ mod test {
 
     #[test]
     fn multibyte_character_wide_column_jumps() {
-        let text = Rope::from(MULTIBYTE_CHARACTER_SAMPLE);
-        let slice = text.slice(..);
-        let position = pos_at_coords(slice, (0, 0).into(), true);
-        let mut range = Range::point(position);
-
         // FIXME: The behaviour captured in this test diverges from both Kakoune and Vim. These
         // will attempt to preserve the horizontal position of the cursor, rather than
         // placing it at the same character index.
@@ -957,6 +952,11 @@ mod test {
             H,
             V,
         }
+        let text = Rope::from(MULTIBYTE_CHARACTER_SAMPLE);
+        let slice = text.slice(..);
+        let position = pos_at_coords(slice, (0, 0).into(), true);
+        let mut range = Range::point(position);
+
         let moves_and_expected_coordinates = [
             // Places cursor at the fourth kana.
             ((Axis::H, Direction::Forward, 4), (0, 4)),
@@ -995,21 +995,18 @@ mod test {
     }
 
     #[test]
-    #[should_panic]
     fn nonsensical_ranges_panic_on_forward_movement_attempt_in_debug_mode() {
-        let _ = move_next_word_start(Rope::from("Sample").slice(..), Range::point(99999999), 1);
+        let _ = move_next_word_start(Rope::from("Sample").slice(..), Range::point(99_999_999), 1);
     }
 
     #[test]
-    #[should_panic]
     fn nonsensical_ranges_panic_on_forward_to_end_movement_attempt_in_debug_mode() {
-        let _ = move_next_word_end(Rope::from("Sample").slice(..), Range::point(99999999), 1);
+        let _ = move_next_word_end(Rope::from("Sample").slice(..), Range::point(99_999_999), 1);
     }
 
     #[test]
-    #[should_panic]
     fn nonsensical_ranges_panic_on_backwards_movement_attempt_in_debug_mode() {
-        let _ = move_prev_word_start(Rope::from("Sample").slice(..), Range::point(99999999), 1);
+        let _ = move_prev_word_start(Rope::from("Sample").slice(..), Range::point(99_999_999), 1);
     }
 
     #[test]
@@ -1119,7 +1116,7 @@ mod test {
         ];
 
         for (sample, scenario) in tests {
-            for (count, begin, expected_end) in scenario.into_iter() {
+            for (count, begin, expected_end) in scenario {
                 let range = move_next_word_start(Rope::from(sample).slice(..), begin, count);
                 assert_eq!(range, expected_end, "Case failed: [{sample}]");
             }
@@ -1205,7 +1202,7 @@ mod test {
         ];
 
         for (sample, scenario) in tests {
-            for (count, begin, expected_end) in scenario.into_iter() {
+            for (count, begin, expected_end) in scenario {
                 let range = move_next_sub_word_start(Rope::from(sample).slice(..), begin, count);
                 assert_eq!(range, expected_end, "Case failed: [{sample}]");
             }
@@ -1291,7 +1288,7 @@ mod test {
         ];
 
         for (sample, scenario) in tests {
-            for (count, begin, expected_end) in scenario.into_iter() {
+            for (count, begin, expected_end) in scenario {
                 let range = move_next_sub_word_end(Rope::from(sample).slice(..), begin, count);
                 assert_eq!(range, expected_end, "Case failed: [{sample}]");
             }
@@ -1401,7 +1398,7 @@ mod test {
         ];
 
         for (sample, scenario) in tests {
-            for (count, begin, expected_end) in scenario.into_iter() {
+            for (count, begin, expected_end) in scenario {
                 let range = move_next_long_word_start(Rope::from(sample).slice(..), begin, count);
                 assert_eq!(range, expected_end, "Case failed: [{sample}]");
             }
@@ -1508,7 +1505,7 @@ mod test {
         ];
 
         for (sample, scenario) in tests {
-            for (count, begin, expected_end) in scenario.into_iter() {
+            for (count, begin, expected_end) in scenario {
                 let range = move_prev_word_start(Rope::from(sample).slice(..), begin, count);
                 assert_eq!(range, expected_end, "Case failed: [{sample}]");
             }
@@ -1594,7 +1591,7 @@ mod test {
         ];
 
         for (sample, scenario) in tests {
-            for (count, begin, expected_end) in scenario.into_iter() {
+            for (count, begin, expected_end) in scenario {
                 let range = move_prev_sub_word_start(Rope::from(sample).slice(..), begin, count);
                 assert_eq!(range, expected_end, "Case failed: [{sample}]");
             }
@@ -1697,7 +1694,7 @@ mod test {
         ];
 
         for (sample, scenario) in tests {
-            for (count, begin, expected_end) in scenario.into_iter() {
+            for (count, begin, expected_end) in scenario {
                 let range = move_prev_long_word_start(Rope::from(sample).slice(..), begin, count);
                 assert_eq!(range, expected_end, "Case failed: [{sample}]");
             }
@@ -1803,7 +1800,7 @@ mod test {
         ];
 
         for (sample, scenario) in tests {
-            for (count, begin, expected_end) in scenario.into_iter() {
+            for (count, begin, expected_end) in scenario {
                 let range = move_next_word_end(Rope::from(sample).slice(..), begin, count);
                 assert_eq!(range, expected_end, "Case failed: [{sample}]");
             }
@@ -1910,7 +1907,7 @@ mod test {
         ];
 
         for (sample, scenario) in tests {
-            for (count, begin, expected_end) in scenario.into_iter() {
+            for (count, begin, expected_end) in scenario {
                 let range = move_prev_word_end(Rope::from(sample).slice(..), begin, count);
                 assert_eq!(range, expected_end, "Case failed: [{sample}]");
             }
@@ -1996,7 +1993,7 @@ mod test {
         ];
 
         for (sample, scenario) in tests {
-            for (count, begin, expected_end) in scenario.into_iter() {
+            for (count, begin, expected_end) in scenario {
                 let range = move_prev_sub_word_end(Rope::from(sample).slice(..), begin, count);
                 assert_eq!(range, expected_end, "Case failed: [{sample}]");
             }
@@ -2098,7 +2095,7 @@ mod test {
         ];
 
         for (sample, scenario) in tests {
-            for (count, begin, expected_end) in scenario.into_iter() {
+            for (count, begin, expected_end) in scenario {
                 let range = move_next_long_word_end(Rope::from(sample).slice(..), begin, count);
                 assert_eq!(range, expected_end, "Case failed: [{sample}]");
             }
@@ -2201,7 +2198,7 @@ mod test {
         ];
 
         for (sample, scenario) in tests {
-            for (count, begin, expected_end) in scenario.into_iter() {
+            for (count, begin, expected_end) in scenario {
                 let range = move_prev_long_word_end(Rope::from(sample).slice(..), begin, count);
                 assert_eq!(range, expected_end, "Case failed: [{sample}]");
             }

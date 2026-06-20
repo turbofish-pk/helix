@@ -1,3 +1,5 @@
+#![allow(clippy::similar_names)]
+#![allow(clippy::missing_panics_doc)]
 #[macro_use]
 extern crate helix_view;
 

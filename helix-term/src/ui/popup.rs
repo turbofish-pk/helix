@@ -60,6 +60,7 @@ impl<T: Component> Popup<T> {
     ///
     /// Note that this is not the position of the top-left corner of the rendered popup itself,
     /// but rather the screen-space position of the information to which the popup refers.
+    #[must_use]
     pub fn position(mut self, pos: Option<Position>) -> Self {
         self.position = pos;
         self
@@ -73,11 +74,12 @@ impl<T: Component> Popup<T> {
     ///
     /// This preference will be ignored if the viewport doesn't have enough space in the
     /// chosen direction.
+    #[must_use]
     pub fn position_bias(mut self, bias: Open) -> Self {
         self.position_bias = bias;
         self
     }
-
+    #[must_use]
     pub fn auto_close(mut self, auto_close: bool) -> Self {
         self.auto_close = auto_close;
         self
@@ -90,6 +92,7 @@ impl<T: Component> Popup<T> {
     /// which is done with the escape key. Otherwise the popup consumes
     /// the escape key event and closes it, and an additional escape
     /// would be required to exit insert mode.
+    #[must_use]
     pub fn ignore_escape_key(mut self, ignore: bool) -> Self {
         self.ignore_escape_key = ignore;
         self
@@ -106,6 +109,7 @@ impl<T: Component> Popup<T> {
     /// Toggles the Popup's scrollbar.
     /// Consider disabling the scrollbar in case the child
     /// already has its own.
+    #[must_use]
     pub fn with_scrollbar(mut self, enable_scrollbar: bool) -> Self {
         self.has_scrollbar = enable_scrollbar;
         self
@@ -155,14 +159,20 @@ impl<T: Component> Popup<T> {
         let can_put_below = viewport.height > rel_y + MIN_HEIGHT;
         let can_put_above = rel_y.checked_sub(MIN_HEIGHT).is_some();
         let final_pos = match self.position_bias {
-            Open::Below => match can_put_below {
-                true => Open::Below,
-                false => Open::Above,
-            },
-            Open::Above => match can_put_above {
-                true => Open::Above,
-                false => Open::Below,
-            },
+            Open::Below => {
+                if can_put_below {
+                    Open::Below
+                } else {
+                    Open::Above
+                }
+            }
+            Open::Above => {
+                if can_put_above {
+                    Open::Above
+                } else {
+                    Open::Below
+                }
+            }
         };
 
         // compute maximum space available for child
@@ -195,13 +205,18 @@ impl<T: Component> Popup<T> {
         }
         if viewport.width <= rel_x + width + 2 {
             rel_x = viewport.width.saturating_sub(width + 2);
-            width = viewport.width.saturating_sub(rel_x + 2)
+            width = viewport.width.saturating_sub(rel_x + 2);
         }
 
         let area = match final_pos {
             Open::Above => {
                 rel_y = rel_y.saturating_sub(height);
-                Rect::new(rel_x, rel_y, width, u16::try_from(position.row).unwrap() - rel_y)
+                Rect::new(
+                    rel_x,
+                    rel_y,
+                    width,
+                    u16::try_from(position.row).unwrap() - rel_y,
+                )
             }
             Open::Below => {
                 rel_y += 1;
@@ -219,12 +234,12 @@ impl<T: Component> Popup<T> {
 
     fn handle_mouse_event(
         &mut self,
-        &MouseEvent {
+        MouseEvent {
             kind,
             column: x,
             row: y,
             ..
-        }: &MouseEvent,
+        }: MouseEvent,
     ) -> EventResult {
         if self.auto_close && matches!(kind, MouseEventKind::Down(_)) {
             let close_fn: Callback = Box::new(|compositor, _| {
@@ -262,7 +277,7 @@ impl<T: Component> Component for Popup<T> {
     fn handle_event(&mut self, event: &Event, cx: &mut Context) -> EventResult {
         let key = match event {
             Event::Key(event) => *event,
-            Event::Mouse(event) => return self.handle_mouse_event(event),
+            Event::Mouse(event) => return self.handle_mouse_event(*event),
             Event::Resize(_, _) => {
                 // TODO: calculate inner area, call component's handle_event with that area
                 return EventResult::Ignored(None);
@@ -310,7 +325,7 @@ impl<T: Component> Component for Popup<T> {
                     }
                 }
             }
-            ev => ev,
+            ev @ EventResult::Consumed(_) => ev,
         }
     }
 
@@ -365,19 +380,23 @@ impl<T: Component> Component for Popup<T> {
 
                 let mut cell;
                 for i in 0..win_height {
-                    cell =
-                        &mut surface[(inner.right() - 1 + u16::try_from(border).unwrap(), inner.top() + u16::try_from(i).unwrap())];
+                    cell = &mut surface[(
+                        inner.right() - 1 + u16::try_from(border).unwrap(),
+                        inner.top() + u16::try_from(i).unwrap(),
+                    )];
 
                     let half_block = if render_borders { "▌" } else { "▐" };
 
                     if scroll_line <= i && i < scroll_line + scroll_height {
                         // Draw scroll thumb
                         cell.set_symbol(half_block);
-                        cell.set_fg(scroll_style.fg.unwrap_or(helix_view::theme::Color::Reset));
+                        let _ =
+                            cell.set_fg(scroll_style.fg.unwrap_or(helix_view::theme::Color::Reset));
                     } else if !render_borders {
                         // Draw scroll track
                         cell.set_symbol(half_block);
-                        cell.set_fg(scroll_style.bg.unwrap_or(helix_view::theme::Color::Reset));
+                        let _ =
+                            cell.set_fg(scroll_style.bg.unwrap_or(helix_view::theme::Color::Reset));
                     }
                 }
             }

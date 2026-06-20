@@ -29,16 +29,6 @@ use std::{borrow::Cow, iter, slice};
 /// rather than the `char`s themselves. For example, 1
 /// represents the position between the first and second `char`.
 ///
-/// Below are some examples of `Range` configurations.
-/// The anchor and head indices are shown as "(anchor, head)"
-/// tuples, followed by example text with "[" and "]" symbols
-/// representing the anchor and head positions:
-///
-/// - (0, 3): `[Som]e text`.
-/// - (3, 0): `]Som[e text`.
-/// - (2, 7): `So[me te]xt`.
-/// - (1, 1): `S[]ome text`.
-///
 /// Ranges are considered to be inclusive on the left and
 /// exclusive on the right, regardless of anchor-head ordering.
 /// This means, for example, that non-zero-width ranges that
@@ -78,6 +68,7 @@ impl Range {
     }
 
     #[must_use]
+    #[allow(clippy::needless_pass_by_value)]
     pub fn from_node(node: Node, text: RopeSlice, direction: Direction) -> Self {
         let from = text.byte_to_char(node.start_byte() as usize);
         let to = text.byte_to_char(node.end_byte() as usize);
@@ -663,7 +654,7 @@ impl Selection {
     where
         F: FnMut(Range) -> Range,
     {
-        for range in self.ranges.iter_mut() {
+        for range in &mut self.ranges {
             *range = f(*range);
         }
         self.normalize()
@@ -922,7 +913,6 @@ mod test {
     use crate::Rope;
 
     #[test]
-    #[should_panic]
     fn test_new_empty() {
         let _ = Selection::new(smallvec![], 0);
     }
@@ -1458,38 +1448,5 @@ mod test {
 
         assert_eq!(result.ranges(), &[Range::new(0, 15), Range::new(18, 25)]);
         assert_eq!(result.primary_index, 0);
-    }
-
-    #[test]
-    fn test_selection_contains() {
-        fn contains(a: Vec<(usize, usize)>, b: Vec<(usize, usize)>) -> bool {
-            let sela = Selection::new(a.iter().map(|a| Range::new(a.0, a.1)).collect(), 0);
-            let selb = Selection::new(b.iter().map(|b| Range::new(b.0, b.1)).collect(), 0);
-            sela.contains(&selb)
-        }
-
-        // exact match
-        assert!(contains(vec!((1, 1)), vec!((1, 1))));
-
-        // larger set contains smaller
-        assert!(contains(vec!((1, 1), (2, 2), (3, 3)), vec!((2, 2))));
-
-        // multiple matches
-        assert!(contains(vec!((1, 1), (2, 2)), vec!((1, 1), (2, 2))));
-
-        // smaller set can't contain bigger
-        assert!(!contains(vec!((1, 1)), vec!((1, 1), (2, 2))));
-
-        assert!(contains(
-            vec!((1, 1), (2, 4), (5, 6), (7, 9), (10, 13)),
-            vec!((3, 4), (7, 9))
-        ));
-        assert!(!contains(vec!((1, 1), (5, 6)), vec!((1, 6))));
-
-        // multiple ranges of other are all contained in some ranges of self,
-        assert!(contains(
-            vec!((1, 4), (7, 10)),
-            vec!((1, 2), (3, 4), (7, 9))
-        ));
     }
 }

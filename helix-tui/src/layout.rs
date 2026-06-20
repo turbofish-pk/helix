@@ -3,9 +3,11 @@
 use std::cell::RefCell;
 use std::collections::HashMap;
 
-use cassowary::WeightedRelation::*;
-use cassowary::strength::{REQUIRED, WEAK};
-use cassowary::{Constraint as CassowaryConstraint, Expression, Solver, Variable};
+use cassowary::{
+    Constraint as CassowaryConstraint, Expression, Solver, Variable,
+    WeightedRelation::{EQ, GE, LE},
+    strength::{REQUIRED, WEAK},
+};
 
 use helix_view::graphics::{Margin, Rect};
 
@@ -37,6 +39,7 @@ pub enum Constraint {
 }
 
 impl Constraint {
+    #[must_use]
     pub fn apply(&self, length: u16) -> u16 {
         match *self {
             Constraint::Percentage(p) => length * p / 100,
@@ -83,6 +86,7 @@ impl Default for Layout {
 
 impl Layout {
     /// Returns a layout with the given [Constraint]s.
+    #[must_use]
     pub fn constraints<C>(mut self, constraints: C) -> Layout
     where
         C: Into<Vec<Constraint>>,
@@ -92,24 +96,28 @@ impl Layout {
     }
 
     /// Returns a layout wit the given margins on all sides.
+    #[must_use]
     pub const fn margin(mut self, margin: u16) -> Layout {
         self.margin = Margin::all(margin);
         self
     }
 
     /// Returns a layout with the given horizontal margins.
+    #[must_use]
     pub const fn horizontal_margin(mut self, horizontal: u16) -> Layout {
         self.margin.horizontal = horizontal;
         self
     }
 
     /// Returns a layout with the given vertical margins.
+    #[must_use]
     pub const fn vertical_margin(mut self, vertical: u16) -> Layout {
         self.margin.vertical = vertical;
         self
     }
 
     /// Returns a layout with the given [Direction].
+    #[must_use]
     pub const fn direction(mut self, direction: Direction) -> Layout {
         self.direction = direction;
         self
@@ -176,6 +184,7 @@ impl Layout {
     ///     ]
     /// );
     /// ```
+    #[must_use]
     pub fn split(&self, area: Rect) -> Vec<Rect> {
         // TODO: Maybe use a fixed size cache ?
         LAYOUT_CACHE.with(|c| {
@@ -279,6 +288,7 @@ fn split(area: Rect, layout: &Layout) -> Vec<Rect> {
     solver.add_constraints(&ccs).unwrap();
     for &(var, value) in solver.fetch_changes() {
         let (index, attr) = vars[&var];
+        #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
         let value = if value.is_sign_negative() {
             0
         } else {

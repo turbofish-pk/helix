@@ -2,7 +2,7 @@ use std::borrow::Cow;
 
 use helix_core::command_line::{ExpansionKind, Token, TokenKind, Tokenizer};
 
-use anyhow::{anyhow, bail, ensure, Result};
+use anyhow::{Result, anyhow, bail, ensure};
 
 use crate::Editor;
 
@@ -65,6 +65,7 @@ impl Variable {
         Self::SelectionLineEnd,
     ];
 
+    #[must_use]
     pub const fn as_str(&self) -> &'static str {
         match self {
             Self::CursorLine => "cursor_line",
@@ -81,6 +82,7 @@ impl Variable {
         }
     }
 
+    #[must_use]
     pub fn from_name(s: &str) -> Option<Self> {
         match s {
             "cursor_line" => Some(Self::CursorLine),
@@ -111,7 +113,7 @@ pub fn expand<'a>(editor: &Editor, token: Token<'a>) -> Result<Cow<'a, str>> {
             let var = Variable::from_name(&token.content)
                 .ok_or_else(|| anyhow!("unknown variable '{}'", token.content))?;
 
-            expand_variable(editor, var)
+            Ok(expand_variable(editor, var))
         }
         TokenKind::Expansion(ExpansionKind::Unicode) => {
             if let Some(ch) = u32::from_str_radix(token.content.as_ref(), 16)
@@ -128,7 +130,7 @@ pub fn expand<'a>(editor: &Editor, token: Token<'a>) -> Result<Cow<'a, str>> {
         }
         TokenKind::Expand => expand_inner(editor, token.content),
         TokenKind::Expansion(ExpansionKind::Shell) => expand_shell(editor, token.content),
-        TokenKind::Expansion(ExpansionKind::Register) => expand_register(editor, token.content),
+        TokenKind::Expansion(ExpansionKind::Register) => expand_register(editor, &token.content),
         // Note: see the docs for this variant.
         TokenKind::ExpansionKind => unreachable!(
             "expansion name tokens cannot be emitted when command line validation is enabled"
@@ -185,7 +187,7 @@ pub fn expand_shell<'a>(editor: &Editor, content: Cow<'a, str>) -> Result<Cow<'a
 }
 
 /// Expand a register's contents
-pub fn expand_register<'a>(editor: &Editor, content: Cow<'a, str>) -> Result<Cow<'a, str>> {
+pub fn expand_register<'a>(editor: &Editor, content: &Cow<'a, str>) -> Result<Cow<'a, str>> {
     let mut chars = content.chars();
     let Some(r) = chars.next() else {
         bail!("Missing register name");
@@ -244,27 +246,27 @@ fn expand_inner<'a>(editor: &Editor, content: Cow<'a, str>) -> Result<Cow<'a, st
 // function to return then, instead, would normally be a `String`. We can return some statically
 // known strings like the scratch buffer name or line ending strings though, so this function
 // returns a `Cow<'static, str>` instead.
-fn expand_variable(editor: &Editor, variable: Variable) -> Result<Cow<'static, str>> {
+fn expand_variable(editor: &Editor, variable: Variable) -> std::borrow::Cow<'static, str> {
     let (view, doc) = current_ref!(editor);
     let text = doc.text().slice(..);
 
     match variable {
         Variable::CursorLine => {
             let cursor_line = doc.selection(view.id).primary().cursor_line(text);
-            Ok(Cow::Owned((cursor_line + 1).to_string()))
+            Cow::Owned((cursor_line + 1).to_string())
         }
         Variable::CursorColumn => {
             let cursor = doc.selection(view.id).primary().cursor(text);
             let position = helix_core::coords_at_pos(text, cursor);
-            Ok(Cow::Owned((position.col + 1).to_string()))
+            Cow::Owned((position.col + 1).to_string())
         }
         Variable::BufferName => {
             // Note: usually we would use `Document::display_name` but we can statically borrow
             // the scratch buffer name by partially reimplementing `display_name`.
             if let Some(path) = doc.relative_path() {
-                Ok(Cow::Owned(path.to_string_lossy().into_owned()))
+                Cow::Owned(path.to_string_lossy().into_owned())
             } else {
-                Ok(Cow::Borrowed(crate::document::SCRATCH_BUFFER_NAME))
+                Cow::Borrowed(crate::document::SCRATCH_BUFFER_NAME)
             }
         }
         Variable::FilePathAbsolute => {
@@ -274,34 +276,34 @@ fn expand_variable(editor: &Editor, variable: Variable) -> Result<Cow<'static, s
             }
             .to_string_lossy()
             .to_string();
-            Ok(Cow::Owned(path))
+            Cow::Owned(path)
         }
-        Variable::LineEnding => Ok(Cow::Borrowed(doc.line_ending.as_str())),
-        Variable::CurrentWorkingDirectory => Ok(std::borrow::Cow::Owned(
+        Variable::LineEnding => Cow::Borrowed(doc.line_ending.as_str()),
+        Variable::CurrentWorkingDirectory => std::borrow::Cow::Owned(
             helix_stdx::env::current_working_dir()
                 .to_string_lossy()
                 .to_string(),
-        )),
-        Variable::WorkspaceDirectory => Ok(std::borrow::Cow::Owned(
+        ),
+        Variable::WorkspaceDirectory => std::borrow::Cow::Owned(
             helix_loader::find_workspace()
                 .0
                 .to_string_lossy()
                 .to_string(),
-        )),
-        Variable::Language => Ok(match doc.language_name() {
+        ),
+        Variable::Language => match doc.language_name() {
             Some(lang) => Cow::Owned(lang.to_owned()),
             None => Cow::Borrowed("text"),
-        }),
-        Variable::Selection => Ok(Cow::Owned(
-            doc.selection(view.id).primary().fragment(text).to_string(),
-        )),
+        },
+        Variable::Selection => {
+            Cow::Owned(doc.selection(view.id).primary().fragment(text).to_string())
+        }
         Variable::SelectionLineStart => {
             let start_line = doc.selection(view.id).primary().line_range(text).0;
-            Ok(Cow::Owned((start_line + 1).to_string()))
+            Cow::Owned((start_line + 1).to_string())
         }
         Variable::SelectionLineEnd => {
             let end_line = doc.selection(view.id).primary().line_range(text).1;
-            Ok(Cow::Owned((end_line + 1).to_string()))
+            Cow::Owned((end_line + 1).to_string())
         }
     }
 }

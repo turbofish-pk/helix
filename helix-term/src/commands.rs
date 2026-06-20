@@ -1,3 +1,4 @@
+#![allow(clippy::missing_errors_doc)]
 pub(crate) mod lsp;
 pub(crate) mod syntax;
 pub(crate) mod typed;
@@ -57,7 +58,11 @@ use helix_view::{
 
 use anyhow::{Context as _, anyhow, bail, ensure};
 use arc_swap::access::DynAccess;
-use insert::*;
+use insert::{
+    append_char_interactive, delete_char_backward, delete_char_forward, delete_word_backward,
+    delete_word_forward, insert_char, insert_char_interactive, insert_newline, insert_tab,
+    smart_tab,
+};
 use movement::Movement;
 
 use crate::{
@@ -114,7 +119,7 @@ impl Context<'_> {
     pub fn push_layer(&mut self, component: Box<dyn Component>) {
         self.callback
             .push(Box::new(|compositor: &mut Compositor, _| {
-                compositor.push(component)
+                compositor.push(component);
             }));
     }
 
@@ -190,7 +195,7 @@ where
         let response = call.await?;
         let call: job::Callback = Callback::EditorCompositor(Box::new(
             move |editor: &mut Editor, compositor: &mut Compositor| {
-                callback(editor, compositor, response)
+                callback(editor, compositor, response);
             },
         ));
         Ok(call)
@@ -199,7 +204,7 @@ where
 
 use helix_view::{Align, align_view};
 
-/// MappableCommands are commands that can be bound to keys, executable in
+/// `MappableCommands` are commands that can be bound to keys, executable in
 /// normal, insert or select mode.
 ///
 /// There are three kinds:
@@ -232,10 +237,12 @@ macro_rules! static_commands {
                 doc: $doc
             };
         )*
-
-        pub const STATIC_COMMAND_LIST: &'static [Self] = &[
-            $( Self::$name, )*
-        ];
+        pub const STATIC_COMMAND_LIST: &'static [Self] = {
+            static COMMANDS: &[MappableCommand] = &[
+                $( MappableCommand::$name, )*
+            ];
+            COMMANDS
+        };
     }
 }
 
@@ -252,7 +259,7 @@ impl MappableCommand {
                     if let Err(e) =
                         typed::execute_command(&mut cx, command, args, PromptEvent::Validate)
                     {
-                        cx.editor.set_error(format!("{}", e));
+                        cx.editor.set_error(format!("{e}"));
                     }
                 } else {
                     cx.editor.set_error(format!("no such command: '{name}'"));
@@ -620,13 +627,13 @@ impl std::str::FromStr for MappableCommand {
                         args: args.to_string(),
                     }
                 })
-                .ok_or_else(|| anyhow!("No TypableCommand named '{}'", s))
+                .ok_or_else(|| anyhow!("No TypableCommand named '{s}'"))
         } else {
             MappableCommand::STATIC_COMMAND_LIST
                 .iter()
                 .find(|cmd| cmd.name() == s)
                 .cloned()
-                .ok_or_else(|| anyhow!("No command named '{}'", s))
+                .ok_or_else(|| anyhow!("No command named '{s}'"))
         }
     }
 }
@@ -699,19 +706,19 @@ fn move_impl(cx: &mut Context, move_fn: MoveFn, dir: Direction, behaviour: Movem
 use helix_core::movement::{move_horizontally, move_vertically};
 
 fn move_char_left(cx: &mut Context) {
-    move_impl(cx, move_horizontally, Direction::Backward, Movement::Move)
+    move_impl(cx, move_horizontally, Direction::Backward, Movement::Move);
 }
 
 fn move_char_right(cx: &mut Context) {
-    move_impl(cx, move_horizontally, Direction::Forward, Movement::Move)
+    move_impl(cx, move_horizontally, Direction::Forward, Movement::Move);
 }
 
 fn move_line_up(cx: &mut Context) {
-    move_impl(cx, move_vertically, Direction::Backward, Movement::Move)
+    move_impl(cx, move_vertically, Direction::Backward, Movement::Move);
 }
 
 fn move_line_down(cx: &mut Context) {
-    move_impl(cx, move_vertically, Direction::Forward, Movement::Move)
+    move_impl(cx, move_vertically, Direction::Forward, Movement::Move);
 }
 
 fn move_visual_line_up(cx: &mut Context) {
@@ -720,7 +727,7 @@ fn move_visual_line_up(cx: &mut Context) {
         move_vertically_visual,
         Direction::Backward,
         Movement::Move,
-    )
+    );
 }
 
 fn move_visual_line_down(cx: &mut Context) {
@@ -729,23 +736,23 @@ fn move_visual_line_down(cx: &mut Context) {
         move_vertically_visual,
         Direction::Forward,
         Movement::Move,
-    )
+    );
 }
 
 fn extend_char_left(cx: &mut Context) {
-    move_impl(cx, move_horizontally, Direction::Backward, Movement::Extend)
+    move_impl(cx, move_horizontally, Direction::Backward, Movement::Extend);
 }
 
 fn extend_char_right(cx: &mut Context) {
-    move_impl(cx, move_horizontally, Direction::Forward, Movement::Extend)
+    move_impl(cx, move_horizontally, Direction::Forward, Movement::Extend);
 }
 
 fn extend_line_up(cx: &mut Context) {
-    move_impl(cx, move_vertically, Direction::Backward, Movement::Extend)
+    move_impl(cx, move_vertically, Direction::Backward, Movement::Extend);
 }
 
 fn extend_line_down(cx: &mut Context) {
-    move_impl(cx, move_vertically, Direction::Forward, Movement::Extend)
+    move_impl(cx, move_vertically, Direction::Forward, Movement::Extend);
 }
 
 fn extend_visual_line_up(cx: &mut Context) {
@@ -754,7 +761,7 @@ fn extend_visual_line_up(cx: &mut Context) {
         move_vertically_visual,
         Direction::Backward,
         Movement::Extend,
-    )
+    );
 }
 
 fn extend_visual_line_down(cx: &mut Context) {
@@ -763,7 +770,7 @@ fn extend_visual_line_down(cx: &mut Context) {
         move_vertically_visual,
         Direction::Forward,
         Movement::Extend,
-    )
+    );
 }
 
 fn goto_line_end_impl(view: &mut View, doc: &mut Document, movement: Movement) {
@@ -791,12 +798,12 @@ fn goto_line_end(cx: &mut Context) {
         } else {
             Movement::Move
         },
-    )
+    );
 }
 
 fn extend_to_line_end(cx: &mut Context) {
     let (view, doc) = current!(cx.editor);
-    goto_line_end_impl(view, doc, Movement::Extend)
+    goto_line_end_impl(view, doc, Movement::Extend);
 }
 
 fn goto_line_end_newline_impl(view: &mut View, doc: &mut Document, movement: Movement) {
@@ -821,12 +828,12 @@ fn goto_line_end_newline(cx: &mut Context) {
         } else {
             Movement::Move
         },
-    )
+    );
 }
 
 fn extend_to_line_end_newline(cx: &mut Context) {
     let (view, doc) = current!(cx.editor);
-    goto_line_end_newline_impl(view, doc, Movement::Extend)
+    goto_line_end_newline_impl(view, doc, Movement::Extend);
 }
 
 fn goto_line_start_impl(view: &mut View, doc: &mut Document, movement: Movement) {
@@ -852,7 +859,7 @@ fn goto_line_start(cx: &mut Context) {
         } else {
             Movement::Move
         },
-    )
+    );
 }
 
 fn goto_next_buffer(cx: &mut Context) {
@@ -890,7 +897,7 @@ fn goto_buffer(editor: &mut Editor, direction: Direction, count: usize) {
 
 fn extend_to_line_start(cx: &mut Context) {
     let (view, doc) = current!(cx.editor);
-    goto_line_start_impl(view, doc, Movement::Extend)
+    goto_line_start_impl(view, doc, Movement::Extend);
 }
 
 fn kill_to_line_start(cx: &mut Context) {
@@ -951,12 +958,12 @@ fn goto_first_nonwhitespace(cx: &mut Context) {
         } else {
             Movement::Move
         },
-    )
+    );
 }
 
 fn extend_to_first_nonwhitespace(cx: &mut Context) {
     let (view, doc) = current!(cx.editor);
-    goto_first_nonwhitespace_impl(view, doc, Movement::Extend)
+    goto_first_nonwhitespace_impl(view, doc, Movement::Extend);
 }
 
 fn goto_first_nonwhitespace_impl(view: &mut View, doc: &mut Document, movement: Movement) {
@@ -994,17 +1001,17 @@ fn trim_selections(cx: &mut Context) {
         })
         .collect();
 
-    if !ranges.is_empty() {
+    if ranges.is_empty() {
+        collapse_selection(cx);
+        keep_primary_selection(cx);
+    } else {
         let primary = doc.selection(view.id).primary();
         let idx = ranges
             .iter()
             .position(|range| range.overlaps(&primary))
             .unwrap_or(ranges.len() - 1);
         doc.set_selection(view.id, Selection::new(ranges, idx));
-    } else {
-        collapse_selection(cx);
-        keep_primary_selection(cx);
-    };
+    }
 }
 
 // align text in selection
@@ -1130,15 +1137,15 @@ fn goto_window(cx: &mut Context, align: Align) {
 }
 
 fn goto_window_top(cx: &mut Context) {
-    goto_window(cx, Align::Top)
+    goto_window(cx, Align::Top);
 }
 
 fn goto_window_center(cx: &mut Context) {
-    goto_window(cx, Align::Center)
+    goto_window(cx, Align::Center);
 }
 
 fn goto_window_bottom(cx: &mut Context) {
-    goto_window(cx, Align::Bottom)
+    goto_window(cx, Align::Bottom);
 }
 
 fn move_word_impl<F>(cx: &mut Context, move_fn: F)
@@ -1157,51 +1164,51 @@ where
 }
 
 fn move_next_word_start(cx: &mut Context) {
-    move_word_impl(cx, movement::move_next_word_start)
+    move_word_impl(cx, movement::move_next_word_start);
 }
 
 fn move_prev_word_start(cx: &mut Context) {
-    move_word_impl(cx, movement::move_prev_word_start)
+    move_word_impl(cx, movement::move_prev_word_start);
 }
 
 fn move_prev_word_end(cx: &mut Context) {
-    move_word_impl(cx, movement::move_prev_word_end)
+    move_word_impl(cx, movement::move_prev_word_end);
 }
 
 fn move_next_word_end(cx: &mut Context) {
-    move_word_impl(cx, movement::move_next_word_end)
+    move_word_impl(cx, movement::move_next_word_end);
 }
 
 fn move_next_long_word_start(cx: &mut Context) {
-    move_word_impl(cx, movement::move_next_long_word_start)
+    move_word_impl(cx, movement::move_next_long_word_start);
 }
 
 fn move_prev_long_word_start(cx: &mut Context) {
-    move_word_impl(cx, movement::move_prev_long_word_start)
+    move_word_impl(cx, movement::move_prev_long_word_start);
 }
 
 fn move_prev_long_word_end(cx: &mut Context) {
-    move_word_impl(cx, movement::move_prev_long_word_end)
+    move_word_impl(cx, movement::move_prev_long_word_end);
 }
 
 fn move_next_long_word_end(cx: &mut Context) {
-    move_word_impl(cx, movement::move_next_long_word_end)
+    move_word_impl(cx, movement::move_next_long_word_end);
 }
 
 fn move_next_sub_word_start(cx: &mut Context) {
-    move_word_impl(cx, movement::move_next_sub_word_start)
+    move_word_impl(cx, movement::move_next_sub_word_start);
 }
 
 fn move_prev_sub_word_start(cx: &mut Context) {
-    move_word_impl(cx, movement::move_prev_sub_word_start)
+    move_word_impl(cx, movement::move_prev_sub_word_start);
 }
 
 fn move_prev_sub_word_end(cx: &mut Context) {
-    move_word_impl(cx, movement::move_prev_sub_word_end)
+    move_word_impl(cx, movement::move_prev_sub_word_end);
 }
 
 fn move_next_sub_word_end(cx: &mut Context) {
-    move_word_impl(cx, movement::move_next_sub_word_end)
+    move_word_impl(cx, movement::move_next_sub_word_end);
 }
 
 fn goto_para_impl<F>(cx: &mut Context, move_fn: F)
@@ -1224,15 +1231,15 @@ where
             .transform(|range| move_fn(text, range, count, behavior));
         doc.set_selection(view.id, selection);
     };
-    cx.editor.apply_motion(motion)
+    cx.editor.apply_motion(motion);
 }
 
 fn goto_prev_paragraph(cx: &mut Context) {
-    goto_para_impl(cx, movement::move_prev_paragraph)
+    goto_para_impl(cx, movement::move_prev_paragraph);
 }
 
 fn goto_next_paragraph(cx: &mut Context) {
-    goto_para_impl(cx, movement::move_next_paragraph)
+    goto_para_impl(cx, movement::move_next_paragraph);
 }
 
 fn goto_file_start(cx: &mut Context) {
@@ -1263,7 +1270,7 @@ fn goto_file_end(cx: &mut Context) {
 }
 
 fn extend_to_file_end(cx: &mut Context) {
-    goto_file_end_impl(cx, Movement::Extend)
+    goto_file_end_impl(cx, Movement::Extend);
 }
 
 fn goto_file_end_impl(cx: &mut Context, movement: Movement) {
@@ -1375,7 +1382,7 @@ fn goto_file_impl(cx: &mut Context, action: Action) {
     }
 
     for target in lsp_targets {
-        open_url(cx, target, action);
+        open_url(cx, &target, action);
     }
 
     if !resolve_requests.is_empty() {
@@ -1446,40 +1453,40 @@ fn goto_file_impl(cx: &mut Context, action: Action) {
 
     for sel in paths {
         if let Ok(url) = Url::parse(&sel) {
-            open_url(cx, url, action);
+            open_url(cx, &url, action);
             continue;
         }
 
         let path = path::expand(&sel);
         let path = &rel_path.join(path);
         if path.is_dir() {
-            let picker = ui::file_picker(cx.editor, path.into());
+            let picker = ui::file_picker(cx.editor, &path.into());
             cx.push_layer(Box::new(overlaid(picker)));
         } else if let Err(e) = cx.editor.open(path, action) {
-            cx.editor.set_error(format!("Open file failed: {:?}", e));
+            cx.editor.set_error(format!("Open file failed: {e:?}"));
         }
     }
 }
 
 /// Opens the given url. If the URL points to a valid textual file it is open in helix.
 /// Otherwise, the file is open using external program.
-fn open_url(cx: &mut Context, url: Url, action: Action) {
+fn open_url(cx: &mut Context, url: &Url, action: Action) {
     let doc = doc!(cx.editor);
     let rel_path = doc
         .relative_path()
         .map(|path| path.parent().unwrap().to_path_buf())
         .unwrap_or_default();
 
-    if should_open_url_externally(&url) {
-        return cx.jobs.callback(crate::open_external_url_callback(&url));
+    if should_open_url_externally(url) {
+        return cx.jobs.callback(crate::open_external_url_callback(url));
     }
 
     let path = &rel_path.join(url.path());
     if path.is_dir() {
-        let picker = ui::file_picker(cx.editor, path.into());
+        let picker = ui::file_picker(cx.editor, path);
         cx.push_layer(Box::new(overlaid(picker)));
     } else if let Err(e) = cx.editor.open(path, action) {
-        cx.editor.set_error(format!("Open file failed: {:?}", e));
+        cx.editor.set_error(format!("Open file failed: {e:?}"));
     }
 }
 
@@ -1507,10 +1514,10 @@ fn open_url_in_callback(
 
     let path = &rel_path.join(url.path());
     if path.is_dir() {
-        let picker = ui::file_picker(editor, path.into());
+        let picker = ui::file_picker(editor, path);
         compositor.push(Box::new(overlaid(picker)));
     } else if let Err(e) = editor.open(path, action) {
-        editor.set_error(format!("Open file failed: {:?}", e));
+        editor.set_error(format!("Open file failed: {e:?}"));
     }
 }
 
@@ -1551,54 +1558,54 @@ where
 }
 
 fn extend_next_word_start(cx: &mut Context) {
-    extend_word_impl(cx, movement::move_next_word_start)
+    extend_word_impl(cx, movement::move_next_word_start);
 }
 
 fn extend_prev_word_start(cx: &mut Context) {
-    extend_word_impl(cx, movement::move_prev_word_start)
+    extend_word_impl(cx, movement::move_prev_word_start);
 }
 
 fn extend_next_word_end(cx: &mut Context) {
-    extend_word_impl(cx, movement::move_next_word_end)
+    extend_word_impl(cx, movement::move_next_word_end);
 }
 
 fn extend_prev_word_end(cx: &mut Context) {
-    extend_word_impl(cx, movement::move_prev_word_end)
+    extend_word_impl(cx, movement::move_prev_word_end);
 }
 
 fn extend_next_long_word_start(cx: &mut Context) {
-    extend_word_impl(cx, movement::move_next_long_word_start)
+    extend_word_impl(cx, movement::move_next_long_word_start);
 }
 
 fn extend_prev_long_word_start(cx: &mut Context) {
-    extend_word_impl(cx, movement::move_prev_long_word_start)
+    extend_word_impl(cx, movement::move_prev_long_word_start);
 }
 
 fn extend_prev_long_word_end(cx: &mut Context) {
-    extend_word_impl(cx, movement::move_prev_long_word_end)
+    extend_word_impl(cx, movement::move_prev_long_word_end);
 }
 
 fn extend_next_long_word_end(cx: &mut Context) {
-    extend_word_impl(cx, movement::move_next_long_word_end)
+    extend_word_impl(cx, movement::move_next_long_word_end);
 }
 
 fn extend_next_sub_word_start(cx: &mut Context) {
-    extend_word_impl(cx, movement::move_next_sub_word_start)
+    extend_word_impl(cx, movement::move_next_sub_word_start);
 }
 
 fn extend_prev_sub_word_start(cx: &mut Context) {
-    extend_word_impl(cx, movement::move_prev_sub_word_start)
+    extend_word_impl(cx, movement::move_prev_sub_word_start);
 }
 
 fn extend_prev_sub_word_end(cx: &mut Context) {
-    extend_word_impl(cx, movement::move_prev_sub_word_end)
+    extend_word_impl(cx, movement::move_prev_sub_word_end);
 }
 
 fn extend_next_sub_word_end(cx: &mut Context) {
-    extend_word_impl(cx, movement::move_next_sub_word_end)
+    extend_word_impl(cx, movement::move_next_sub_word_end);
 }
 
-/// Separate branch to find_char designed only for `<ret>` char.
+/// Separate branch to `find_char` designed only for `<ret>` char.
 //
 // This is necessary because the one document can have different line endings inside. And we
 // cannot predict what character to find when <ret> is pressed. On the current line it can be `lf`
@@ -1626,26 +1633,27 @@ fn find_char_line_ending_motion(
                 } else {
                     line_end == cursor_head || line_end == cursor_anchor
                 };
-                let line = cursor_line + count - 1 + on_edge as usize;
+                let line = cursor_line + count - 1 + usize::from(on_edge);
                 if line >= text.len_lines() - 1 {
                     return range;
                 }
-                line_end_char_index(&text, line) - !inclusive as usize
+                line_end_char_index(&text, line) - usize::from(!inclusive)
             }
             Direction::Backward => {
                 if inclusive {
-                    let line = cursor_line as isize - count as isize;
+                    let line = cursor_line.cast_signed() - count.cast_signed();
                     if line < 0 {
                         return range;
                     }
-                    line_end_char_index(&text, line as usize)
+                    line_end_char_index(&text, line.cast_unsigned())
                 } else {
                     let on_edge = text.line_to_char(cursor_line) == cursor_anchor;
-                    let line = cursor_line as isize - count as isize + 1 - on_edge as isize;
+                    let line =
+                        cursor_line.cast_signed() - count.cast_signed() + 1 - isize::from(on_edge);
                     if line <= 0 {
                         return range;
                     }
-                    text.line_to_char(line as usize)
+                    text.line_to_char(line.cast_unsigned())
                 }
             }
         };
@@ -1696,8 +1704,7 @@ fn find_char(cx: &mut Context, direction: Direction, inclusive: bool, extend: bo
                     search::find_nth_char(count, text, ch, search_start_pos, direction)
                         // Exclusive search should stop on previous character
                         .map(|pos| match (inclusive, direction) {
-                            (true, Direction::Forward) => pos,
-                            (true, Direction::Backward) => pos,
+                            (true, Direction::Forward | Direction::Backward) => pos,
                             (false, Direction::Forward) => pos - 1,
                             (false, Direction::Backward) => pos + 1,
                         })
@@ -1717,7 +1724,7 @@ fn find_char(cx: &mut Context, direction: Direction, inclusive: bool, extend: bo
         };
 
         cx.editor.apply_motion(motion);
-    })
+    });
 }
 
 fn find_till_char(cx: &mut Context) {
@@ -1725,35 +1732,35 @@ fn find_till_char(cx: &mut Context) {
 }
 
 fn find_next_char(cx: &mut Context) {
-    find_char(cx, Direction::Forward, true, false)
+    find_char(cx, Direction::Forward, true, false);
 }
 
 fn extend_till_char(cx: &mut Context) {
-    find_char(cx, Direction::Forward, false, true)
+    find_char(cx, Direction::Forward, false, true);
 }
 
 fn extend_next_char(cx: &mut Context) {
-    find_char(cx, Direction::Forward, true, true)
+    find_char(cx, Direction::Forward, true, true);
 }
 
 fn till_prev_char(cx: &mut Context) {
-    find_char(cx, Direction::Backward, false, false)
+    find_char(cx, Direction::Backward, false, false);
 }
 
 fn find_prev_char(cx: &mut Context) {
-    find_char(cx, Direction::Backward, true, false)
+    find_char(cx, Direction::Backward, true, false);
 }
 
 fn extend_till_prev_char(cx: &mut Context) {
-    find_char(cx, Direction::Backward, false, true)
+    find_char(cx, Direction::Backward, false, true);
 }
 
 fn extend_prev_char(cx: &mut Context) {
-    find_char(cx, Direction::Backward, true, true)
+    find_char(cx, Direction::Backward, true, true);
 }
 
 fn repeat_last_motion(cx: &mut Context) {
-    cx.editor.repeat_last_motion(cx.count())
+    cx.editor.repeat_last_motion(cx.count());
 }
 
 fn replace(cx: &mut Context) {
@@ -1781,7 +1788,10 @@ fn replace(cx: &mut Context) {
 
         if let Some(ch) = ch {
             let transaction = Transaction::change_by_selection(doc.text(), selection, |range| {
-                if !range.is_empty() {
+                if range.is_empty() {
+                    // No change.
+                    (range.from(), range.to(), None)
+                } else {
                     let text: Tendril = doc
                         .text()
                         .slice(range.from()..range.to())
@@ -1789,16 +1799,13 @@ fn replace(cx: &mut Context) {
                         .map(|_g| ch)
                         .collect();
                     (range.from(), range.to(), Some(text))
-                } else {
-                    // No change.
-                    (range.from(), range.to(), None)
                 }
             });
 
             doc.apply(&transaction, view.id);
             exit_select_mode(cx);
         }
-    })
+    });
 }
 
 fn switch_case_impl<F>(cx: &mut Context, change_fn: F)
@@ -1839,7 +1846,7 @@ impl Iterator for CaseSwitcher {
             CaseSwitcher::Upper(upper) => upper.size_hint(),
             CaseSwitcher::Lower(lower) => lower.size_hint(),
             CaseSwitcher::Keep(ch) => {
-                let n = if ch.is_some() { 1 } else { 0 };
+                let n = usize::from(ch.is_some());
                 (n, Some(n))
             }
         }
@@ -1878,7 +1885,7 @@ fn switch_to_lowercase(cx: &mut Context) {
 }
 
 pub fn scroll(cx: &mut Context, offset: usize, direction: Direction, sync_cursor: bool) {
-    use Direction::*;
+    use Direction::{Backward, Forward};
     let config = cx.editor.config();
     let (view, doc) = current!(cx.editor);
     let mut view_offset = doc.view_offset(view.id);
@@ -1891,8 +1898,8 @@ pub fn scroll(cx: &mut Context, offset: usize, direction: Direction, sync_cursor
 
     let scrolloff = config.scrolloff.min(height.saturating_sub(1) / 2);
     let offset = match direction {
-        Forward => offset as isize,
-        Backward => -(offset as isize),
+        Forward => offset.cast_signed(),
+        Backward => -(offset.cast_signed()),
     };
 
     let doc_text = doc.text().slice(..);
@@ -1901,7 +1908,7 @@ pub fn scroll(cx: &mut Context, offset: usize, direction: Direction, sync_cursor
     (view_offset.anchor, view_offset.vertical_offset) = char_idx_at_visual_offset(
         doc_text,
         view_offset.anchor,
-        view_offset.vertical_offset as isize + offset,
+        view_offset.vertical_offset.cast_signed() + offset,
         0,
         &text_fmt,
         // &annotations,
@@ -1946,12 +1953,12 @@ pub fn scroll(cx: &mut Context, offset: usize, direction: Direction, sync_cursor
             (head, off) = char_idx_at_visual_offset(
                 doc_text,
                 view_offset.anchor,
-                (view_offset.vertical_offset + scrolloff) as isize,
+                (view_offset.vertical_offset + scrolloff).cast_signed(),
                 0,
                 &text_fmt,
                 &annotations,
             );
-            head += (off != 0) as usize;
+            head += usize::from(off != 0);
             if head <= cursor {
                 return;
             }
@@ -1960,7 +1967,7 @@ pub fn scroll(cx: &mut Context, offset: usize, direction: Direction, sync_cursor
             head = char_idx_at_visual_offset(
                 doc_text,
                 view_offset.anchor,
-                (view_offset.vertical_offset + height - scrolloff - 1) as isize,
+                (view_offset.vertical_offset + height - scrolloff - 1).cast_signed(),
                 0,
                 &text_fmt,
                 &annotations,
@@ -2051,7 +2058,7 @@ fn copy_selection_on_line(cx: &mut Context, direction: Direction) {
     let mut ranges = SmallVec::with_capacity(selection.ranges().len() * (count + 1));
     ranges.extend_from_slice(selection.ranges());
     let mut primary_index = 0;
-    for range in selection.iter() {
+    for range in selection {
         let is_primary = *range == selection.primary();
 
         // The range is always head exclusive
@@ -2123,18 +2130,18 @@ fn copy_selection_on_line(cx: &mut Context, direction: Direction) {
 }
 
 fn copy_selection_on_prev_line(cx: &mut Context) {
-    copy_selection_on_line(cx, Direction::Backward)
+    copy_selection_on_line(cx, Direction::Backward);
 }
 
 fn copy_selection_on_next_line(cx: &mut Context) {
-    copy_selection_on_line(cx, Direction::Forward)
+    copy_selection_on_line(cx, Direction::Forward);
 }
 
 fn select_all(cx: &mut Context) {
     let (view, doc) = current!(cx.editor);
 
     let end = doc.text().len_chars();
-    doc.set_selection(view.id, Selection::single(0, end))
+    doc.set_selection(view.id, Selection::single(0, end));
 }
 
 fn select_regex(cx: &mut Context) {
@@ -2279,7 +2286,7 @@ fn search_impl(
 
         doc.set_selection(view.id, selection);
         view.ensure_cursor_in_view_center(doc, scrolloff);
-    };
+    }
 }
 
 fn search_completions(cx: &mut Context, reg: Option<char>) -> Vec<String> {
@@ -2292,11 +2299,11 @@ fn search_completions(cx: &mut Context, reg: Option<char>) -> Vec<String> {
 }
 
 fn search(cx: &mut Context) {
-    searcher(cx, Direction::Forward)
+    searcher(cx, Direction::Forward);
 }
 
 fn rsearch(cx: &mut Context) {
-    searcher(cx, Direction::Backward)
+    searcher(cx, Direction::Backward);
 }
 
 fn searcher(cx: &mut Context, direction: Direction) {
@@ -2380,7 +2387,7 @@ fn search_next_or_prev_impl(cx: &mut Context, movement: Movement, direction: Dir
                 );
             }
         } else {
-            let error = format!("Invalid regex: {}", query);
+            let error = format!("Invalid regex: {query}");
             cx.editor.set_error(error);
         }
     }
@@ -2402,11 +2409,11 @@ fn extend_search_prev(cx: &mut Context) {
 }
 
 fn search_selection(cx: &mut Context) {
-    search_selection_impl(cx, false)
+    search_selection_impl(cx, false);
 }
 
 fn search_selection_detect_word_boundaries(cx: &mut Context) {
-    search_selection_impl(cx, true)
+    search_selection_impl(cx, true);
 }
 
 fn search_selection_impl(cx: &mut Context, detect_word_boundaries: bool) {
@@ -2453,7 +2460,7 @@ fn search_selection_impl(cx: &mut Context, detect_word_boundaries: bool) {
             let suffix = if add_boundary_suffix { "\\b" } else { "" };
 
             let word = regex::escape(&selection.fragment(text));
-            format!("{}{}{}", prefix, word, suffix)
+            format!("{prefix}{word}{suffix}")
         })
         .collect::<HashSet<_>>() // Collect into hashset to deduplicate identical regexes
         .into_iter()
@@ -2462,9 +2469,9 @@ fn search_selection_impl(cx: &mut Context, detect_word_boundaries: bool) {
 
     let msg = format!("register '{}' set to '{}'", register, &regex);
     match cx.editor.registers.push(register, regex) {
-        Ok(_) => {
+        Ok(()) => {
             cx.editor.registers.last_search_register = register;
-            cx.editor.set_status(msg)
+            cx.editor.set_status(msg);
         }
         Err(err) => cx.editor.set_error(err.to_string()),
     }
@@ -2477,9 +2484,8 @@ fn make_search_word_bounded(cx: &mut Context) {
     let register = cx
         .register
         .unwrap_or(cx.editor.registers.last_search_register);
-    let regex = match cx.editor.registers.first(register, cx.editor) {
-        Some(regex) => regex,
-        None => return,
+    let Some(regex) = cx.editor.registers.first(register, cx.editor) else {
+        return;
     };
     let start_anchored = regex.starts_with("\\b");
     let end_anchored = regex.ends_with("\\b");
@@ -2502,9 +2508,9 @@ fn make_search_word_bounded(cx: &mut Context) {
 
     let msg = format!("register '{}' set to '{}'", register, &new_regex);
     match cx.editor.registers.push(register, new_regex) {
-        Ok(_) => {
+        Ok(()) => {
             cx.editor.registers.last_search_register = register;
-            cx.editor.set_status(msg)
+            cx.editor.set_status(msg);
         }
         Err(err) => cx.editor.set_error(err.to_string()),
     }
@@ -2582,7 +2588,7 @@ fn global_search(cx: &mut Context) {
                 matcher
             }
             Err(err) => {
-                log::info!("Failed to compile search pattern in global search: {}", err);
+                log::info!("Failed to compile search pattern in global search: {err}");
                 return async { Err(anyhow::anyhow!("Failed to compile regex")) }.boxed();
             }
         };
@@ -2619,9 +2625,8 @@ fn global_search(cx: &mut Context) {
                     let injector = injector.clone();
                     let documents = &documents;
                     Box::new(move |entry: Result<DirEntry, ignore::Error>| -> WalkState {
-                        let entry = match entry {
-                            Ok(entry) => entry,
-                            Err(_) => return WalkState::Continue,
+                        let Ok(entry) = entry else {
+                            return WalkState::Continue;
                         };
 
                         if !entry.path().is_file() {
@@ -2630,7 +2635,7 @@ fn global_search(cx: &mut Context) {
 
                         let mut stop = false;
                         let sink = sinks::UTF8(|line_start, line_content| {
-                            let line_start = line_start as usize - 1;
+                            let line_start = usize::try_from(line_start).unwrap() - 1;
                             let line_end = line_start + line_content.lines().count() - 1;
                             stop = injector
                                 .push(FileResult::new(entry.path(), line_start, line_end))
@@ -2737,7 +2742,7 @@ fn global_search(cx: &mut Context) {
 
     cx.push_layer(Box::new(overlaid(picker)));
 }
-
+#[derive(Clone, Copy)]
 enum Extend {
     Above,
     Below,
@@ -2816,7 +2821,7 @@ fn select_line_impl(cx: &mut Context, extend: Extend) {
 
         // Extending to line bounds is counted as one step
         if range.from() != start || range.to() != end {
-            count = count.saturating_sub(1)
+            count = count.saturating_sub(1);
         }
         let (anchor_line, head_line) = match (&extend, direction) {
             (Extend::Above, Direction::Forward) => (start_line, end_line.saturating_sub(count)),
@@ -2904,7 +2909,7 @@ fn shrink_to_line_bounds(cx: &mut Context) {
         }),
     );
 }
-
+#[derive(Clone, Copy)]
 enum Operation {
     Delete,
     Change,
@@ -2923,7 +2928,7 @@ fn selection_is_linewise(selection: &Selection, text: &Rope) -> bool {
         start == range.from() && end == range.to()
     })
 }
-
+#[derive(Clone, Copy)]
 enum YankAction {
     Yank,
     NoYank,
@@ -3122,7 +3127,7 @@ fn file_picker(cx: &mut Context) {
         cx.editor.set_error("Workspace directory does not exist");
         return;
     }
-    let picker = ui::file_picker(cx.editor, root);
+    let picker = ui::file_picker(cx.editor, &root);
     cx.push_layer(Box::new(overlaid(picker)));
 }
 
@@ -3131,24 +3136,23 @@ fn file_picker_in_current_buffer_directory(cx: &mut Context) {
         .path()
         .and_then(|path| path.parent().map(Path::to_path_buf));
 
-    let path = match doc_dir {
-        Some(path) => path,
-        None => {
-            let cwd = helix_stdx::env::current_working_dir();
-            if !cwd.exists() {
-                cx.editor.set_error(
-                    "Current buffer has no parent and current working directory does not exist",
-                );
-                return;
-            }
+    let path = if let Some(path) = doc_dir {
+        path
+    } else {
+        let cwd = helix_stdx::env::current_working_dir();
+        if !cwd.exists() {
             cx.editor.set_error(
-                "Current buffer has no parent, opening file picker in current working directory",
+                "Current buffer has no parent and current working directory does not exist",
             );
-            cwd
+            return;
         }
+        cx.editor.set_error(
+            "Current buffer has no parent, opening file picker in current working directory",
+        );
+        cwd
     };
 
-    let picker = ui::file_picker(cx.editor, path);
+    let picker = ui::file_picker(cx.editor, &path);
     cx.push_layer(Box::new(overlaid(picker)));
 }
 
@@ -3159,7 +3163,7 @@ fn file_picker_in_current_directory(cx: &mut Context) {
             .set_error("Current working directory does not exist");
         return;
     }
-    let picker = ui::file_picker(cx.editor, cwd);
+    let picker = ui::file_picker(cx.editor, &cwd);
     cx.push_layer(Box::new(overlaid(picker)));
 }
 
@@ -3180,21 +3184,20 @@ fn file_explorer_in_current_buffer_directory(cx: &mut Context) {
         .path()
         .and_then(|path| path.parent().map(Path::to_path_buf));
 
-    let path = match doc_dir {
-        Some(path) => path,
-        None => {
-            let cwd = helix_stdx::env::current_working_dir();
-            if !cwd.exists() {
-                cx.editor.set_error(
-                    "Current buffer has no parent and current working directory does not exist",
-                );
-                return;
-            }
+    let path = if let Some(path) = doc_dir {
+        path
+    } else {
+        let cwd = helix_stdx::env::current_working_dir();
+        if !cwd.exists() {
             cx.editor.set_error(
-                "Current buffer has no parent, opening file explorer in current working directory",
+                "Current buffer has no parent and current working directory does not exist",
             );
-            cwd
+            return;
         }
+        cx.editor.set_error(
+            "Current buffer has no parent, opening file explorer in current working directory",
+        );
+        cwd
     };
 
     if let Ok(picker) = ui::file_explorer(path, cx.editor) {
@@ -3216,17 +3219,17 @@ fn file_explorer_in_current_directory(cx: &mut Context) {
 }
 
 struct PathStyleConfig {
-    directory_style: Style,
-    number_style: Style,
-    colon_style: Style,
+    directory: Style,
+    number: Style,
+    colon: Style,
 }
 
 impl PathStyleConfig {
     fn new(theme: &helix_view::Theme) -> Self {
         Self {
-            directory_style: theme.get("ui.text.directory"),
-            number_style: theme.get("constant.numeric.integer"),
-            colon_style: theme.get("punctuation"),
+            directory: theme.get("ui.text.directory"),
+            number: theme.get("constant.numeric.integer"),
+            colon: theme.get("punctuation"),
         }
     }
 
@@ -3238,7 +3241,7 @@ impl PathStyleConfig {
                 .filter(|p| !p.as_os_str().is_empty())
                 .map(|p| format!("{}{}", p.display(), std::path::MAIN_SEPARATOR))
                 .unwrap_or_default();
-            spans.push(Span::styled(directories, self.directory_style));
+            spans.push(Span::styled(directories, self.directory));
         }
         let filename = path.as_ref().map_or(SCRATCH_BUFFER_NAME.into(), |path| {
             path.file_name()
@@ -3248,8 +3251,8 @@ impl PathStyleConfig {
         spans.push(Span::raw(filename));
         if let Some(line) = line {
             spans.extend([
-                Span::styled(":", self.colon_style),
-                Span::styled((line + 1).to_string(), self.number_style),
+                Span::styled(":", self.colon),
+                Span::styled((line + 1).to_string(), self.number),
             ]);
         }
 
@@ -3258,8 +3261,6 @@ impl PathStyleConfig {
 }
 
 fn buffer_picker(cx: &mut Context) {
-    let current = view!(cx.editor).doc;
-
     struct BufferMeta<'a> {
         id: DocumentId,
         path: Option<Cow<'a, Path>>,
@@ -3268,6 +3269,7 @@ fn buffer_picker(cx: &mut Context) {
         focused_at: std::time::Instant,
     }
 
+    let current = view!(cx.editor).doc;
     let new_meta = |doc: &Document| BufferMeta {
         id: doc.id(),
         path: doc
@@ -3306,18 +3308,14 @@ fn buffer_picker(cx: &mut Context) {
         }),
     ];
 
-    let initial_cursor = if cx
-        .editor
-        .config()
-        .buffer_picker
-        .start_position
-        .is_previous()
-        && !items.is_empty()
-    {
-        1
-    } else {
-        0
-    };
+    let initial_cursor = u32::from(
+        cx.editor
+            .config()
+            .buffer_picker
+            .start_position
+            .is_previous()
+            && !items.is_empty(),
+    );
 
     let picker = Picker::new(
         columns,
@@ -3351,7 +3349,7 @@ fn jumplist_picker(cx: &mut Context) {
     }
 
     for (view, _) in cx.editor.tree.views_mut() {
-        for doc_id in view.jumps.iter().map(|e| e.0).collect::<Vec<_>>().iter() {
+        for doc_id in &view.jumps.iter().map(|e| e.0).collect::<Vec<_>>() {
             let doc = doc_mut!(cx.editor, doc_id);
             view.sync_changes(doc);
         }
@@ -3470,10 +3468,10 @@ fn changed_file_picker(cx: &mut Context) {
                     .to_string()
             };
             match change {
-                FileChange::Untracked { path } => display_path(path),
-                FileChange::Modified { path } => display_path(path),
-                FileChange::Conflict { path } => display_path(path),
-                FileChange::Deleted { path } => display_path(path),
+                FileChange::Untracked { path }
+                | FileChange::Modified { path }
+                | FileChange::Conflict { path }
+                | FileChange::Deleted { path } => display_path(path),
                 FileChange::Renamed { from_path, to_path } => {
                     format!("{} -> {}", display_path(from_path), display_path(to_path))
                 }
@@ -3498,7 +3496,7 @@ fn changed_file_picker(cx: &mut Context) {
             let path_to_open = meta.path();
             if let Err(e) = cx.editor.open(path_to_open, action) {
                 let err = if let Some(err) = e.source() {
-                    format!("{}", err)
+                    format!("{err}")
                 } else {
                     format!("unable to open \"{}\"", path_to_open.display())
                 };
@@ -3615,12 +3613,13 @@ fn last_picker(cx: &mut Context) {
         if let Some(picker) = compositor.last_picker.take() {
             compositor.push(picker);
         } else {
-            cx.editor.set_error("no last picker")
+            cx.editor.set_error("no last picker");
         }
     }));
 }
 
 /// Fallback position to use for [`insert_with_indent`].
+#[derive(Clone, Copy)]
 enum IndentFallbackPos {
     LineStart,
     LineEnd,
@@ -3669,7 +3668,7 @@ fn insert_with_indent(cx: &mut Context, cursor_fallback: IndentFallbackPos) {
                 &loader,
                 syntax,
                 &doc.config.load().indent_heuristic,
-                &doc.indent_style,
+                doc.indent_style,
                 tab_width,
                 text,
                 cursor_line,
@@ -3690,8 +3689,7 @@ fn insert_with_indent(cx: &mut Context, cursor_fallback: IndentFallbackPos) {
                 IndentFallbackPos::LineStart => text
                     .line(cursor_line)
                     .first_non_whitespace_char()
-                    .map(|ws_offset| ws_offset + cursor_line_start)
-                    .unwrap_or(cursor_line_start),
+                    .map_or(cursor_line_start, |ws_offset| ws_offset + cursor_line_start),
                 IndentFallbackPos::LineEnd => line_end_char_index(&text, cursor_line),
             };
 
@@ -3751,7 +3749,7 @@ async fn make_format_callback(
         if let Some((path, force)) = write {
             let id = doc.id();
             if let Err(err) = editor.save(id, path, force) {
-                editor.set_error(format!("Error saving: {}", err));
+                editor.set_error(format!("Error saving: {err}"));
             }
         }
     }));
@@ -3759,13 +3757,13 @@ async fn make_format_callback(
     Ok(call)
 }
 
-#[derive(PartialEq, Eq)]
+#[derive(PartialEq, Eq, Clone, Copy)]
 pub enum Open {
     Below,
     Above,
 }
 
-#[derive(PartialEq)]
+#[derive(PartialEq, Clone, Copy)]
 pub enum CommentContinuation {
     Enabled,
     Disabled,
@@ -3854,7 +3852,7 @@ fn open(cx: &mut Context, open: Open, comment_continuation: CommentContinuation)
                 &loader,
                 doc.syntax(),
                 &config.indent_heuristic,
-                &doc.indent_style,
+                doc.indent_style,
                 doc.tab_width(),
                 text,
                 above_next_new_line_num,
@@ -3918,12 +3916,12 @@ fn open(cx: &mut Context, open: Open, comment_continuation: CommentContinuation)
 
 // o inserts a new line after each line with a selection
 fn open_below(cx: &mut Context) {
-    open(cx, Open::Below, CommentContinuation::Enabled)
+    open(cx, Open::Below, CommentContinuation::Enabled);
 }
 
 // O inserts a new line before each line with a selection
 fn open_above(cx: &mut Context) {
-    open(cx, Open::Above, CommentContinuation::Enabled)
+    open(cx, Open::Above, CommentContinuation::Enabled);
 }
 
 fn normal_mode(cx: &mut Context) {
@@ -3976,11 +3974,11 @@ fn goto_line_without_jumplist(
 }
 
 fn goto_last_line(cx: &mut Context) {
-    goto_last_line_impl(cx, Movement::Move)
+    goto_last_line_impl(cx, Movement::Move);
 }
 
 fn extend_to_last_line(cx: &mut Context) {
-    goto_last_line_impl(cx, Movement::Extend)
+    goto_last_line_impl(cx, Movement::Extend);
 }
 
 fn goto_last_line_impl(cx: &mut Context, movement: Movement) {
@@ -4030,7 +4028,7 @@ fn goto_last_accessed_file(cx: &mut Context) {
     if let Some(alt) = view.docs_access_history.pop() {
         cx.editor.switch(alt, Action::Replace);
     } else {
-        cx.editor.set_error("no last accessed buffer")
+        cx.editor.set_error("no last accessed buffer");
     }
 }
 
@@ -4058,7 +4056,7 @@ fn goto_last_modified_file(cx: &mut Context) {
     if let Some(alt) = alternate_file {
         cx.editor.switch(alt, Action::Replace);
     } else {
-        cx.editor.set_error("no last modified buffer")
+        cx.editor.set_error("no last modified buffer");
     }
 }
 
@@ -4166,7 +4164,7 @@ fn goto_prev_diag(cx: &mut Context) {
         view.diagnostics_handler
             .immediately_show_diagnostic(doc, view.id);
     };
-    cx.editor.apply_motion(motion)
+    cx.editor.apply_motion(motion);
 }
 
 fn goto_first_change(cx: &mut Context) {
@@ -4178,7 +4176,7 @@ fn goto_last_change(cx: &mut Context) {
 }
 
 fn goto_first_change_impl(cx: &mut Context, reverse: bool) {
-    let editor = &mut cx.editor;
+    let editor = &mut *cx.editor;
     let (view, doc) = current!(editor);
     if let Some(handle) = doc.diff_handle() {
         let hunk = {
@@ -4191,7 +4189,7 @@ fn goto_first_change_impl(cx: &mut Context, reverse: bool) {
             diff.nth_hunk(idx)
         };
         if hunk != Hunk::NONE {
-            let range = hunk_range(hunk, doc.text().slice(..));
+            let range = hunk_range(&hunk, doc.text().slice(..));
             push_jump(view, doc);
             doc.set_selection(view.id, Selection::single(range.anchor, range.head));
         }
@@ -4199,11 +4197,11 @@ fn goto_first_change_impl(cx: &mut Context, reverse: bool) {
 }
 
 fn goto_next_change(cx: &mut Context) {
-    goto_next_change_impl(cx, Direction::Forward)
+    goto_next_change_impl(cx, Direction::Forward);
 }
 
 fn goto_prev_change(cx: &mut Context) {
-    goto_next_change_impl(cx, Direction::Backward)
+    goto_next_change_impl(cx, Direction::Backward);
 }
 
 fn goto_next_change_impl(cx: &mut Context, direction: Direction) {
@@ -4211,9 +4209,7 @@ fn goto_next_change_impl(cx: &mut Context, direction: Direction) {
     let motion = move |editor: &mut Editor| {
         let (view, doc) = current!(editor);
         let doc_text = doc.text().slice(..);
-        let diff_handle = if let Some(diff_handle) = doc.diff_handle() {
-            diff_handle
-        } else {
+        let Some(diff_handle) = doc.diff_handle() else {
             editor.set_status("Diff is not available in current buffer");
             return;
         };
@@ -4234,7 +4230,7 @@ fn goto_next_change_impl(cx: &mut Context, direction: Direction) {
                 return range;
             };
             let hunk = diff.nth_hunk(hunk_idx);
-            let new_range = hunk_range(hunk, doc_text);
+            let new_range = hunk_range(&hunk, doc_text);
             if editor.mode == Mode::Select {
                 let head = if new_range.head < range.anchor {
                     new_range.anchor
@@ -4249,7 +4245,7 @@ fn goto_next_change_impl(cx: &mut Context, direction: Direction) {
         });
 
         push_jump(view, doc);
-        doc.set_selection(view.id, selection)
+        doc.set_selection(view.id, selection);
     };
     cx.editor.apply_motion(motion);
 }
@@ -4257,7 +4253,7 @@ fn goto_next_change_impl(cx: &mut Context, direction: Direction) {
 /// Returns the [Range] for a [Hunk] in the given text.
 /// Additions and modifications cover the added and modified ranges.
 /// Deletions are represented as the point at the start of the deletion hunk.
-fn hunk_range(hunk: Hunk, text: RopeSlice) -> Range {
+fn hunk_range(hunk: &Hunk, text: RopeSlice) -> Range {
     let anchor = text.line_to_char(hunk.after.start as usize);
     let head = if hunk.after.is_empty() {
         anchor + 1
@@ -4271,7 +4267,12 @@ fn hunk_range(hunk: Hunk, text: RopeSlice) -> Range {
 pub mod insert {
     use crate::{events::PostInsertChar, key};
 
-    use super::*;
+    use super::{
+        Context, Cow, Deletion, Direction, Document, DynAccess, IndentStyle, KeyCode, KeyEvent,
+        Mode, Range, Rope, RopeSlice, RopeSliceExt, Selection, SmallVec, Tendril, Transaction,
+        UnicodeWidthChar, append_mode, comment, delete_by_selection_insert_mode, goto_next_tabstop,
+        graphemes, indent, insert, insert_mode, move_parent_node_end, movement,
+    };
     pub type Hook = fn(&Rope, &Selection, char) -> Option<Transaction>;
 
     /// Exclude the cursor in range.
@@ -4350,7 +4351,7 @@ pub mod insert {
     }
 
     pub fn insert_tab(cx: &mut Context) {
-        insert_tab_impl(cx, 1)
+        insert_tab_impl(cx, 1);
     }
 
     fn insert_tab_impl(cx: &mut Context, count: usize) {
@@ -4400,7 +4401,7 @@ pub mod insert {
                     ..
                 } => {
                     for _ in 0..count {
-                        insert::insert_char(cx, ch)
+                        insert::insert_char(cx, ch);
                     }
                 }
                 key!(Enter) => {
@@ -4409,11 +4410,11 @@ pub mod insert {
                             .set_error("inserting multiple newlines not yet supported");
                         return;
                     }
-                    insert_newline(cx)
+                    insert_newline(cx);
                 }
                 key!(Tab) => insert_tab_impl(cx, count),
                 _ => (),
-            };
+            }
             // Restore the old mode.
             cx.editor.mode = old_mode;
         });
@@ -4478,7 +4479,7 @@ pub mod insert {
                         &loader,
                         doc.syntax(),
                         &config.indent_heuristic,
-                        &doc.indent_style,
+                        doc.indent_style,
                         doc.tab_width(),
                         text,
                         current_line,
@@ -4532,7 +4533,7 @@ pub mod insert {
                 (
                     first_trailing_whitespace_char,
                     pos,
-                    local_offs as isize - chars_deleted as isize,
+                    local_offs.cast_signed() - chars_deleted.cast_signed(),
                 )
             } else {
                 // If the current line is all whitespace, insert a line ending at the beginning of
@@ -4540,20 +4541,24 @@ pub mod insert {
                 // indentation of the old line.
                 new_text.push_str(line_ending);
 
-                (line_start, line_start, new_text.chars().count() as isize)
+                (
+                    line_start,
+                    line_start,
+                    new_text.chars().count().cast_signed(),
+                )
             };
 
             let new_range = if range.cursor(text) > range.anchor {
                 // when appending, extend the range by local_offs
                 Range::new(
-                    (range.anchor as isize + global_offs) as usize,
-                    (range.head as isize + local_offs + global_offs) as usize,
+                    (range.anchor.cast_signed() + global_offs).cast_unsigned(),
+                    (range.head.cast_signed() + local_offs + global_offs).cast_unsigned(),
                 )
             } else {
                 // when inserting, slide the range by local_offs
                 Range::new(
-                    (range.anchor as isize + local_offs + global_offs) as usize,
-                    (range.head as isize + local_offs + global_offs) as usize,
+                    (range.anchor.cast_signed() + local_offs + global_offs).cast_unsigned(),
+                    (range.head.cast_signed() + local_offs + global_offs).cast_unsigned(),
                 )
             };
 
@@ -4561,7 +4566,7 @@ pub mod insert {
             // range.replace(|range| range.is_empty(), head); -> fn extend if cond true, new head pos
             // can be used with cx.mode to do replace or extend on most changes
             ranges.push(new_range);
-            global_offs += new_text.chars().count() as isize - chars_deleted as isize;
+            global_offs += new_text.chars().count().cast_signed() - chars_deleted.cast_signed();
             let tendril = Tendril::from(&new_text);
             new_text.clear();
 
@@ -4612,8 +4617,8 @@ pub mod insert {
 
         // if it's already at a unit, consume a whole unit
         if drop == 0 {
-            drop = indent_width
-        };
+            drop = indent_width;
+        }
 
         let mut chars = fragment.chars().rev();
         let mut start = pos;
@@ -4666,7 +4671,7 @@ pub mod insert {
             },
         );
 
-        log::debug!("delete_char_backward transaction: {:?}", transaction);
+        log::debug!("delete_char_backward transaction: {transaction:?}");
 
         let doc = doc_mut!(cx.editor, &doc.id());
         doc.apply(&transaction, view.id);
@@ -4681,7 +4686,7 @@ pub mod insert {
                 (pos, graphemes::nth_next_grapheme_boundary(text, pos, count))
             },
             Direction::Forward,
-        )
+        );
     }
 
     pub fn delete_word_backward(cx: &mut Context) {
@@ -4797,7 +4802,7 @@ fn yank_impl(editor: &mut Editor, register: char) {
     let selections = values.len();
 
     match editor.registers.write(register, values) {
-        Ok(_) => editor.set_status(format!(
+        Ok(()) => editor.set_status(format!(
             "yanked {selections} selection{} to register {register}",
             if selections == 1 { "" } else { "s" }
         )),
@@ -4822,7 +4827,7 @@ fn yank_joined_impl(editor: &mut Editor, separator: &str, register: char) {
         });
 
     match editor.registers.write(register, vec![joined]) {
-        Ok(_) => editor.set_status(format!(
+        Ok(()) => editor.set_status(format!(
             "joined and yanked {selections} selection{} to register {register}",
             if selections == 1 { "" } else { "s" }
         )),
@@ -4860,7 +4865,7 @@ pub(crate) fn yank_main_selection_to_register(editor: &mut Editor, register: cha
     let selection = doc.selection(view.id).primary().fragment(text).to_string();
 
     match editor.registers.write(register, vec![selection]) {
-        Ok(_) => editor.set_status(format!("yanked primary selection to register {register}",)),
+        Ok(()) => editor.set_status(format!("yanked primary selection to register {register}")),
         Err(err) => editor.set_error(err.to_string()),
     }
 }
@@ -5037,10 +5042,10 @@ pub(crate) fn replace_selections_with_register(editor: &mut Editor, register: ch
         .chain(repeat);
     let selection = doc.selection(view.id);
     let transaction = Transaction::change_by_selection(doc.text(), selection, |range| {
-        if !range.is_empty() {
-            (range.from(), range.to(), Some(values.next().unwrap()))
-        } else {
+        if range.is_empty() {
             (range.from(), range.to(), None)
+        } else {
+            (range.from(), range.to(), Some(values.next().unwrap()))
         }
     });
     drop(values);
@@ -5101,7 +5106,7 @@ fn get_lines(doc: &Document, view_id: ViewId) -> Vec<usize> {
         let (start, end) = range.line_range(doc.text().slice(..));
 
         for line in start..=end {
-            lines.push(line)
+            lines.push(line);
         }
     }
     lines.sort_unstable(); // sorting by usize so _unstable is preferred
@@ -5171,7 +5176,7 @@ fn unindent(cx: &mut Context) {
         // now delete from start to first non-blank
         if pos > 0 {
             let start = doc.text().line_to_char(line_idx);
-            changes.push((start, start + pos, None))
+            changes.push((start, start + pos, None));
         }
     }
 
@@ -5256,7 +5261,7 @@ fn format_selections(cx: &mut Context) {
                     }
                     doc.apply(&transaction, view_id);
                 })
-                .await
+                .await;
             }
             Err(err) => log::error!("format sections failed: {err}"),
             Ok(None) => (),
@@ -5289,7 +5294,10 @@ fn join_selections_impl(cx: &mut Context, select_space: bool) {
             .and_then(|config| config.comment_tokens.as_deref())
             .unwrap_or(&[]);
         // Sort by length to handle Rust's /// vs //
-        let mut comment_tokens: Vec<&str> = comment_tokens.iter().map(|x| x.as_str()).collect();
+        let mut comment_tokens: Vec<&str> = comment_tokens
+            .iter()
+            .map(std::string::String::as_str)
+            .collect();
         comment_tokens.sort_unstable_by_key(|x| std::cmp::Reverse(x.len()));
 
         let first_line_idx = slice.line_to_char(start);
@@ -5389,23 +5397,23 @@ fn keep_or_remove_selections_impl(cx: &mut Context, remove: bool) {
                 cx.editor.set_error("no selections remaining");
             }
         },
-    )
+    );
 }
 
 fn join_selections(cx: &mut Context) {
-    join_selections_impl(cx, false)
+    join_selections_impl(cx, false);
 }
 
 fn join_selections_space(cx: &mut Context) {
-    join_selections_impl(cx, true)
+    join_selections_impl(cx, true);
 }
 
 fn keep_selections(cx: &mut Context) {
-    keep_or_remove_selections_impl(cx, false)
+    keep_or_remove_selections_impl(cx, false);
 }
 
 fn remove_selections(cx: &mut Context) {
-    keep_or_remove_selections_impl(cx, true)
+    keep_or_remove_selections_impl(cx, true);
 }
 
 fn keep_primary_selection(cx: &mut Context) {
@@ -5464,7 +5472,10 @@ fn toggle_comments_impl(cx: &mut Context, comment_transaction: CommentTransactio
     let mut line_layer = None;
     let mut block_layer = None;
     if let Some(syntax) = doc.syntax() {
-        for layer in syntax.layers_for_byte_range(byte_pos as u32, byte_pos as u32) {
+        for layer in syntax.layers_for_byte_range(
+            u32::try_from(byte_pos).unwrap(),
+            u32::try_from(byte_pos).unwrap(),
+        ) {
             let language = syntax.layer(layer).language;
             let config = loader.language(language).config();
             if config.comment_tokens.is_some() {
@@ -5487,7 +5498,7 @@ fn toggle_comments_impl(cx: &mut Context, comment_transaction: CommentTransactio
         .and_then(|lc| lc.comment_tokens.as_ref())
         .and_then(|tokens| {
             comment::get_comment_token(doc.text().slice(..), tokens, cursor_line)
-                .or_else(|| tokens.first().map(|token| token.as_str()))
+                .or_else(|| tokens.first().map(std::string::String::as_str))
         });
     let block_tokens: Option<&[BlockCommentToken]> = lang_config
         .and_then(|lc| lc.block_comment_tokens.as_ref())
@@ -5561,7 +5572,7 @@ fn toggle_comments(cx: &mut Context) {
 
         // not block commented at all and don't have any tokens
         comment::toggle_line_comments(doc, selection, line_token)
-    })
+    });
 }
 
 fn toggle_line_comments(cx: &mut Context) {
@@ -5605,10 +5616,10 @@ fn rotate_selections(cx: &mut Context, direction: Direction) {
     doc.set_selection(view.id, selection);
 }
 fn rotate_selections_forward(cx: &mut Context) {
-    rotate_selections(cx, Direction::Forward)
+    rotate_selections(cx, Direction::Forward);
 }
 fn rotate_selections_backward(cx: &mut Context) {
-    rotate_selections(cx, Direction::Backward)
+    rotate_selections(cx, Direction::Backward);
 }
 
 fn rotate_selections_first(cx: &mut Context) {
@@ -5626,7 +5637,7 @@ fn rotate_selections_last(cx: &mut Context) {
     doc.set_selection(view.id, selection);
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 enum ReorderStrategy {
     RotateForward,
     RotateBackward,
@@ -5687,13 +5698,13 @@ fn reorder_selection_contents(cx: &mut Context, strategy: ReorderStrategy) {
 }
 
 fn rotate_selection_contents_forward(cx: &mut Context) {
-    reorder_selection_contents(cx, ReorderStrategy::RotateForward)
+    reorder_selection_contents(cx, ReorderStrategy::RotateForward);
 }
 fn rotate_selection_contents_backward(cx: &mut Context) {
-    reorder_selection_contents(cx, ReorderStrategy::RotateBackward)
+    reorder_selection_contents(cx, ReorderStrategy::RotateBackward);
 }
 fn reverse_selection_contents(cx: &mut Context) {
-    reorder_selection_contents(cx, ReorderStrategy::Reverse)
+    reorder_selection_contents(cx, ReorderStrategy::Reverse);
 }
 
 // tree sitter node selection
@@ -5761,11 +5772,11 @@ where
 }
 
 fn select_next_sibling(cx: &mut Context) {
-    select_sibling_impl(cx, object::select_next_sibling)
+    select_sibling_impl(cx, object::select_next_sibling);
 }
 
 fn select_prev_sibling(cx: &mut Context) {
-    select_sibling_impl(cx, object::select_prev_sibling)
+    select_sibling_impl(cx, object::select_prev_sibling);
 }
 
 fn move_node_bound_impl(cx: &mut Context, dir: Direction, movement: Movement) {
@@ -5792,19 +5803,19 @@ fn move_node_bound_impl(cx: &mut Context, dir: Direction, movement: Movement) {
 }
 
 pub fn move_parent_node_end(cx: &mut Context) {
-    move_node_bound_impl(cx, Direction::Forward, Movement::Move)
+    move_node_bound_impl(cx, Direction::Forward, Movement::Move);
 }
 
 pub fn move_parent_node_start(cx: &mut Context) {
-    move_node_bound_impl(cx, Direction::Backward, Movement::Move)
+    move_node_bound_impl(cx, Direction::Backward, Movement::Move);
 }
 
 pub fn extend_parent_node_end(cx: &mut Context) {
-    move_node_bound_impl(cx, Direction::Forward, Movement::Extend)
+    move_node_bound_impl(cx, Direction::Forward, Movement::Extend);
 }
 
 pub fn extend_parent_node_start(cx: &mut Context) {
-    move_node_bound_impl(cx, Direction::Backward, Movement::Extend)
+    move_node_bound_impl(cx, Direction::Backward, Movement::Extend);
 }
 
 fn select_all_impl<F>(editor: &mut Editor, select_fn: F)
@@ -5875,47 +5886,47 @@ fn save_selection(cx: &mut Context) {
 }
 
 fn rotate_view(cx: &mut Context) {
-    cx.editor.focus_next()
+    cx.editor.focus_next();
 }
 
 fn rotate_view_reverse(cx: &mut Context) {
-    cx.editor.focus_prev()
+    cx.editor.focus_prev();
 }
 
 fn jump_view_right(cx: &mut Context) {
-    cx.editor.focus_direction(tree::Direction::Right)
+    cx.editor.focus_direction(tree::Direction::Right);
 }
 
 fn jump_view_left(cx: &mut Context) {
-    cx.editor.focus_direction(tree::Direction::Left)
+    cx.editor.focus_direction(tree::Direction::Left);
 }
 
 fn jump_view_up(cx: &mut Context) {
-    cx.editor.focus_direction(tree::Direction::Up)
+    cx.editor.focus_direction(tree::Direction::Up);
 }
 
 fn jump_view_down(cx: &mut Context) {
-    cx.editor.focus_direction(tree::Direction::Down)
+    cx.editor.focus_direction(tree::Direction::Down);
 }
 
 fn swap_view_right(cx: &mut Context) {
-    cx.editor.swap_split_in_direction(tree::Direction::Right)
+    cx.editor.swap_split_in_direction(tree::Direction::Right);
 }
 
 fn swap_view_left(cx: &mut Context) {
-    cx.editor.swap_split_in_direction(tree::Direction::Left)
+    cx.editor.swap_split_in_direction(tree::Direction::Left);
 }
 
 fn swap_view_up(cx: &mut Context) {
-    cx.editor.swap_split_in_direction(tree::Direction::Up)
+    cx.editor.swap_split_in_direction(tree::Direction::Up);
 }
 
 fn swap_view_down(cx: &mut Context) {
-    cx.editor.swap_split_in_direction(tree::Direction::Down)
+    cx.editor.swap_split_in_direction(tree::Direction::Down);
 }
 
 fn transpose_view(cx: &mut Context) {
-    cx.editor.transpose_view()
+    cx.editor.transpose_view();
 }
 
 /// Open a new split in the given direction specified by the action.
@@ -5989,7 +6000,7 @@ fn select_register(cx: &mut Context) {
         if let Some(ch) = event.char() {
             cx.editor.selected_register = Some(ch);
         }
-    })
+    });
 }
 
 fn insert_register(cx: &mut Context) {
@@ -6012,7 +6023,7 @@ fn insert_register(cx: &mut Context) {
                 count,
             );
         }
-    })
+    });
 }
 
 fn copy_between_registers(cx: &mut Context) {
@@ -6046,7 +6057,7 @@ fn copy_between_registers(cx: &mut Context) {
 
             let n_values = values.len();
             match cx.editor.registers.write(dest, values) {
-                Ok(_) => cx.editor.set_status(format!(
+                Ok(()) => cx.editor.set_status(format!(
                     "yanked {n_values} value{} from register {source} to {dest}",
                     if n_values == 1 { "" } else { "s" }
                 )),
@@ -6141,59 +6152,59 @@ fn goto_ts_object_impl(cx: &mut Context, object: &'static str, direction: Direct
 }
 
 fn goto_next_function(cx: &mut Context) {
-    goto_ts_object_impl(cx, "function", Direction::Forward)
+    goto_ts_object_impl(cx, "function", Direction::Forward);
 }
 
 fn goto_prev_function(cx: &mut Context) {
-    goto_ts_object_impl(cx, "function", Direction::Backward)
+    goto_ts_object_impl(cx, "function", Direction::Backward);
 }
 
 fn goto_next_class(cx: &mut Context) {
-    goto_ts_object_impl(cx, "class", Direction::Forward)
+    goto_ts_object_impl(cx, "class", Direction::Forward);
 }
 
 fn goto_prev_class(cx: &mut Context) {
-    goto_ts_object_impl(cx, "class", Direction::Backward)
+    goto_ts_object_impl(cx, "class", Direction::Backward);
 }
 
 fn goto_next_parameter(cx: &mut Context) {
-    goto_ts_object_impl(cx, "parameter", Direction::Forward)
+    goto_ts_object_impl(cx, "parameter", Direction::Forward);
 }
 
 fn goto_prev_parameter(cx: &mut Context) {
-    goto_ts_object_impl(cx, "parameter", Direction::Backward)
+    goto_ts_object_impl(cx, "parameter", Direction::Backward);
 }
 
 fn goto_next_comment(cx: &mut Context) {
-    goto_ts_object_impl(cx, "comment", Direction::Forward)
+    goto_ts_object_impl(cx, "comment", Direction::Forward);
 }
 
 fn goto_prev_comment(cx: &mut Context) {
-    goto_ts_object_impl(cx, "comment", Direction::Backward)
+    goto_ts_object_impl(cx, "comment", Direction::Backward);
 }
 
 fn goto_next_test(cx: &mut Context) {
-    goto_ts_object_impl(cx, "test", Direction::Forward)
+    goto_ts_object_impl(cx, "test", Direction::Forward);
 }
 
 fn goto_prev_test(cx: &mut Context) {
-    goto_ts_object_impl(cx, "test", Direction::Backward)
+    goto_ts_object_impl(cx, "test", Direction::Backward);
 }
 
 fn goto_next_xml_element(cx: &mut Context) {
-    goto_ts_object_impl(cx, "xml-element", Direction::Forward)
+    goto_ts_object_impl(cx, "xml-element", Direction::Forward);
 }
 
 fn goto_prev_xml_element(cx: &mut Context) {
-    goto_ts_object_impl(cx, "xml-element", Direction::Backward)
+    goto_ts_object_impl(cx, "xml-element", Direction::Backward);
 }
 
 fn goto_next_entry(cx: &mut Context) {
-    goto_ts_object_impl(cx, "entry", Direction::Forward)
+    goto_ts_object_impl(cx, "entry", Direction::Forward);
 }
 
 fn goto_prev_entry(cx: &mut Context) {
-    goto_ts_object_impl(cx, "entry", Direction::Backward)
+    goto_ts_object_impl(cx, "entry", Direction::Backward);
 }
 
 fn select_textobject_around(cx: &mut Context) {
@@ -6233,12 +6244,9 @@ fn select_textobject(cx: &mut Context, objtype: textobject::TextObject) {
                     let diff_handle = doc.diff_handle().unwrap();
                     let diff = diff_handle.load();
                     let line = range.cursor_line(text);
-                    let hunk_idx =
-                        if let Some(hunk_idx) = diff.hunk_at(u32::try_from(line).unwrap(), false) {
-                            hunk_idx
-                        } else {
-                            return range;
-                        };
+                    let Some(hunk_idx) = diff.hunk_at(u32::try_from(line).unwrap(), false) else {
+                        return range;
+                    };
                     let hunk = diff.nth_hunk(hunk_idx).after;
 
                     let start = text.line_to_char(hunk.start as usize);
@@ -6287,7 +6295,7 @@ fn select_textobject(cx: &mut Context, objtype: textobject::TextObject) {
     let title = match objtype {
         textobject::TextObject::Inside => "Match inside",
         textobject::TextObject::Around => "Match around",
-        _ => return,
+        textobject::TextObject::Movement => return,
     };
     let help_text = [
         ("w", "Word"),
@@ -6344,7 +6352,7 @@ fn surround_add(cx: &mut Context) {
         let mut ranges = SmallVec::with_capacity(selection.len());
         let mut offs = 0;
 
-        for range in selection.iter() {
+        for range in selection {
             changes.push((range.from(), range.from(), Some(open.clone())));
             changes.push((range.to(), range.to(), Some(close.clone())));
 
@@ -6400,9 +6408,8 @@ fn surround_replace(cx: &mut Context) {
         cx.on_next_key(move |cx, event| {
             cx.editor.autoinfo = None;
             let (view, doc) = current!(cx.editor);
-            let to = match event.char() {
-                Some(to) => to,
-                None => return doc.set_selection(view.id, selection),
+            let Some(to) = event.char() else {
+                return doc.set_selection(view.id, selection);
             };
             let (open, close) = match_brackets::get_pair(to);
 
@@ -6645,9 +6652,8 @@ fn shell(cx: &mut compositor::Context, cmd: &str, behavior: &ShellBehavior) {
 
         let (from, to, deleted_len) = match behavior {
             ShellBehavior::Replace => (range.from(), range.to(), range.len()),
-            ShellBehavior::Insert => (range.from(), range.from(), 0),
+            ShellBehavior::Insert | ShellBehavior::Ignore => (range.from(), range.from(), 0),
             ShellBehavior::Append => (range.to(), range.to(), 0),
-            _ => (range.from(), range.from(), 0),
         };
 
         // These `usize`s cannot underflow because selection ranges cannot overlap.
@@ -6693,7 +6699,7 @@ where
                 return;
             }
             match Args::parse(input, SHELL_SIGNATURE, true, |token| {
-                expansion::expand(cx.editor, token).map_err(|err| err.into())
+                expansion::expand(cx.editor, token).map_err(std::convert::Into::into)
             }) {
                 Ok(args) => callback_fn(cx, args),
                 Err(err) => cx.editor.set_error(err.to_string()),
@@ -6704,11 +6710,11 @@ where
 
 fn shell_prompt_for_behavior(cx: &mut Context, prompt: Cow<'static, str>, behavior: ShellBehavior) {
     shell_prompt(cx, prompt, move |cx, args| {
-        shell(cx, args.join(" ").as_str(), &behavior)
-    })
+        shell(cx, args.join(" ").as_str(), &behavior);
+    });
 }
 
-fn suspend(_cx: &mut Context) {
+fn suspend(cx: &mut Context) {
     #[cfg(not(windows))]
     {
         // SAFETY: These are calls to standard POSIX functions.
@@ -6719,7 +6725,7 @@ fn suspend(_cx: &mut Context) {
         if is_session_leader {
             return;
         }
-        _cx.block_try_flush_writes().ok();
+        cx.block_try_flush_writes().ok();
         signal_hook::low_level::raise(signal_hook::consts::signal::SIGTSTP).unwrap();
     }
 }
@@ -6729,7 +6735,7 @@ fn add_newline_above(cx: &mut Context) {
 }
 
 fn add_newline_below(cx: &mut Context) {
-    add_newline_impl(cx, Open::Below)
+    add_newline_impl(cx, Open::Below);
 }
 
 fn add_newline_impl(cx: &mut Context, open: Open) {
@@ -6756,7 +6762,7 @@ fn add_newline_impl(cx: &mut Context, open: Open) {
     let transaction = Transaction::change(text, changes);
     doc.apply(&transaction, view.id);
 }
-
+#[derive(Clone, Copy)]
 enum IncrementDirection {
     Increase,
     Decrease,
@@ -6779,7 +6785,7 @@ fn increment_impl(cx: &mut Context, increment_direction: IncrementDirection) {
         IncrementDirection::Increase => 1,
         IncrementDirection::Decrease => -1,
     };
-    let mut amount = sign * cx.count() as i64;
+    let mut amount = sign * cx.count().cast_signed();
     // If the register is `#` then increase or decrease the `amount` by 1 per element
     let increase_by = if cx.register == Some('#') { sign } else { 0 };
 
@@ -6793,10 +6799,15 @@ fn increment_impl(cx: &mut Context, increment_direction: IncrementDirection) {
 
     for range in selection {
         let selected_text: Cow<str> = range.fragment(text);
-        let new_from = ((range.from() as i128) + cumulative_length_diff) as usize;
-        let incremented = [increment::integer, increment::date_time]
-            .iter()
-            .find_map(|incrementor| incrementor(selected_text.as_ref(), amount));
+        let new_from =
+            usize::try_from((i128::try_from(range.from()).unwrap()) + cumulative_length_diff)
+                .unwrap();
+        let incremented =
+            [increment::integer, increment::date_time]
+                .iter()
+                .find_map(|incrementor| {
+                    incrementor(selected_text.as_ref(), i64::try_from(amount).unwrap())
+                });
 
         amount += increase_by;
 
@@ -6804,7 +6815,8 @@ fn increment_impl(cx: &mut Context, increment_direction: IncrementDirection) {
             None => {
                 let new_range = Range::new(
                     new_from,
-                    (range.to() as i128 + cumulative_length_diff) as usize,
+                    usize::try_from(i128::try_from(range.to()).unwrap() + cumulative_length_diff)
+                        .unwrap(),
                 );
                 new_selection_ranges.push(new_range);
             }
@@ -6827,11 +6839,11 @@ fn increment_impl(cx: &mut Context, increment_direction: IncrementDirection) {
 }
 
 fn goto_next_tabstop(cx: &mut Context) {
-    goto_next_tabstop_impl(cx, Direction::Forward)
+    goto_next_tabstop_impl(cx, Direction::Forward);
 }
 
 fn goto_prev_tabstop(cx: &mut Context) {
-    goto_next_tabstop_impl(cx, Direction::Backward)
+    goto_next_tabstop_impl(cx, Direction::Backward);
 }
 
 fn goto_next_tabstop_impl(cx: &mut Context, direction: Direction) {
@@ -6852,7 +6864,7 @@ fn goto_next_tabstop_impl(cx: &mut Context, direction: Direction) {
     };
     doc.set_selection(view_id, selection);
     if !last_tabstop {
-        doc.active_snippet = Some(snippet)
+        doc.active_snippet = Some(snippet);
     }
     if cx.editor.mode() == Mode::Insert {
         cx.on_next_key_fallback(|cx, key| {
@@ -6863,16 +6875,16 @@ fn goto_next_tabstop_impl(cx: &mut Context, direction: Direction) {
                 }
                 insert_char(cx, c);
             }
-        })
+        });
     }
 }
 
 fn goto_word(cx: &mut Context) {
-    jump_to_word(cx, Movement::Move)
+    jump_to_word(cx, Movement::Move);
 }
 
 fn extend_to_word(cx: &mut Context) {
-    jump_to_word(cx, Movement::Extend)
+    jump_to_word(cx, Movement::Extend);
 }
 
 fn jump_to_label(cx: &mut Context, labels: Vec<Range>, behaviour: Movement) {
@@ -7058,7 +7070,7 @@ fn jump_to_word(cx: &mut Context, behaviour: Movement) {
             break;
         }
     }
-    jump_to_label(cx, words, behaviour)
+    jump_to_label(cx, words, behaviour);
 }
 
 fn lsp_or_syntax_symbol_picker(cx: &mut Context) {

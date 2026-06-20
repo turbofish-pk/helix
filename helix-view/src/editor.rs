@@ -145,7 +145,7 @@ where
                     gutter
                         .parse::<GutterType>()
                         .map_err(serde::de::Error::custom)?,
-                )
+                );
             }
 
             Ok(gutters.into())
@@ -178,8 +178,9 @@ impl Default for GutterLineNumbersConfig {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case", default, deny_unknown_fields)]
+#[allow(clippy::struct_excessive_bools)]
 pub struct FilePickerConfig {
-    /// IgnoreOptions
+    /// `IgnoreOptions`
     /// Enables ignoring hidden files.
     /// Whether to hide hidden files in file picker and global search results. Defaults to true.
     pub hidden: bool,
@@ -202,7 +203,7 @@ pub struct FilePickerConfig {
     /// Enables reading `.git/info/exclude` files.
     /// Whether to hide files listed in .git/info/exclude in file picker and global search results. Defaults to true.
     pub git_exclude: bool,
-    /// WalkBuilder options
+    /// `WalkBuilder` options
     /// Maximum Depth to recurse directories in file picker and global search. Defaults to `None`.
     pub max_depth: Option<usize>,
 }
@@ -225,8 +226,9 @@ impl Default for FilePickerConfig {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case", default, deny_unknown_fields)]
+#[allow(clippy::struct_excessive_bools)]
 pub struct FileExplorerConfig {
-    /// IgnoreOptions
+    /// `IgnoreOptions`
     /// Enables ignoring hidden files.
     /// Whether to hide hidden files in file explorer and global search results. Defaults to false.
     pub hidden: bool,
@@ -293,6 +295,7 @@ where
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case", default, deny_unknown_fields)]
+#[allow(clippy::struct_excessive_bools)]
 pub struct Config {
     /// Padding to keep between the edge of the screen and the cursor when scrolling. Defaults to 5.
     pub scrolloff: usize,
@@ -302,7 +305,7 @@ pub struct Config {
     pub mouse: bool,
     /// Which register to use for mouse yank.
     pub mouse_yank_register: char,
-    /// Shell to use for shell commands. Defaults to ["cmd", "/C"] on Windows and ["sh", "-c"] otherwise.
+    /// Shell to use for shell commands.
     pub shell: Vec<String>,
     /// Line number mode.
     pub line_number: LineNumber,
@@ -337,7 +340,7 @@ pub struct Config {
     /// Time delay defaults to false with 3000ms delay. Focus lost defaults to false.
     #[serde(deserialize_with = "deserialize_auto_save")]
     pub auto_save: AutoSave,
-    /// Set a global text_width
+    /// Set a global `text_width`
     pub text_width: usize,
     /// Time in milliseconds since last keypress before idle timers trigger.
     /// Used for various UI timeouts. Defaults to 250ms.
@@ -597,6 +600,7 @@ pub fn get_terminal_provider() -> Option<TerminalConfig> {
 }
 
 #[cfg(not(any(windows, target_arch = "wasm32")))]
+#[must_use]
 pub fn get_terminal_provider() -> Option<TerminalConfig> {
     use helix_stdx::env::{binary_exists, env_var_is_set};
 
@@ -619,6 +623,7 @@ pub fn get_terminal_provider() -> Option<TerminalConfig> {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default, rename_all = "kebab-case", deny_unknown_fields)]
+#[allow(clippy::struct_excessive_bools)]
 pub struct LspConfig {
     /// Enables LSP
     pub enable: bool,
@@ -812,6 +817,7 @@ pub enum StatusLineElement {
 pub struct CursorShapeConfig([CursorKind; 3]);
 
 impl CursorShapeConfig {
+    #[must_use]
     pub fn from_mode(&self, mode: Mode) -> CursorKind {
         self.get(mode as usize).copied().unwrap_or_default()
     }
@@ -968,6 +974,7 @@ pub enum WhitespaceRenderValue {
 }
 
 impl WhitespaceRender {
+    #[must_use]
     pub fn space(&self) -> WhitespaceRenderValue {
         match *self {
             Self::Basic(val) => val,
@@ -976,6 +983,7 @@ impl WhitespaceRender {
             }
         }
     }
+    #[must_use]
     pub fn nbsp(&self) -> WhitespaceRenderValue {
         match *self {
             Self::Basic(val) => val,
@@ -984,6 +992,7 @@ impl WhitespaceRender {
             }
         }
     }
+    #[must_use]
     pub fn nnbsp(&self) -> WhitespaceRenderValue {
         match *self {
             Self::Basic(val) => val,
@@ -992,6 +1001,7 @@ impl WhitespaceRender {
             }
         }
     }
+    #[must_use]
     pub fn tab(&self) -> WhitespaceRenderValue {
         match *self {
             Self::Basic(val) => val,
@@ -1000,6 +1010,7 @@ impl WhitespaceRender {
             }
         }
     }
+    #[must_use]
     pub fn newline(&self) -> WhitespaceRenderValue {
         match *self {
             Self::Basic(val) => val,
@@ -1028,7 +1039,7 @@ pub struct AutoSaveAfterDelay {
     /// Enable auto save after delay. Defaults to false.
     pub enable: bool,
     #[serde(default = "default_auto_save_delay")]
-    /// Time delay in milliseconds. Defaults to [DEFAULT_AUTO_SAVE_DELAY].
+    /// Time delay in milliseconds. Defaults to [`DEFAULT_AUTO_SAVE_DELAY`].
     pub timeout: u64,
 }
 
@@ -1237,7 +1248,7 @@ impl Default for Config {
             clipboard_provider: ClipboardProvider::default(),
             editor_config: true,
             rainbow_brackets: false,
-            kitty_keyboard_protocol: Default::default(),
+            kitty_keyboard_protocol: KittyKeyboardProtocolConfig::default(),
             buffer_picker: BufferPickerConfig::default(),
             workspace_trust: WorkspaceTrustConfig::default(),
         }
@@ -1296,14 +1307,14 @@ pub struct Editor {
 
     pub syn_loader: Arc<ArcSwap<syntax::Loader>>,
     pub theme_loader: Arc<theme::Loader>,
-    /// last_theme is used for theme previews. We store the current theme here,
+    /// `last_theme` is used for theme previews. We store the current theme here,
     /// and if previewing is cancelled, we can return to it.
     pub last_theme: Option<Theme>,
     /// The currently applied editor theme. While previewing a theme, the previewed theme
     /// is set here.
     pub theme: Theme,
 
-    /// The primary Selection prior to starting a goto_line_number preview. This is
+    /// The primary Selection prior to starting a `goto_line_number` preview. This is
     /// restored when the preview is aborted, or added to the jumplist when it is
     /// confirmed.
     pub last_selection: Option<Selection>,
@@ -1361,7 +1372,7 @@ pub enum ConfigEvent {
     Update(Box<Config>),
     ThemeChanged,
 }
-
+#[derive(Copy, Clone)]
 enum ThemeAction {
     Set,
     Preview,
@@ -1506,19 +1517,20 @@ impl Editor {
         let config = self.config();
         self.auto_pairs = (&config.auto_pairs).into();
         self.reset_idle_timer();
-        self._refresh();
+        self.refresh();
         helix_event::dispatch(crate::events::ConfigDidChange {
             editor: self,
             old: old_config,
             new: &config,
-        })
+        });
     }
 
     pub fn clear_idle_timer(&mut self) {
         // equivalent to internal Instant::far_future() (30 years)
         self.idle_timer
             .as_mut()
-            .reset(Instant::now() + Duration::from_secs(86400 * 365 * 30));
+            // .reset(Instant::now() + Duration::from_secs(86_400 * 365 * 30));
+            .reset(Instant::now() + Duration::from_hours(24 * 365 * 30));
     }
 
     pub fn reset_idle_timer(&mut self) {
@@ -1535,21 +1547,21 @@ impl Editor {
     #[inline]
     pub fn set_status<T: Into<Cow<'static, str>>>(&mut self, status: T) {
         let status = status.into();
-        log::debug!("editor status: {}", status);
+        log::debug!("editor status: {status}");
         self.status_msg = Some((status, Severity::Info));
     }
 
     #[inline]
     pub fn set_error<T: Into<Cow<'static, str>>>(&mut self, error: T) {
         let error = error.into();
-        log::debug!("editor error: {}", error);
+        log::debug!("editor error: {error}");
         self.status_msg = Some((error, Severity::Error));
     }
 
     #[inline]
     pub fn set_warning<T: Into<Cow<'static, str>>>(&mut self, warning: T) {
         let warning = warning.into();
-        log::warn!("editor warning: {}", warning);
+        log::warn!("editor warning: {warning}");
         self.status_msg = Some((warning, Severity::Warning));
     }
 
@@ -1563,8 +1575,7 @@ impl Editor {
     pub fn is_err(&self) -> bool {
         self.status_msg
             .as_ref()
-            .map(|(_, sev)| *sev == Severity::Error)
-            .unwrap_or(false)
+            .is_some_and(|(_, sev)| *sev == Severity::Error)
     }
 
     pub fn unset_theme_preview(&mut self) -> anyhow::Result<()> {
@@ -1604,7 +1615,7 @@ impl Editor {
             }
         }
 
-        self._refresh();
+        self.refresh();
         self.config_events.0.send(ConfigEvent::ThemeChanged)?;
 
         Ok(())
@@ -1622,7 +1633,7 @@ impl Editor {
 
     /// Refreshes the language server for a given document
     pub fn refresh_language_servers(&mut self, doc_id: DocumentId) {
-        self.launch_language_servers(doc_id)
+        self.launch_language_servers(doc_id);
     }
 
     /// moves/renames a path, invoking any event handlers (currently only lsp)
@@ -1652,7 +1663,7 @@ impl Editor {
                 }
             };
             if let Err(err) = self.apply_workspace_edit(language_server.offset_encoding(), &edit) {
-                log::error!("failed to apply workspace edit: {err:?}")
+                log::error!("failed to apply workspace edit: {err:?}");
             }
         }
 
@@ -1701,7 +1712,7 @@ impl Editor {
                 }
             };
             if let Err(err) = self.apply_workspace_edit(language_server.offset_encoding(), &edit) {
-                log::error!("failed to apply workspace edit: {err:?}")
+                log::error!("failed to apply workspace edit: {err:?}");
             }
         }
 
@@ -1747,7 +1758,7 @@ impl Editor {
                 }
             };
             if let Err(err) = self.apply_workspace_edit(language_server.offset_encoding(), &edit) {
-                log::error!("failed to apply workspace edit: {err:?}")
+                log::error!("failed to apply workspace edit: {err:?}");
             }
         }
 
@@ -1793,7 +1804,7 @@ impl Editor {
         doc.language_servers.clear();
         doc.set_path(Some(path));
         doc.detect_editor_config();
-        self.refresh_doc_language(doc_id)
+        self.refresh_doc_language(doc_id);
     }
 
     pub fn refresh_doc_language(&mut self, doc_id: DocumentId) {
@@ -1894,7 +1905,7 @@ impl Editor {
         doc.language_servers = language_servers;
     }
 
-    fn _refresh(&mut self) {
+    fn refresh(&mut self) {
         let config = self.config();
 
         // Reset the inlay hints annotations *before* updating the views, that way we ensure they
@@ -1913,7 +1924,7 @@ impl Editor {
             let doc = doc_mut!(self, &view.doc);
             view.sync_changes(doc);
             view.gutters = config.gutters.clone();
-            view.ensure_cursor_in_view(doc, config.scrolloff)
+            view.ensure_cursor_in_view(doc, config.scrolloff);
         }
     }
 
@@ -1928,7 +1939,7 @@ impl Editor {
         view.sync_changes(doc);
         doc.mark_as_focused();
 
-        view.ensure_cursor_in_view(doc, scrolloff)
+        view.ensure_cursor_in_view(doc, scrolloff);
     }
 
     pub fn switch(&mut self, id: DocumentId, action: Action) {
@@ -2031,7 +2042,7 @@ impl Editor {
             }
         };
 
-        self._refresh();
+        self.refresh();
         if let Some(focus_lost) = focust_lost {
             dispatch(DocumentFocusLost {
                 editor: self,
@@ -2119,7 +2130,7 @@ impl Editor {
                 .query(doc.workspace_root(), TrustQuery::Git)
                 .is_trusted();
             if let Some(diff_base) = self.diff_providers.get_diff_base(&path, trust_full) {
-                doc.set_diff_base(diff_base);
+                doc.set_diff_base(diff_base.as_slice());
             }
             doc.set_version_control_head(
                 self.diff_providers.get_current_head_name(&path, trust_full),
@@ -2147,13 +2158,16 @@ impl Editor {
             doc.remove_view(id);
         }
         self.tree.remove(id);
-        self._refresh();
+        self.refresh();
     }
 
     pub fn close_document(&mut self, doc_id: DocumentId, force: bool) -> Result<(), CloseError> {
-        let doc = match self.documents.get(&doc_id) {
-            Some(doc) => doc,
-            None => return Err(CloseError::DoesNotExist),
+        enum Action {
+            Close(ViewId),
+            ReplaceDoc(ViewId, DocumentId),
+        }
+        let Some(doc) = self.documents.get(&doc_id) else {
+            return Err(CloseError::DoesNotExist);
         };
         if !force && doc.is_modified() {
             return Err(CloseError::BufferModified(doc.display_name().into_owned()));
@@ -2161,11 +2175,6 @@ impl Editor {
 
         // This will also disallow any follow-up writes
         self.saves.remove(&doc_id);
-
-        enum Action {
-            Close(ViewId),
-            ReplaceDoc(ViewId, DocumentId),
-        }
 
         let actions: Vec<Action> = self
             .tree
@@ -2222,7 +2231,7 @@ impl Editor {
             doc.mark_as_focused();
         }
 
-        self._refresh();
+        self.refresh();
 
         helix_event::dispatch(DocumentDidClose { editor: self, doc });
 
@@ -2237,8 +2246,9 @@ impl Editor {
     ) -> anyhow::Result<()> {
         // convert a channel of futures to pipe into main queue one by one
         // via stream.then() ? then push into main future
+        use futures_util::stream;
 
-        let path = path.map(|path| path.into());
+        let path = path.map(std::convert::Into::into);
         let doc = doc_mut!(self, &doc_id);
         let doc_save_future = doc.save(path, force)?;
 
@@ -2253,13 +2263,11 @@ impl Editor {
             res
         };
 
-        use futures_util::stream;
-
         self.saves
             .get(&doc_id)
             .ok_or_else(|| anyhow::format_err!("saves are closed for this document!"))?
             .send(stream::once(Box::pin(future)))
-            .map_err(|err| anyhow!("failed to send save event: {}", err))?;
+            .map_err(|err| anyhow!("failed to send save event: {err}"))?;
 
         self.write_count += 1;
 
@@ -2268,8 +2276,8 @@ impl Editor {
 
     pub fn resize(&mut self, area: Rect) {
         if self.tree.resize(area) {
-            self._refresh();
-        };
+            self.refresh();
+        }
     }
 
     pub fn focus(&mut self, view_id: ViewId) {
@@ -2309,7 +2317,7 @@ impl Editor {
     pub fn focus_direction(&mut self, direction: tree::Direction) {
         let current_view = self.tree.focus;
         if let Some(id) = self.tree.find_split_in_direction(current_view, direction) {
-            self.focus(id)
+            self.focus(id);
         }
     }
 
@@ -2329,7 +2337,7 @@ impl Editor {
         let config = self.config();
         let view = self.tree.get(id);
         let doc = doc_mut!(self, &view.doc);
-        view.ensure_cursor_in_view(doc, config.scrolloff)
+        view.ensure_cursor_in_view(doc, config.scrolloff);
     }
 
     #[inline]
@@ -2480,21 +2488,21 @@ impl Editor {
                     return EditorEvent::LanguageServerMessage(message)
                 }
 
-                _ = helix_event::redraw_requested() => {
+                () = helix_event::redraw_requested() => {
                     if  !self.needs_redraw{
                         self.needs_redraw = true;
                         let timeout = Instant::now() + Duration::from_millis(33);
                         if timeout < self.idle_timer.deadline() && timeout < self.redraw_timer.deadline(){
-                            self.redraw_timer.as_mut().reset(timeout)
+                            self.redraw_timer.as_mut().reset(timeout);
                         }
                     }
                 }
 
-                _ = &mut self.redraw_timer  => {
-                    self.redraw_timer.as_mut().reset(Instant::now() + Duration::from_secs(86400 * 365 * 30));
+                () = &mut self.redraw_timer  => {
+                    self.redraw_timer.as_mut().reset(Instant::now() + Duration::from_hours(24 * 365 * 30));
                     return EditorEvent::Redraw
                 }
-                _ = &mut self.idle_timer  => {
+                () = &mut self.idle_timer  => {
                     return EditorEvent::IdleTimer
                 }
             }
@@ -2554,7 +2562,7 @@ impl Editor {
 
     /// Returns the id of a view that this doc contains a selection for,
     /// making sure it is synced with the current changes
-    /// if possible or there are no selections returns current_view
+    /// if possible or there are no selections returns `current_view`
     /// otherwise uses an arbitrary view
     pub fn get_synced_view_id(&mut self, id: DocumentId) -> ViewId {
         let current_view = view_mut!(self);
@@ -2666,27 +2674,40 @@ fn try_restore_indent(doc: &mut Document, view: &mut View) {
     }
 }
 
+#[derive(Clone, Copy, Default)]
+enum CachedCursor {
+    #[default]
+    Uncomputed,
+    NoCursor,
+    Cursor(Position),
+}
+
 #[derive(Default)]
-pub struct CursorCache(Cell<Option<Option<Position>>>);
+pub struct CursorCache(Cell<CachedCursor>);
 
 impl CursorCache {
     pub fn get(&self, view: &View, doc: &Document) -> Option<Position> {
-        if let Some(pos) = self.0.get() {
-            return pos;
+        match self.0.get() {
+            CachedCursor::Uncomputed => {
+                let text = doc.text().slice(..);
+                let cursor = doc.selection(view.id).primary().cursor(text);
+                let res = view.screen_coords_at_pos(doc, text, cursor);
+                self.set(res);
+                res
+            }
+            CachedCursor::NoCursor => None,
+            CachedCursor::Cursor(pos) => Some(pos),
         }
-
-        let text = doc.text().slice(..);
-        let cursor = doc.selection(view.id).primary().cursor(text);
-        let res = view.screen_coords_at_pos(doc, text, cursor);
-        self.set(res);
-        res
     }
 
     pub fn set(&self, cursor_pos: Option<Position>) {
-        self.0.set(Some(cursor_pos))
+        self.0.set(match cursor_pos {
+            Some(pos) => CachedCursor::Cursor(pos),
+            None => CachedCursor::NoCursor,
+        });
     }
 
     pub fn reset(&self) {
-        self.0.set(None)
+        self.0.set(CachedCursor::Uncomputed);
     }
 }

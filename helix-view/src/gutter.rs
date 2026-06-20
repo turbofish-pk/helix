@@ -2,11 +2,7 @@ use std::fmt::Write;
 
 use helix_core::syntax::config::LanguageServerFeature;
 
-use crate::{
-    editor::GutterType,
-    graphics::{Style, UnderlineStyle},
-    Document, Editor, Theme, View,
-};
+use crate::{Document, Editor, Theme, View, editor::GutterType, graphics::Style};
 
 fn count_digits(n: usize) -> usize {
     (usize::checked_ilog10(n).unwrap_or(0) + 1) as usize
@@ -26,9 +22,7 @@ impl GutterType {
         is_focused: bool,
     ) -> GutterFn<'doc> {
         match self {
-            GutterType::Diagnostics => {
-                diagnostics(editor, doc, view, theme, is_focused)
-            }
+            GutterType::Diagnostics => diagnostics(editor, doc, view, theme, is_focused),
             GutterType::LineNumbers => line_numbers(editor, doc, view, theme, is_focused),
             GutterType::Spacer => padding(editor, doc, view, theme, is_focused),
             GutterType::Diff => diff(editor, doc, view, theme, is_focused),
@@ -38,7 +32,6 @@ impl GutterType {
 
     pub fn width(self, view: &View, doc: &Document) -> usize {
         match self {
-            GutterType::Diagnostics => 1,
             GutterType::LineNumbers => line_numbers_width(view, doc),
             GutterType::Spacer => 1,
             GutterType::Diff => 1,
@@ -54,6 +47,7 @@ pub fn diagnostic<'doc>(
     theme: &Theme,
     _is_focused: bool,
 ) -> GutterFn<'doc> {
+    use helix_core::diagnostic::Severity;
     let warning = theme.get("warning");
     let error = theme.get("error");
     let info = theme.get("info");
@@ -65,7 +59,6 @@ pub fn diagnostic<'doc>(
             if !first_visual_line {
                 return None;
             }
-            use helix_core::diagnostic::Severity;
             let first_diag_idx_maybe_on_line = diagnostics.partition_point(|d| d.line < line);
             let diagnostics_on_line = diagnostics[first_diag_idx_maybe_on_line..]
                 .iter()
@@ -132,7 +125,7 @@ pub fn diff<'doc>(
                     ("▍", modified)
                 };
 
-                write!(out, "{}", icon).unwrap();
+                write!(out, "{icon}").unwrap();
                 Some(style)
             },
         )
@@ -193,7 +186,7 @@ pub fn line_numbers<'doc>(
                 };
 
                 if first_visual_line {
-                    write!(out, "{:>1$}", display_num, width).unwrap();
+                    write!(out, "{display_num:>width$}").unwrap();
                 } else {
                     write!(out, "{:>1$}", " ", width).unwrap();
                 }
@@ -229,50 +222,6 @@ pub fn padding<'doc>(
     Box::new(|_line: usize, _selected: bool, _first_visual_line: bool, _out: &mut String| None)
 }
 
-pub fn breakpoints<'doc>(
-    editor: &'doc Editor,
-    doc: &'doc Document,
-    _view: &View,
-    theme: &Theme,
-    _is_focused: bool,
-) -> GutterFn<'doc> {
-    let error = theme.get("error");
-    let info = theme.get("info");
-    let breakpoint_style = theme.get("ui.debug.breakpoint");
-
-    let breakpoints = doc.path().and_then(|path| editor.breakpoints.get(path));
-
-    let breakpoints = match breakpoints {
-        Some(breakpoints) => breakpoints,
-        None => return Box::new(move |_, _, _, _| None),
-    };
-
-    Box::new(
-        move |line: usize, _selected: bool, first_visual_line: bool, out: &mut String| {
-            if !first_visual_line {
-                return None;
-            }
-            let breakpoint = breakpoints
-                .iter()
-                .find(|breakpoint| breakpoint.line == line)?;
-
-            let style = if breakpoint.condition.is_some() && breakpoint.log_message.is_some() {
-                error.underline_style(UnderlineStyle::Line)
-            } else if breakpoint.condition.is_some() {
-                error
-            } else if breakpoint.log_message.is_some() {
-                info
-            } else {
-                breakpoint_style
-            };
-
-            let sym = if breakpoint.verified { "●" } else { "◯" };
-            write!(out, "{}", sym).unwrap();
-            Some(style)
-        },
-    )
-}
-
 pub fn diagnostics<'doc>(
     editor: &'doc Editor,
     doc: &'doc Document,
@@ -281,9 +230,9 @@ pub fn diagnostics<'doc>(
     is_focused: bool,
 ) -> GutterFn<'doc> {
     let mut diagnostics = diagnostic(editor, doc, view, theme, is_focused);
-    Box::new(move |line, selected, first_visual_line: bool, out|
+    Box::new(move |line, selected, first_visual_line: bool, out| {
         diagnostics(line, selected, first_visual_line, out)
-    )
+    })
 }
 
 pub fn code_action_hint<'doc>(
@@ -315,12 +264,12 @@ mod tests {
     use std::sync::Arc;
 
     use super::*;
+    use crate::DocumentId;
     use crate::document::Document;
     use crate::editor::{Config, GutterConfig, GutterLineNumbersConfig};
     use crate::graphics::Rect;
-    use crate::DocumentId;
     use arc_swap::ArcSwap;
-    use helix_core::{syntax, Rope};
+    use helix_core::{Rope, syntax};
 
     #[test]
     fn test_default_gutter_widths() {

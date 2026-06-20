@@ -5,8 +5,8 @@ use std::ops::{Bound, RangeBounds};
 pub use regex_cursor::engines::meta::{Builder as RegexBuilder, Regex};
 pub use regex_cursor::regex_automata::util::syntax::Config;
 use regex_cursor::{Input as RegexInput, RopeyCursor};
-use ropey::iter::Chunks;
 use ropey::RopeSlice;
+use ropey::iter::Chunks;
 use unicode_segmentation::{GraphemeCursor, GraphemeIncomplete};
 
 /// Additional utility functions for [`RopeSlice`]
@@ -804,19 +804,18 @@ mod tests {
 
     #[test]
     fn char_boundaries() {
+        // This is a polyfill of a method of this trait which was replaced by ceil_char_boundary.
+        // It returns the _character index_ of the given byte index, rounding up if it does not
+        // already lie on a character boundary.
+        fn byte_to_next_char(slice: RopeSlice, byte_idx: usize) -> usize {
+            slice.byte_to_char(slice.ceil_char_boundary(byte_idx))
+        }
         let ascii = RopeSlice::from("ascii");
         // When the given index lies on a character boundary, the index should not change.
         for byte_idx in 0..=ascii.len_bytes() {
             assert_eq!(ascii.floor_char_boundary(byte_idx), byte_idx);
             assert_eq!(ascii.ceil_char_boundary(byte_idx), byte_idx);
             assert!(ascii.is_char_boundary(byte_idx));
-        }
-
-        // This is a polyfill of a method of this trait which was replaced by ceil_char_boundary.
-        // It returns the _character index_ of the given byte index, rounding up if it does not
-        // already lie on a character boundary.
-        fn byte_to_next_char(slice: RopeSlice, byte_idx: usize) -> usize {
-            slice.byte_to_char(slice.ceil_char_boundary(byte_idx))
         }
 
         for i in 0..=6 {

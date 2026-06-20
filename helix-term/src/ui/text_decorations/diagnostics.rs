@@ -74,7 +74,7 @@ const HOR_BAR: &str = "─";
 const VER_BAR: &str = "│";
 
 struct Renderer<'a, 'b> {
-    renderer: &'a mut TextRenderer<'b>,
+    text_rndr: &'a mut TextRenderer<'b>,
     first_row: u16,
     row: u16,
     config: &'a InlineDiagnosticsConfig,
@@ -83,12 +83,12 @@ struct Renderer<'a, 'b> {
 
 impl Renderer<'_, '_> {
     fn draw_decoration(&mut self, g: &'static str, severity: Severity, col: u16) {
-        self.draw_decoration_at(g, severity, col, self.row)
+        self.draw_decoration_at(g, severity, col, self.row);
     }
 
     fn draw_decoration_at(&mut self, g: &'static str, severity: Severity, col: u16, row: u16) {
-        self.renderer.draw_decoration_grapheme(
-            Grapheme::new_decoration(g),
+        self.text_rndr.draw_decoration_grapheme(
+            &Grapheme::new_decoration(g),
             self.styles.severity_style(severity),
             row,
             col,
@@ -97,18 +97,18 @@ impl Renderer<'_, '_> {
 
     fn draw_eol_diagnostic(&mut self, diag: &Diagnostic, row: u16, col: usize) -> u16 {
         let style = self.styles.severity_style(diag.severity());
-        let width = self.renderer.viewport.width;
-        let start_col = u16::try_from(col - self.renderer.offset.col).unwrap();
+        let width = self.text_rndr.viewport.width;
+        let start_col = u16::try_from(col - self.text_rndr.offset.col).unwrap();
         let mut end_col = start_col;
         let mut draw_col = u16::try_from(col + 1).unwrap();
 
         for line in diag.message.lines() {
-            if !self.renderer.column_in_bounds(draw_col as usize, 1) {
+            if !self.text_rndr.column_in_bounds(draw_col as usize, 1) {
                 break;
             }
 
-            (end_col, _) = self.renderer.set_string_truncated(
-                self.renderer.viewport.x + draw_col,
+            (end_col, _) = self.text_rndr.set_string_truncated(
+                self.text_rndr.viewport.x + draw_col,
                 row,
                 line,
                 width.saturating_sub(draw_col) as usize,
@@ -117,7 +117,7 @@ impl Renderer<'_, '_> {
                 false,
             );
 
-            draw_col = end_col - self.renderer.viewport.x + 2; // double space between lines
+            draw_col = end_col - self.text_rndr.viewport.x + 2; // double space between lines
         }
 
         end_col - start_col
@@ -136,7 +136,9 @@ impl Renderer<'_, '_> {
         }
 
         let text_col = col + self.config.prefix_len + 1;
-        let text_fmt = self.config.text_fmt(text_col, self.renderer.viewport.width);
+        let text_fmt = self
+            .config
+            .text_fmt(text_col, self.text_rndr.viewport.width);
         let annotations = TextAnnotations::default();
         let formatter = DocumentFormatter::new_at_prev_checkpoint(
             diag.message.as_str().trim().into(),
@@ -148,8 +150,8 @@ impl Renderer<'_, '_> {
         let style = self.styles.severity_style(severity);
         for grapheme in formatter {
             last_row = grapheme.visual_pos.row;
-            self.renderer.draw_decoration_grapheme(
-                grapheme.raw,
+            self.text_rndr.draw_decoration_grapheme(
+                &grapheme.raw,
                 style,
                 self.row + u16::try_from(grapheme.visual_pos.row).unwrap(),
                 text_col + u16::try_from(grapheme.visual_pos.col).unwrap(),
@@ -174,7 +176,7 @@ impl Renderer<'_, '_> {
         };
         let start = self
             .config
-            .max_diagnostic_start(self.renderer.viewport.width);
+            .max_diagnostic_start(self.text_rndr.viewport.width);
 
         if last_anchor <= start {
             return;
@@ -196,7 +198,7 @@ impl Renderer<'_, '_> {
                 continue;
             }
             for col in (anchor + 1)..last_anchor {
-                self.draw_decoration(HOR_BAR, old_severity, col)
+                self.draw_decoration(HOR_BAR, old_severity, col);
             }
             self.draw_decoration(sym, severity, anchor);
             last_anchor = anchor;
@@ -207,9 +209,9 @@ impl Renderer<'_, '_> {
         // of the line is not missing
         if last_anchor != start {
             for col in (start + 1)..last_anchor {
-                self.draw_decoration(HOR_BAR, severity, col)
+                self.draw_decoration(HOR_BAR, severity, col);
             }
-            self.draw_decoration(TR_CORNER, severity, start)
+            self.draw_decoration(TR_CORNER, severity, start);
         }
         self.row += 1;
         let stacked_diagnostics = &stack[stack.len() - stacked_diagnostics..];
@@ -227,7 +229,7 @@ impl Renderer<'_, '_> {
 
     fn draw_diagnostics(&mut self, stack: &mut Vec<(&Diagnostic, u16)>) {
         let mut stack = stack.drain(..).rev().peekable();
-        let mut last_anchor = self.renderer.viewport.width;
+        let mut last_anchor = self.text_rndr.viewport.width;
         while let Some((diag, anchor)) = stack.next() {
             if anchor != last_anchor {
                 for row in self.first_row..self.row {
@@ -272,20 +274,21 @@ impl Decoration for InlineDiagnostics<'_> {
         };
         if let Some((eol_diagnostic, _)) = eol_diagnostic {
             let mut renderer = Renderer {
-                renderer,
-                first_row: pos.visual_line,
-                row: pos.visual_line,
+                text_rndr: renderer,
+                first_row: pos.vertical_offset,
+                row: pos.vertical_offset,
                 config: &self.state.config,
                 styles: &self.styles,
             };
-            col_off = renderer.draw_eol_diagnostic(eol_diagnostic, pos.visual_line, virt_off.col);
+            col_off =
+                renderer.draw_eol_diagnostic(eol_diagnostic, pos.vertical_offset, virt_off.col);
         }
 
         self.state.compute_line_diagnostics();
         let mut renderer = Renderer {
-            renderer,
-            first_row: pos.visual_line + u16::try_from(virt_off.row).unwrap(),
-            row: pos.visual_line + u16::try_from(virt_off.row).unwrap(),
+            text_rndr: renderer,
+            first_row: pos.vertical_offset + u16::try_from(virt_off.row).unwrap(),
+            row: pos.vertical_offset + u16::try_from(virt_off.row).unwrap(),
             config: &self.state.config,
             styles: &self.styles,
         };

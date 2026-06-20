@@ -1,4 +1,4 @@
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result, bail};
 use arc_swap::ArcSwap;
 use gix::filter::plumbing::driver::apply::Delay;
 use std::io::Read;
@@ -11,9 +11,9 @@ use gix::dir::entry::Status;
 use gix::objs::tree::EntryKind;
 use gix::sec::trust::DefaultForLevel;
 use gix::status::{
+    UntrackedFiles,
     index_worktree::Item,
     plumbing::index_as_worktree::{Change, EntryStatus},
-    UntrackedFiles,
 };
 use gix::{Commit, ObjectId, Repository, ThreadSafeRepository};
 
@@ -209,7 +209,7 @@ fn status(repo: &Repository, f: impl Fn(Result<FileChange>) -> bool) -> Result<(
                 from_path: work_dir.join(source.rela_path().to_path()?),
                 to_path: work_dir.join(dirwalk_entry.rela_path.to_path()?),
             },
-            _ => continue,
+            Item::DirectoryContents { .. } => continue,
         };
         if !f(Ok(change)) {
             break;

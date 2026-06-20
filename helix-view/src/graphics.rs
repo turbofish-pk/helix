@@ -70,6 +70,7 @@ pub struct Margin {
 }
 
 impl Margin {
+    #[must_use]
     pub fn none() -> Self {
         Self {
             horizontal: 0,
@@ -78,6 +79,7 @@ impl Margin {
     }
 
     /// Set uniform margin for all sides.
+    #[must_use]
     pub const fn all(value: u16) -> Self {
         Self {
             horizontal: value,
@@ -86,6 +88,7 @@ impl Margin {
     }
 
     /// Set the margin of left and right sides to specified value.
+    #[must_use]
     pub const fn horizontal(value: u16) -> Self {
         Self {
             horizontal: value,
@@ -94,6 +97,7 @@ impl Margin {
     }
 
     /// Set the margin of top and bottom sides to specified value.
+    #[must_use]
     pub const fn vertical(value: u16) -> Self {
         Self {
             horizontal: 0,
@@ -102,11 +106,13 @@ impl Margin {
     }
 
     /// Get the total width of the margin (left + right)
+    #[must_use]
     pub const fn width(&self) -> u16 {
         self.horizontal * 2
     }
 
     /// Get the total height of the margin (top + bottom)
+    #[must_use]
     pub const fn height(&self) -> u16 {
         self.vertical * 2
     }
@@ -124,6 +130,7 @@ pub struct Rect {
 
 impl Rect {
     /// Creates a new rect, with width and height
+    #[must_use]
     pub fn new(x: u16, y: u16, width: u16, height: u16) -> Rect {
         Rect {
             x,
@@ -134,26 +141,31 @@ impl Rect {
     }
 
     #[inline]
+    #[must_use]
     pub fn area(self) -> usize {
         (self.width as usize) * (self.height as usize)
     }
 
     #[inline]
+    #[must_use]
     pub fn left(self) -> u16 {
         self.x
     }
 
     #[inline]
+    #[must_use]
     pub fn right(self) -> u16 {
         self.x.saturating_add(self.width)
     }
 
     #[inline]
+    #[must_use]
     pub fn top(self) -> u16 {
         self.y
     }
 
     #[inline]
+    #[must_use]
     pub fn bottom(self) -> u16 {
         self.y.saturating_add(self.height)
     }
@@ -161,6 +173,7 @@ impl Rect {
     // Returns a new Rect with width reduced from the left side.
     // This changes the `x` coordinate and clamps it to the right
     // edge of the original Rect.
+    #[must_use]
     pub fn clip_left(self, width: u16) -> Rect {
         let width = std::cmp::min(width, self.width);
         Rect {
@@ -172,6 +185,7 @@ impl Rect {
 
     // Returns a new Rect with width reduced from the right side.
     // This does _not_ change the `x` coordinate.
+    #[must_use]
     pub fn clip_right(self, width: u16) -> Rect {
         Rect {
             width: self.width.saturating_sub(width),
@@ -182,6 +196,7 @@ impl Rect {
     // Returns a new Rect with height reduced from the top.
     // This changes the `y` coordinate and clamps it to the bottom
     // edge of the original Rect.
+    #[must_use]
     pub fn clip_top(self, height: u16) -> Rect {
         let height = std::cmp::min(height, self.height);
         Rect {
@@ -193,22 +208,23 @@ impl Rect {
 
     // Returns a new Rect with height reduced from the bottom.
     // This does _not_ change the `y` coordinate.
+    #[must_use]
     pub fn clip_bottom(self, height: u16) -> Rect {
         Rect {
             height: self.height.saturating_sub(height),
             ..self
         }
     }
-
+    #[must_use]
     pub fn with_height(self, height: u16) -> Rect {
         // new height may make area > u16::max_value, so use new()
         Self::new(self.x, self.y, self.width, height)
     }
-
+    #[must_use]
     pub fn with_width(self, width: u16) -> Rect {
         Self::new(self.x, self.y, width, self.height)
     }
-
+    #[must_use]
     pub fn inner(self, margin: Margin) -> Rect {
         if self.width < margin.width() || self.height < margin.height() {
             Rect::default()
@@ -223,6 +239,7 @@ impl Rect {
     }
 
     /// Calculate the union between two [`Rect`]s.
+    #[must_use]
     pub fn union(self, other: Rect) -> Rect {
         // Example:
         //
@@ -247,6 +264,7 @@ impl Rect {
     }
 
     /// Calculate the intersection between two [`Rect`]s.
+    #[must_use]
     pub fn intersection(self, other: Rect) -> Rect {
         // Example:
         //
@@ -270,6 +288,7 @@ impl Rect {
         }
     }
 
+    #[must_use]
     pub fn intersects(self, other: Rect) -> bool {
         self.x < other.x + other.width
             && self.x + self.width > other.x
@@ -339,13 +358,12 @@ impl Color {
     /// assert_eq!(color3, Color::Rgb(0, 17, 34));
     /// ```
     pub fn from_hex(h: &str) -> Result<Self, MalformedHex> {
+        use byte_from_hex as pair;
+        use dupe_from_nibble as nibble;
         let h = h.as_bytes();
         if !h.starts_with(b"#") {
             return Err(MalformedHex::NoHash);
         }
-
-        use byte_from_hex as pair;
-        use dupe_from_nibble as nibble;
 
         match h.len() {
             7 => match (|| {
@@ -600,6 +618,7 @@ impl Default for Style {
 }
 
 impl Style {
+    #[must_use]
     pub const fn new() -> Self {
         Style {
             fg: None,
@@ -612,6 +631,7 @@ impl Style {
     }
 
     /// Returns a `Style` resetting all properties.
+    #[must_use]
     pub const fn reset() -> Self {
         Self {
             fg: Some(Color::Reset),
@@ -633,6 +653,7 @@ impl Style {
     /// let diff = Style::default().fg(Color::Red);
     /// assert_eq!(style.patch(diff), Style::default().fg(Color::Red));
     /// ```
+    #[must_use]
     pub const fn fg(mut self, color: Color) -> Style {
         self.fg = Some(color);
         self
@@ -648,6 +669,7 @@ impl Style {
     /// let diff = Style::default().bg(Color::Red);
     /// assert_eq!(style.patch(diff), Style::default().bg(Color::Red));
     /// ```
+    #[must_use]
     pub const fn bg(mut self, color: Color) -> Style {
         self.bg = Some(color);
         self
@@ -663,6 +685,7 @@ impl Style {
     /// let diff = Style::default().underline_color(Color::Red);
     /// assert_eq!(style.patch(diff), Style::default().underline_color(Color::Red));
     /// ```
+    #[must_use]
     pub const fn underline_color(mut self, color: Color) -> Style {
         self.underline_color = Some(color);
         self
@@ -678,6 +701,7 @@ impl Style {
     /// let diff = Style::default().underline_style(UnderlineStyle::Curl);
     /// assert_eq!(style.patch(diff), Style::default().underline_style(UnderlineStyle::Curl));
     /// ```
+    #[must_use]
     pub const fn underline_style(mut self, style: UnderlineStyle) -> Style {
         self.underline_style = Some(style);
         self
@@ -697,6 +721,7 @@ impl Style {
     /// assert_eq!(patched.add_modifier, Modifier::BOLD | Modifier::ITALIC);
     /// assert_eq!(patched.sub_modifier, Modifier::empty());
     /// ```
+    #[must_use]
     pub fn add_modifier(mut self, modifier: Modifier) -> Style {
         self.sub_modifier.remove(modifier);
         self.add_modifier.insert(modifier);
@@ -717,6 +742,7 @@ impl Style {
     /// assert_eq!(patched.add_modifier, Modifier::BOLD);
     /// assert_eq!(patched.sub_modifier, Modifier::ITALIC);
     /// ```
+    #[must_use]
     pub fn remove_modifier(mut self, modifier: Modifier) -> Style {
         self.add_modifier.remove(modifier);
         self.sub_modifier.insert(modifier);
@@ -736,6 +762,7 @@ impl Style {
     ///     Style::default().patch(style_1).patch(style_2),
     ///     Style::default().patch(combined));
     /// ```
+    #[must_use]
     pub fn patch(mut self, other: Style) -> Style {
         self.fg = other.fg.or(self.fg);
         self.bg = other.bg.or(self.bg);
@@ -760,7 +787,7 @@ mod tests {
         for width in 0..256u16 {
             for height in 0..256u16 {
                 let rect = Rect::new(0, 0, width, height);
-                rect.area(); // Should not panic.
+                let _ = rect.area(); // Should not panic.
                 assert_eq!(rect.width, width);
                 assert_eq!(rect.height, height);
             }
@@ -842,7 +869,7 @@ mod tests {
     #[test]
     fn sanity_nibble_lowercase() {
         for i in 0..0x10_u8 {
-            let c = format!("{:x}", i);
+            let c = format!("{i:x}");
             assert_eq!(c.len(), 1);
             assert_eq!(
                 u8::from_str_radix(&c, 0x10).unwrap(),
@@ -853,7 +880,7 @@ mod tests {
     #[test]
     fn sanity_nibble_uppercase() {
         for i in 0..0x10_u8 {
-            let c = format!("{:X}", i);
+            let c = format!("{i:X}");
             assert_eq!(c.len(), 1);
             assert_eq!(
                 u8::from_str_radix(&c, 0x10).unwrap(),

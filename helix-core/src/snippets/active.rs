@@ -253,7 +253,7 @@ mod tests {
         let edit = Transaction::change(&doc, iter::once((4, 12, None)));
         assert!(edit.apply(&mut doc));
         snippet.map(edit.changes());
-        assert!(!snippet.is_valid(&Selection::point(4)))
+        assert!(!snippet.is_valid(&Selection::point(4)));
     }
 
     #[test]

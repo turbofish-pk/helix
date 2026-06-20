@@ -14,6 +14,7 @@ pub struct CompletionHandler {
 }
 
 impl CompletionHandler {
+    #[must_use]
     pub fn new(event_tx: Sender<CompletionEvent>) -> Self {
         Self {
             event_tx,

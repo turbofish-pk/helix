@@ -1,14 +1,15 @@
 //! Functions for working with [Path].
 
 pub use etcetera::home_dir;
-use regex_cursor::{engines::meta::Regex, Input};
+use regex_cursor::{Input, engines::meta::Regex};
 use ropey::RopeSlice;
 
 use std::{
     borrow::Cow,
     ffi::OsString,
     ops::Range,
-    path::{Component, Path, PathBuf, MAIN_SEPARATOR_STR}, sync::LazyLock
+    path::{Component, MAIN_SEPARATOR_STR, Path, PathBuf},
+    sync::LazyLock,
 };
 
 use crate::env::current_working_dir;
@@ -21,13 +22,14 @@ where
 {
     let path = path.into();
     if let Ok(home) = home_dir()
-        && let Ok(stripped) = path.strip_prefix(&home) {
-            let mut path = OsString::with_capacity(2 + stripped.as_os_str().len());
-            path.push("~");
-            path.push(MAIN_SEPARATOR_STR);
-            path.push(stripped);
-            return Cow::Owned(PathBuf::from(path));
-        }
+        && let Ok(stripped) = path.strip_prefix(&home)
+    {
+        let mut path = OsString::with_capacity(2 + stripped.as_os_str().len());
+        path.push("~");
+        path.push(MAIN_SEPARATOR_STR);
+        path.push(stripped);
+        return Cow::Owned(PathBuf::from(path));
+    }
 
     path
 }
@@ -44,10 +46,12 @@ where
     let path = path.into();
     let mut components = path.components();
     if let Some(Component::Normal(c)) = components.next()
-        && c == "~" && let Ok(mut buf) = home_dir() {
-            buf.push(components);
-            return Cow::Owned(buf);
-        }
+        && c == "~"
+        && let Ok(mut buf) = home_dir()
+    {
+        buf.push(components);
+        return Cow::Owned(buf);
+    }
 
     path
 }
@@ -259,10 +263,12 @@ fn compile_path_regex(
 #[must_use]
 pub fn get_path_suffix(src: RopeSlice<'_>, match_single_file: bool) -> Option<RopeSlice<'_>> {
     let regex = if match_single_file {
-        static REGEX: LazyLock<Regex> = LazyLock::new(|| compile_path_regex("", "$", true, cfg!(windows)));
+        static REGEX: LazyLock<Regex> =
+            LazyLock::new(|| compile_path_regex("", "$", true, cfg!(windows)));
         &*REGEX
     } else {
-        static REGEX: LazyLock<Regex> = LazyLock::new(|| compile_path_regex("", "$", false, cfg!(windows)));
+        static REGEX: LazyLock<Regex> =
+            LazyLock::new(|| compile_path_regex("", "$", false, cfg!(windows)));
         &*REGEX
     };
 
@@ -277,10 +283,12 @@ pub fn find_paths(
     match_single_file: bool,
 ) -> impl Iterator<Item = Range<usize>> + '_ {
     let regex = if match_single_file {
-        static REGEX: LazyLock<Regex> = LazyLock::new(|| compile_path_regex("", "", true, cfg!(windows)));
+        static REGEX: LazyLock<Regex> =
+            LazyLock::new(|| compile_path_regex("", "", true, cfg!(windows)));
         &*REGEX
     } else {
-        static REGEX: LazyLock<Regex> = LazyLock::new(|| compile_path_regex("", "", false, cfg!(windows)));
+        static REGEX: LazyLock<Regex> =
+            LazyLock::new(|| compile_path_regex("", "", false, cfg!(windows)));
         &*REGEX
     };
     regex.find_iter(Input::new(src)).map(|mat| mat.range())
@@ -433,12 +441,12 @@ mod tests {
             );
             assert_matches!(
                 regex,
-                r#"--> helix-stdx/src/path.rs:427:13"#,
+                r"--> helix-stdx/src/path.rs:427:13",
                 ["helix-stdx/src/path.rs"]
             );
             assert_matches!(
                 regex,
-                r#"PATH=/foo/bar:/bar/baz:${foo:-/foo}/bar:${PATH}"#,
+                r"PATH=/foo/bar:/bar/baz:${foo:-/foo}/bar:${PATH}",
                 ["/foo/bar", "/bar/baz", "${foo:-/foo}/bar"]
             );
             let regex = compile_path_regex("^", "$", true, windows);

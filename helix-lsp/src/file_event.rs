@@ -34,7 +34,7 @@ struct ClientState {
 /// forwarding changes to LSPs that have registered for notifications with a
 /// matching glob.
 ///
-/// When an LSP registers for the DidChangeWatchedFiles notification, the
+/// When an LSP registers for the `DidChangeWatchedFiles` notification, the
 /// Handler is notified by sending the registration details in addition to a
 /// weak reference to the LSP client. This is done so that the Handler can have
 /// access to the client without preventing the client from being dropped if it
@@ -93,7 +93,7 @@ impl Handler {
         while let Some(event) = rx.recv().await {
             match event {
                 Event::FileChanged { path } => {
-                    log::debug!("Received file event for {:?}", &path);
+                    log::debug!("Received file event for {}", &path.display());
 
                     state.retain(|id, client_state| {
                         if !client_state
@@ -160,7 +160,7 @@ impl Handler {
                             }
                             log::warn!(
                                 "Unable to build globset for LSP didChangeWatchedFiles {err}"
-                            )
+                            );
                         }
                     }
                 }
@@ -169,9 +169,7 @@ impl Handler {
                     registration_id,
                 } => {
                     log::debug!(
-                        "Unregistering didChangeWatchedFiles with id '{}' for client '{}'",
-                        registration_id,
-                        client_id
+                        "Unregistering didChangeWatchedFiles with id '{registration_id}' for client '{client_id}'"
                     );
                     if let Some(client_state) = state.get_mut(&client_id) {
                         client_state.registered.remove(&registration_id);

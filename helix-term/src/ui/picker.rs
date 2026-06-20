@@ -1,3 +1,4 @@
+#![allow(clippy::missing_errors_doc)]
 mod handlers;
 mod query;
 
@@ -102,7 +103,7 @@ impl Preview<'_, '_> {
         match self {
             Preview::EditorDocument(doc) => Some(doc),
             Preview::Cached(CachedPreview::Document(doc)) => Some(doc),
-            _ => None,
+            Preview::Cached(_) => None,
         }
     }
 
@@ -136,7 +137,7 @@ fn inject_nucleo_item<T, D>(
 ) {
     injector.push(item, |item, dst| {
         for (column, text) in columns.iter().filter(|column| column.filter).zip(dst) {
-            *text = column.format_text(item, editor_data).into()
+            *text = column.format_text(item, editor_data).into();
         }
     });
 }
@@ -418,7 +419,7 @@ impl<T: 'static + Send + Sync, D: 'static + Send + Sync> Picker<T, D> {
         self.truncate_start = truncate_start;
         self
     }
-
+    #[must_use]
     pub fn with_preview(
         mut self,
         preview_fn: impl for<'a> Fn(&'a Editor, &'a T) -> Option<FileLocation<'a>> + 'static,
@@ -432,7 +433,7 @@ impl<T: 'static + Send + Sync, D: 'static + Send + Sync> Picker<T, D> {
 
     #[must_use]
     pub fn with_history_register(mut self, history_register: Option<char>) -> Self {
-        self.prompt.with_history_register(history_register);
+        let _ = self.prompt.with_history_register(history_register);
         self
     }
 
@@ -441,7 +442,7 @@ impl<T: 'static + Send + Sync, D: 'static + Send + Sync> Picker<T, D> {
         self.cursor = cursor;
         self
     }
-
+    #[must_use]
     pub fn with_dynamic_query(
         mut self,
         callback: DynQueryCallback<T, D>,
@@ -523,7 +524,7 @@ impl<T: 'static + Send + Sync, D: 'static + Send + Sync> Picker<T, D> {
     }
 
     fn header_height(&self) -> u16 {
-        if self.columns.len() > 1 { 1 } else { 0 }
+        u16::from(self.columns.len() > 1)
     }
 
     pub fn toggle_preview(&mut self) {
@@ -622,11 +623,13 @@ impl<T: 'static + Send + Sync, D: 'static + Send + Sync> Picker<T, D> {
                                 .filter_map(|(file_path, is_dir)| {
                                     let name = file_path
                                         .strip_prefix(&path)
-                                        .map(|p| Some(p.as_os_str()))
-                                        .unwrap_or_else(|_| file_path.file_name())?
+                                        .map_or_else(
+                                            |_| file_path.file_name(),
+                                            |p| Some(p.as_os_str()),
+                                        )?
                                         .to_string_lossy();
                                     if *is_dir {
-                                        Some((format!("{}/", name), true))
+                                        Some((format!("{name}/"), true))
                                     } else {
                                         Some((name.into_owned(), false))
                                     }
@@ -687,12 +690,14 @@ impl<T: 'static + Send + Sync, D: 'static + Send + Sync> Picker<T, D> {
     }
 
     fn render_picker(&mut self, area: Rect, surface: &mut Surface, cx: &mut Context) {
+        use tui::widgets::TableState;
+        const BLOCK: Block<'_> = Block::bordered();
         let status = self.matcher.tick(10);
         let snapshot = self.matcher.snapshot();
         if status.changed {
             self.cursor = self
                 .cursor
-                .min(snapshot.matched_item_count().saturating_sub(1))
+                .min(snapshot.matched_item_count().saturating_sub(1));
         }
 
         let text_style = cx.editor.theme.get("ui.text");
@@ -703,8 +708,6 @@ impl<T: 'static + Send + Sync, D: 'static + Send + Sync> Picker<T, D> {
         // clear area
         let background = cx.editor.theme.get("ui.background");
         surface.clear_with(area, background);
-
-        const BLOCK: Block<'_> = Block::bordered();
 
         // calculate the inner area inside the box
         let inner = BLOCK.inner(area);
@@ -743,14 +746,14 @@ impl<T: 'static + Send + Sync, D: 'static + Send + Sync> Picker<T, D> {
         let borders = BorderType::line_symbols(BorderType::Plain);
         for x in inner.left()..inner.right() {
             if let Some(cell) = surface.get_mut(x, inner.y + 1) {
-                cell.set_symbol(borders.horizontal).set_style(sep_style);
+                let _ = cell.set_symbol(borders.horizontal).set_style(sep_style);
             }
         }
 
         // -- Render the contents:
         // subtract area of prompt from top
         let inner = inner.clip_top(2);
-        let rows = inner.height.saturating_sub(self.header_height()) as u32;
+        let rows = u32::from(inner.height.saturating_sub(self.header_height()));
         let offset = self.cursor - (self.cursor % std::cmp::max(1, rows));
         let cursor = self.cursor.saturating_sub(offset);
         let end = offset
@@ -760,7 +763,7 @@ impl<T: 'static + Send + Sync, D: 'static + Send + Sync> Picker<T, D> {
         let mut matcher = MATCHER.lock();
         matcher.config = Config::DEFAULT;
         if self.file_fn.is_some() {
-            matcher.config.set_match_paths()
+            matcher.config.set_match_paths();
         }
 
         let options = snapshot.matched_items(offset..end).map(|item| {
@@ -809,7 +812,7 @@ impl<T: 'static + Send + Sync, D: 'static + Send + Sync> Picker<T, D> {
                             };
                             if style != current_style {
                                 if !current_span.is_empty() {
-                                    span_list.push(Span::styled(current_span, current_style))
+                                    span_list.push(Span::styled(current_span, current_style));
                                 }
                                 current_span = String::new();
                                 current_style = style;
@@ -828,7 +831,7 @@ impl<T: 'static + Send + Sync, D: 'static + Send + Sync> Picker<T, D> {
                     cell.content
                         .lines
                         .first()
-                        .map(|line| line.width())
+                        .map(tui::text::Spans::width)
                         .unwrap_or_default()
                 };
 
@@ -872,8 +875,6 @@ impl<T: 'static + Send + Sync, D: 'static + Send + Sync> Picker<T, D> {
             );
         }
 
-        use tui::widgets::TableState;
-
         table.render_table(
             inner,
             surface,
@@ -886,14 +887,13 @@ impl<T: 'static + Send + Sync, D: 'static + Send + Sync> Picker<T, D> {
     }
 
     fn render_preview(&mut self, area: Rect, surface: &mut Surface, cx: &mut Context) {
+        const BLOCK: Block<'_> = Block::bordered();
         // -- Render the frame:
         // clear area
         let background = cx.editor.theme.get("ui.background");
         let text = cx.editor.theme.get("ui.text");
         let directory = cx.editor.theme.get("ui.text.directory");
         surface.clear_with(area, background);
-
-        const BLOCK: Block<'_> = Block::bordered();
 
         // calculate the inner area inside the box
         let inner = BLOCK.inner(area);
@@ -953,7 +953,7 @@ impl<T: 'static + Send + Sync, D: 'static + Send + Sync> Picker<T, D> {
                         text,
                         middle,
                         // align to middle
-                        -(inner.height as isize / 2),
+                        -isize::try_from(inner.height).unwrap() / 2,
                         0,
                         &text_fmt,
                         &annotations,
@@ -1003,14 +1003,14 @@ impl<T: 'static + Send + Sync, D: 'static + Send + Sync> Picker<T, D> {
                     .try_get("ui.highlight")
                     .unwrap_or_else(|| cx.editor.theme.get("ui.selection"));
                 let draw_highlight = move |renderer: &mut TextRenderer, pos: LinePos| {
-                    if (start..=end).contains(&pos.doc_line) {
+                    if (start..=end).contains(&pos.doc_line_index) {
                         let area = Rect::new(
                             renderer.viewport.x,
-                            pos.visual_line,
+                            pos.vertical_offset,
                             renderer.viewport.width,
                             1,
                         );
-                        renderer.set_style(area, style)
+                        renderer.set_style(area, style);
                     }
                 };
                 decorations.add_decoration(draw_highlight);
@@ -1065,10 +1065,7 @@ impl<I: 'static + Send + Sync, D: 'static + Send + Sync> Component for Picker<I,
         let key_event = match event {
             Event::Key(event) => *event,
             Event::Paste(..) => return self.prompt_handle_event(event, ctx),
-            Event::Resize(..) => return EventResult::Consumed(None),
-            // Picker is a modal and should consume mouse events so clicks don't fall
-            // through to the editor underneath
-            Event::Mouse(_) => return EventResult::Consumed(None),
+            Event::Resize(..) | Event::Mouse(_) => return EventResult::Consumed(None),
             _ => return EventResult::Ignored(None),
         };
 

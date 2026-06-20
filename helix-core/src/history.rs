@@ -243,9 +243,9 @@ impl History {
 
     /// Helper for a binary search case below.
     fn revision_closer_to_instant(&self, i: usize, instant: Instant) -> usize {
+        use std::cmp::Ordering::{Equal, Greater, Less};
         let dur_im1 = instant.duration_since(self.revisions[i - 1].timestamp);
         let dur_i = self.revisions[i].timestamp.duration_since(instant);
-        use std::cmp::Ordering::*;
         match dur_im1.cmp(&dur_i) {
             Less => i - 1,
             Equal | Greater => i,
@@ -289,7 +289,7 @@ impl History {
 
     /// Creates an undo [`Transaction`].
     pub fn earlier(&mut self, uk: UndoKind) -> Vec<Transaction> {
-        use UndoKind::*;
+        use UndoKind::{Steps, TimePeriod};
         match uk {
             Steps(n) => self.jump_backward(n),
             TimePeriod(d) => self.jump_duration_backward(d),
@@ -298,7 +298,7 @@ impl History {
 
     /// Creates a redo [`Transaction`].
     pub fn later(&mut self, uk: UndoKind) -> Vec<Transaction> {
-        use UndoKind::*;
+        use UndoKind::{Steps, TimePeriod};
         match uk {
             Steps(n) => self.jump_forward(n),
             TimePeriod(d) => self.jump_duration_forward(d),
@@ -395,6 +395,16 @@ mod test {
 
     #[test]
     fn test_undo_redo() {
+        fn undo(history: &mut History, state: &mut State) {
+            if let Some(transaction) = history.undo() {
+                transaction.apply(&mut state.doc);
+            }
+        }
+        fn redo(history: &mut History, state: &mut State) {
+            if let Some(transaction) = history.redo() {
+                transaction.apply(&mut state.doc);
+            }
+        }
         let mut history = History::default();
         let doc = Rope::from("hello");
         let mut state = State {
@@ -410,8 +420,6 @@ mod test {
         transaction1.apply(&mut state.doc);
         assert_eq!("hello world!", state.doc);
 
-        // ---
-
         let transaction2 =
             Transaction::change(&state.doc, vec![(6, 11, Some("世界".into()))].into_iter());
 
@@ -419,18 +427,6 @@ mod test {
         history.commit_revision(&transaction2, &state);
         transaction2.apply(&mut state.doc);
         assert_eq!("hello 世界!", state.doc);
-
-        // ---
-        fn undo(history: &mut History, state: &mut State) {
-            if let Some(transaction) = history.undo() {
-                transaction.apply(&mut state.doc);
-            }
-        }
-        fn redo(history: &mut History, state: &mut State) {
-            if let Some(transaction) = history.redo() {
-                transaction.apply(&mut state.doc);
-            }
-        }
 
         undo(&mut history, &mut state);
         assert_eq!("hello world!", state.doc);
@@ -447,12 +443,7 @@ mod test {
 
     #[test]
     fn test_earlier_later() {
-        let mut history = History::default();
-        let doc = Rope::from("a\n");
-        let mut state = State {
-            doc,
-            selection: Selection::point(0),
-        };
+        use UndoKind::*;
 
         fn undo(history: &mut History, state: &mut State) {
             if let Some(transaction) = history.undo() {
@@ -485,6 +476,13 @@ mod test {
             txn.apply(&mut state.doc);
         }
 
+        let mut history = History::default();
+        let doc = Rope::from("a\n");
+        let mut state = State {
+            doc,
+            selection: Selection::point(0),
+        };
+
         let t0 = Instant::now();
         let t = |n| t0.checked_add(Duration::from_secs(n)).unwrap();
 
@@ -512,8 +510,6 @@ mod test {
 
         commit_change(&mut history, &mut state, (1, 1, Some(" f".into())), t(50));
         assert_eq!("a f\n", state.doc);
-
-        use UndoKind::*;
 
         earlier(&mut history, &mut state, Steps(3));
         assert_eq!("a b c d\n", state.doc);
@@ -599,11 +595,11 @@ mod test {
         );
         assert_eq!(
             "5h".parse::<UndoKind>(),
-            Ok(TimePeriod(Duration::from_secs(5 * 60 * 60)))
+            Ok(TimePeriod(Duration::from_hours(5)))
         );
         assert_eq!(
             "3d".parse::<UndoKind>(),
-            Ok(TimePeriod(Duration::from_secs(3 * 24 * 60 * 60)))
+            Ok(TimePeriod(Duration::from_hours(72)))
         );
         assert_eq!(
             "1m30s".parse::<UndoKind>(),
@@ -615,7 +611,7 @@ mod test {
         );
         assert_eq!(
             "  2 minute 1day".parse::<UndoKind>(),
-            Ok(TimePeriod(Duration::from_secs(24 * 60 * 60 + 2 * 60)))
+            Ok(TimePeriod(Duration::from_mins(1442)))
         );
         assert_eq!(
             "3 d 2hour 5 minutes 30sec".parse::<UndoKind>(),

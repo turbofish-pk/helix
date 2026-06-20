@@ -1,3 +1,4 @@
+#![allow(clippy::missing_errors_doc)]
 //! Logging support for `hx`.
 
 use std::io::Write;
@@ -67,6 +68,7 @@ pub fn init_stdout(level: log::LevelFilter) {
 }
 
 /// RFC3339-style UTC timestamp for a log line: `YYYY-MM-DDTHH:MM:SS.mmm`.
+#[must_use]
 pub fn log_timestamp() -> String {
     let now = SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -75,7 +77,7 @@ pub fn log_timestamp() -> String {
 }
 
 fn format_timestamp(secs: u64, millis: u32) -> String {
-    let days = (secs / 86_400) as i64;
+    let days = (secs / 86_400).cast_signed();
     let tod = secs % 86_400;
     let (hour, min, sec) = (tod / 3600, (tod % 3600) / 60, tod % 60);
     let (year, month, day) = civil_from_days(days);
@@ -93,8 +95,8 @@ fn civil_from_days(z: i64) -> (i64, u32, u32) {
     let year = yoe + era * 400;
     let doy = doe - (365 * yoe + yoe / 4 - yoe / 100); // [0, 365]
     let mp = (5 * doy + 2) / 153; // [0, 11]
-    let day = (doy - (153 * mp + 2) / 5 + 1) as u32; // [1, 31]
-    let month = if mp < 10 { mp + 3 } else { mp - 9 } as u32; // [1, 12]
+    let day = u32::try_from(doy - (153 * mp + 2) / 5 + 1).unwrap(); // [1, 31]
+    let month = u32::try_from(if mp < 10 { mp + 3 } else { mp - 9 }).unwrap(); // [1, 12]
     (if month <= 2 { year + 1 } else { year }, month, day)
 }
 

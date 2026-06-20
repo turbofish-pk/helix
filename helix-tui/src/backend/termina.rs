@@ -6,13 +6,13 @@ use helix_view::{
     theme::{self, Color, Modifier},
 };
 use termina::{
+    Event, OneBased, PlatformTerminal, Terminal as _, WindowSize,
     escape::{
         csi::{self, Csi, SgrAttributes, SgrModifiers},
         dcs::{self, Dcs},
         osc::{self, Osc},
     },
     style::{CursorStyle, RgbColor},
-    Event, OneBased, PlatformTerminal, Terminal as _, WindowSize,
 };
 
 use crate::{buffer::Cell, terminal::Config};
@@ -48,6 +48,7 @@ fn vte_version() -> Option<usize> {
 }
 
 #[derive(Debug, Default, Clone, Copy)]
+#[allow(clippy::struct_excessive_bools)]
 struct Capabilities {
     kitty_keyboard: KittyKeyboardSupport,
     synchronized_output: bool,
@@ -89,11 +90,10 @@ pub struct TerminaBackend {
 impl TerminaBackend {
     pub fn new(config: Config) -> io::Result<Self> {
         use std::time::{Duration, Instant};
-
-        let mut terminal = PlatformTerminal::new()?;
-
         // Colibri "midnight"
         const TEST_COLOR: RgbColor = RgbColor::new(59, 34, 76);
+
+        let mut terminal = PlatformTerminal::new()?;
 
         terminal.enter_raw_mode()?;
 
@@ -145,7 +145,7 @@ impl TerminaBackend {
         let device_attributes = |event: &Event| {
             matches!(
                 event,
-                Event::Csi(Csi::Device(csi::Device::DeviceAttributes(_)))
+                Event::Csi(Csi::Device(csi::Device::DeviceAttributes(())))
             )
         };
         // TODO: tune this poll constant? Does it need to be longer when on an SSH connection?
@@ -192,7 +192,9 @@ impl TerminaBackend {
                 end.duration_since(start)
             );
         } else {
-            log::debug!("Failed to detect terminal capabilities within {poll_duration:?}. Using default capabilities only");
+            log::debug!(
+                "Failed to detect terminal capabilities within {poll_duration:?}. Using default capabilities only"
+            );
         }
 
         capabilities.extended_underlines |= config.force_enable_extended_underlines;
@@ -208,7 +210,7 @@ impl TerminaBackend {
 
             if let Some(termini::Value::Utf8String(se_str)) = t.extended_cap("Se") {
                 reset_cursor_command.push_str(se_str);
-            };
+            }
             reset_cursor_command.push_str(
                 t.utf8_string_cap(termini::StringCapability::CursorNormal)
                     .unwrap_or(""),
@@ -217,7 +219,9 @@ impl TerminaBackend {
                 "Cursor reset escape sequence detected from terminfo: {reset_cursor_command:?}"
             );
         } else {
-            log::debug!("terminfo could not be read, using default cursor reset escape sequence: {reset_cursor_command:?}");
+            log::debug!(
+                "terminfo could not be read, using default cursor reset escape sequence: {reset_cursor_command:?}"
+            );
         }
         reset_cursor_command
             .push_str(&Csi::Cursor(csi::Cursor::CursorStyle(CursorStyle::Default)).to_string());
@@ -257,7 +261,7 @@ impl TerminaBackend {
             original_background_color,
         })
     }
-
+    #[must_use]
     pub fn terminal(&self) -> &PlatformTerminal {
         &self.terminal
     }
@@ -341,8 +345,15 @@ impl TerminaBackend {
                 let Event::Csi(Csi::Keyboard(csi::Keyboard::ReportFlags(flags))) = event else {
                     unreachable!();
                 };
-                if flags != KEYBOARD_FLAGS {
-                    log::info!("Turning off enhanced keyboard support because the terminal enabled different flags. Requested {KEYBOARD_FLAGS:?} but got {flags:?}");
+                if flags == KEYBOARD_FLAGS {
+                    log::debug!(
+                        "The terminal fully supports the requested keyboard enhancement flags"
+                    );
+                    self.capabilities.kitty_keyboard = KittyKeyboardSupport::Full;
+                } else {
+                    log::info!(
+                        "Turning off enhanced keyboard support because the terminal enabled different flags. Requested {KEYBOARD_FLAGS:?} but got {flags:?}"
+                    );
                     write!(
                         self.terminal,
                         "{}",
@@ -350,11 +361,6 @@ impl TerminaBackend {
                     )?;
                     self.terminal.flush()?;
                     self.capabilities.kitty_keyboard = KittyKeyboardSupport::Partial;
-                } else {
-                    log::debug!(
-                        "The terminal fully supports the requested keyboard enhancement flags"
-                    );
-                    self.capabilities.kitty_keyboard = KittyKeyboardSupport::Full;
                 }
             }
         }
@@ -673,7 +679,7 @@ fn diff_modifiers(from: Modifier, to: Modifier) -> SgrModifiers {
     if removed.contains(Modifier::BOLD) {
         modifiers |= SgrModifiers::INTENSITY_NORMAL;
         if to.contains(Modifier::DIM) {
-            modifiers |= SgrModifiers::INTENSITY_DIM
+            modifiers |= SgrModifiers::INTENSITY_DIM;
         }
     }
     if removed.contains(Modifier::DIM) {

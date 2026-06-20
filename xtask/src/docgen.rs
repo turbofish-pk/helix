@@ -1,6 +1,5 @@
 use crate::helpers;
 use crate::path;
-use crate::DynError;
 
 use helix_term::commands::MappableCommand;
 use helix_term::commands::TYPABLE_COMMAND_LIST;
@@ -26,10 +25,10 @@ fn md_table_row(cols: &[String]) -> String {
 }
 
 fn md_mono(s: &str) -> String {
-    format!("`{}`", s)
+    format!("`{s}`")
 }
 
-pub fn typable_commands() -> Result<String, DynError> {
+pub fn typable_commands() -> std::string::String {
     let mut md = String::new();
     md.push_str(&md_table_heading(&[
         "Name".to_owned(),
@@ -48,13 +47,13 @@ pub fn typable_commands() -> Result<String, DynError> {
 
         let doc = cmd.doc.replace('\n', "<br>");
 
-        md.push_str(&md_table_row(&[names.to_owned(), doc.to_owned()]));
+        md.push_str(&md_table_row(&[names.clone(), doc.clone()]));
     }
 
-    Ok(md)
+    md
 }
 
-pub fn static_commands() -> Result<String, DynError> {
+pub fn static_commands() -> std::string::String {
     let mut md = String::new();
     let keymap = helix_term::keymap::default();
     let keymaps = [
@@ -81,11 +80,11 @@ pub fn static_commands() -> Result<String, DynError> {
                             .map(|bind| {
                                 let keys = &bind
                                     .iter()
-                                    .map(|key| key.key_sequence_format())
+                                    .map(helix_view::input::KeyEvent::key_sequence_format)
                                     .collect::<String>()
                                     // escape | so it doesn't get rendered as a column separator
                                     .replace('|', "\\|");
-                                format!("`` {} ``", keys)
+                                format!("`` {keys} ``")
                             })
                             .collect();
                         // sort for stable output. sorting by length puts simple
@@ -102,7 +101,7 @@ pub fn static_commands() -> Result<String, DynError> {
         let keymap_string = keymap_strings
             .iter()
             .filter(|(_, bindings)| !bindings.is_empty())
-            .map(|(mode, bindings)| format!("{}: {}", mode, bindings))
+            .map(|(mode, bindings)| format!("{mode}: {bindings}"))
             .collect::<Vec<_>>()
             .join(", ");
 
@@ -113,10 +112,10 @@ pub fn static_commands() -> Result<String, DynError> {
         ]));
     }
 
-    Ok(md)
+    md
 }
 
-pub fn lang_features() -> Result<String, DynError> {
+pub fn lang_features() -> std::string::String {
     let mut md = String::new();
     let ts_features = TsFeature::all();
 
@@ -187,11 +186,11 @@ pub fn lang_features() -> Result<String, DynError> {
         row.clear();
     }
 
-    Ok(md)
+    md
 }
 
 pub fn write(filename: &str, data: &str) {
-    let error = format!("Could not write to {}", filename);
+    let error = format!("Could not write to {filename}");
     let path = path::book_gen().join(filename);
     fs::write(path, data).expect(&error);
 }

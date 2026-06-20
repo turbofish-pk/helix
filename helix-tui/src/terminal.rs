@@ -40,6 +40,7 @@ impl From<&EditorConfig> for Config {
 
 impl Viewport {
     /// UNSTABLE
+    #[must_use]
     pub fn fixed(area: Rect) -> Viewport {
         Viewport {
             area,
@@ -177,7 +178,7 @@ where
         let size = self.size();
         if size != self.viewport.area {
             self.resize(size)?;
-        };
+        }
         Ok(size)
     }
 

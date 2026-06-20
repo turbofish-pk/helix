@@ -153,7 +153,7 @@ impl helix_event::AsyncHook for CompletionHandler {
         self.in_flight = Some(trigger);
         let handle = self.task_controller.restart();
         dispatch_blocking(move |editor, compositor| {
-            request_completions(trigger, handle, editor, compositor)
+            request_completions(trigger, handle, editor, compositor);
         });
     }
 }
@@ -249,7 +249,7 @@ fn request_completions(
         requests.spawn_blocking(path_completion_request);
     }
     if let Some(word_completion_request) =
-        word::completion(editor, trigger, handle.clone(), savepoint)
+        word::completion(editor, trigger, &handle.clone(), savepoint)
     {
         requests.spawn_blocking(word_completion_request);
     }
@@ -279,7 +279,7 @@ fn request_completions(
             context.insert(response.provider, response.context);
         }
         dispatch(move |editor, compositor| {
-            show_completion(editor, compositor, items, context, trigger)
+            show_completion(editor, compositor, items, context, trigger);
         })
         .await;
         if !requests.is_empty() {

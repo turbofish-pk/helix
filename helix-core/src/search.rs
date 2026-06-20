@@ -1,5 +1,5 @@
-use crate::movement::Direction;
 use crate::RopeSlice;
+use crate::movement::Direction;
 
 // TODO: switch to std::str::Pattern when it is stable.
 pub trait CharMatcher {
@@ -20,6 +20,7 @@ impl<F: Fn(&char) -> bool> CharMatcher for F {
 
 // Finds the positions of the nth matching character in given direction
 // starting from the pos gap-index (see Range struct for explanation)
+#[allow(clippy::needless_pass_by_value)]
 pub fn find_nth_char<M: CharMatcher>(
     mut n: usize,
     text: RopeSlice,

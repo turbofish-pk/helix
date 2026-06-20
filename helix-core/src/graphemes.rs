@@ -303,10 +303,10 @@ impl<'a> From<&'a str> for GraphemeStr<'a> {
 impl From<String> for GraphemeStr<'_> {
     fn from(g: String) -> Self {
         let len = g.len();
-        let ptr = Box::into_raw(g.into_bytes().into_boxed_slice()) as *mut u8;
+        let ptr = Box::into_raw(g.into_bytes().into_boxed_slice()).cast::<u8>();
         GraphemeStr {
             ptr: unsafe { NonNull::new_unchecked(ptr) },
-            len: (i32::try_from(len).unwrap() as u32) | Self::MASK_OWNED,
+            len: (i32::try_from(len).unwrap().cast_unsigned()) | Self::MASK_OWNED,
             phantom: PhantomData,
         }
     }
@@ -323,23 +323,23 @@ impl<'a> From<Cow<'a, str>> for GraphemeStr<'a> {
 
 impl<T: Deref<Target = str>> PartialEq<T> for GraphemeStr<'_> {
     fn eq(&self, other: &T) -> bool {
-        self.deref() == other.deref()
+        **self == **other
     }
 }
 impl PartialEq<str> for GraphemeStr<'_> {
     fn eq(&self, other: &str) -> bool {
-        self.deref() == other
+        &**self == other
     }
 }
 impl Eq for GraphemeStr<'_> {}
 impl Debug for GraphemeStr<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        Debug::fmt(self.deref(), f)
+        Debug::fmt(&**self, f)
     }
 }
 impl Display for GraphemeStr<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        Display::fmt(self.deref(), f)
+        Display::fmt(&**self, f)
     }
 }
 impl Clone for GraphemeStr<'_> {

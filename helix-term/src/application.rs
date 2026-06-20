@@ -1,3 +1,4 @@
+#![allow(clippy::missing_errors_doc)]
 use arc_swap::{ArcSwap, access::Map};
 use futures_util::Stream;
 use helix_core::{Range, Selection, diagnostic::Severity, pos_at_coords, syntax};
@@ -150,7 +151,7 @@ impl Application {
 
             // If the first file is a directory, skip it and open a picker
             if let Some((first, _)) = files_it.next_if(|(p, _)| p.is_dir()) {
-                let picker = ui::file_picker(&editor, first);
+                let picker = ui::file_picker(&editor, &first);
                 compositor.push(Box::new(overlaid(picker)));
             }
 
@@ -159,62 +160,61 @@ impl Application {
                 let mut nr_of_files = 0;
                 for (file, pos) in files_it {
                     nr_of_files += 1;
-                    if !file.is_dir() {
-                        // If the user passes in either `--vsplit` or
-                        // `--hsplit` as a command line argument, all the given
-                        // files will be opened according to the selected
-                        // option. If neither of those two arguments are passed
-                        // in, just load the files normally.
-                        let action = match args.split {
-                            _ if nr_of_files == 1 => Action::VerticalSplit,
-                            Some(Layout::Vertical) => Action::VerticalSplit,
-                            Some(Layout::Horizontal) => Action::HorizontalSplit,
-                            None => Action::Load,
-                        };
-                        let old_id = editor.document_id_by_path(&file);
-                        let doc_id = match editor.open(&file, action) {
-                            // Ignore irregular files during application init.
-                            Err(DocumentOpenError::IrregularFile) => {
-                                nr_of_files -= 1;
-                                continue;
-                            }
-                            Err(err) => return Err(anyhow::anyhow!(err)),
-                            // We can't open more than 1 buffer for 1 file, in this case we already have opened this file previously
-                            Ok(doc_id) if old_id == Some(doc_id) => {
-                                nr_of_files -= 1;
-                                doc_id
-                            }
-                            Ok(doc_id) => doc_id,
-                        };
-                        // with Action::Load all documents have the same view
-                        // NOTE: this isn't necessarily true anymore. If
-                        // `--vsplit` or `--hsplit` are used, the file which is
-                        // opened last is focused on.
-                        let view_id = editor.tree.focus;
-                        let doc = doc_mut!(editor, &doc_id);
-                        let selection = pos
-                            .into_iter()
-                            .map(|coords| {
-                                Range::point(pos_at_coords(doc.text().slice(..), coords, true))
-                            })
-                            .collect();
-                        doc.set_selection(view_id, selection);
-                    } else {
+                    if file.is_dir() {
                         return Err(anyhow::anyhow!(
-                            "expected a path to file, but found a directory: {file:?}. (to open a directory pass it as first argument)"
+                            "expected a path to file, but found a directory: {}. (to open a directory pass it as first argument)",
+                            file.display()
                         ));
                     }
+
+                    // If the user passes in either `--vsplit` or
+                    // `--hsplit` as a command line argument, all the given
+                    // files will be opened according to the selected
+                    // option. If neither of those two arguments are passed
+                    // in, just load the files normally.
+                    let action = match args.split {
+                        _ if nr_of_files == 1 => Action::VerticalSplit,
+                        Some(Layout::Vertical) => Action::VerticalSplit,
+                        Some(Layout::Horizontal) => Action::HorizontalSplit,
+                        None => Action::Load,
+                    };
+                    let old_id = editor.document_id_by_path(&file);
+                    let doc_id = match editor.open(&file, action) {
+                        // Ignore irregular files during application init.
+                        Err(DocumentOpenError::IrregularFile) => {
+                            nr_of_files -= 1;
+                            continue;
+                        }
+                        Err(err) => return Err(anyhow::anyhow!(err)),
+                        // We can't open more than 1 buffer for 1 file, in this case we already have opened this file previously
+                        Ok(doc_id) if old_id == Some(doc_id) => {
+                            nr_of_files -= 1;
+                            doc_id
+                        }
+                        Ok(doc_id) => doc_id,
+                    };
+                    // with Action::Load all documents have the same view
+                    // NOTE: this isn't necessarily true anymore. If
+                    // `--vsplit` or `--hsplit` are used, the file which is
+                    // opened last is focused on.
+                    let view_id = editor.tree.focus;
+                    let doc = doc_mut!(editor, &doc_id);
+                    let selection = pos
+                        .into_iter()
+                        .map(|coords| {
+                            Range::point(pos_at_coords(doc.text().slice(..), coords, true))
+                        })
+                        .collect();
+                    doc.set_selection(view_id, selection);
                 }
 
                 // if all files were invalid, replace with empty buffer
                 if nr_of_files == 0 {
                     editor.new_file(Action::VerticalSplit);
                 } else {
-                    editor.set_status(format!(
-                        "Loaded {} file{}.",
-                        nr_of_files,
-                        if nr_of_files == 1 { "" } else { "s" } // avoid "Loaded 1 files." grammo
-                    ));
+                    if nr_of_files > 1 {
+                        editor.set_status(format!("Loaded {nr_of_files} files."));
+                    }
                     // align the view to center after all files are loaded,
                     // does not affect views without pos since it is at the top
                     let (view, doc) = current!(editor);
@@ -256,7 +256,7 @@ impl Application {
 
         Ok(app)
     }
-
+    #[allow(clippy::unused_async)]
     async fn render(&mut self) {
         if self.compositor.full_redraw {
             self.terminal.clear().expect("Cannot clear the terminal");
@@ -312,12 +312,11 @@ impl Application {
     where
         S: Stream<Item = std::io::Result<TerminalEvent>> + Unpin,
     {
+        use futures_util::StreamExt;
         loop {
             if self.editor.should_close() {
                 return false;
             }
-
-            use futures_util::StreamExt;
 
             tokio::select! {
                 biased;
@@ -325,7 +324,7 @@ impl Application {
                 Some(signal) = self.signals.next() => {
                     if !self.handle_signals(signal).await {
                         return false;
-                    };
+                    }
                 }
                 Some(event) = input_stream.next() => {
                     self.handle_terminal_events(event).await;
@@ -392,7 +391,7 @@ impl Application {
                 app_config.editor = *editor_config;
                 if let Err(err) = self.terminal.reconfigure((&app_config.editor).into()) {
                     self.editor.set_error(err.to_string());
-                };
+                }
                 self.config.store(Arc::new(app_config));
             }
             ConfigEvent::ThemeChanged => {
@@ -421,7 +420,7 @@ impl Application {
     fn refresh_config(&mut self) {
         let mut refresh_config = || -> Result<(), Error> {
             let default_config = Config::load_default()
-                .map_err(|err| anyhow::anyhow!("Failed to load config: {}", err))?;
+                .map_err(|err| anyhow::anyhow!("Failed to load config: {err}"))?;
 
             // Apply any change to editor.workspace_trust before reading local language config.
             self.editor
@@ -461,7 +460,7 @@ impl Application {
         };
 
         match refresh_config() {
-            Ok(_) => {
+            Ok(()) => {
                 self.editor.set_status("Config refreshed");
             }
             Err(err) => {
@@ -489,7 +488,7 @@ impl Application {
                     .theme_loader
                     .load(theme)
                     .map_err(|e| {
-                        log::warn!("failed to load theme `{}` - {}", theme, e);
+                        log::warn!("failed to load theme `{theme}` - {e}");
                         e
                     })
                     .ok()
@@ -542,7 +541,7 @@ impl Application {
 
                 if res != 0 {
                     let err = std::io::Error::last_os_error();
-                    eprintln!("{}", err);
+                    eprintln!("{err}");
                     let res = err.raw_os_error().unwrap_or(1);
                     std::process::exit(res);
                 }
@@ -554,8 +553,8 @@ impl Application {
                 for retries in 1..=10 {
                     match self.terminal.claim() {
                         Ok(()) => break,
-                        Err(err) if retries == 10 => panic!("Failed to claim terminal: {}", err),
-                        Err(_) => continue,
+                        Err(err) if retries == 10 => panic!("Failed to claim terminal: {err}"),
+                        Err(_) => {}
                     }
                 }
 
@@ -593,6 +592,19 @@ impl Application {
     }
 
     pub fn handle_document_write(&mut self, doc_save_event: DocumentSavedEventResult) {
+        enum Size {
+            Bytes(u16),
+            HumanReadable(f32, &'static str),
+        }
+
+        impl std::fmt::Display for Size {
+            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                match self {
+                    Self::Bytes(bytes) => write!(f, "{bytes}B"),
+                    Self::HumanReadable(size, suffix) => write!(f, "{size:.1}{suffix}"),
+                }
+            }
+        }
         let doc_save_event = match doc_save_event {
             Ok(event) => event,
             Err(err) => {
@@ -621,24 +633,11 @@ impl Application {
         let lines = doc_save_event.text.len_lines();
         let size = doc_save_event.text.len_bytes();
 
-        enum Size {
-            Bytes(u16),
-            HumanReadable(f32, &'static str),
-        }
-
-        impl std::fmt::Display for Size {
-            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-                match self {
-                    Self::Bytes(bytes) => write!(f, "{bytes}B"),
-                    Self::HumanReadable(size, suffix) => write!(f, "{size:.1}{suffix}"),
-                }
-            }
-        }
-
         let size = if size < 1024 {
             Size::Bytes(u16::try_from(size).unwrap())
         } else {
             const SUFFIX: [&str; 4] = ["B", "KiB", "MiB", "GiB"];
+            #[allow(clippy::cast_precision_loss)]
             let mut size = size as f32;
             let mut i = 0;
             while i < SUFFIX.len() - 1 && size >= 1024.0 {
@@ -657,9 +656,9 @@ impl Application {
         ));
     }
 
-    #[inline(always)]
+    #[inline]
     pub async fn handle_editor_event(&mut self, event: EditorEvent) -> bool {
-        log::debug!("received editor event: {:?}", event);
+        log::debug!("received editor event: {event:?}");
 
         match event {
             EditorEvent::DocumentSaved(event) => {
@@ -727,7 +726,12 @@ impl Application {
                 let config = self.config.load();
                 let mode = mode.into();
                 let mode_changed = self.theme_mode.as_ref().is_none_or(|m| m != &mode);
-                if mode_changed && config.theme.as_ref().is_some_and(|t| t.is_adaptive()) {
+                if mode_changed
+                    && config
+                        .theme
+                        .as_ref()
+                        .is_some_and(helix_view::theme::Config::is_adaptive)
+                {
                     self.theme_mode = Some(mode);
                     Self::load_configured_theme(
                         &mut self.editor,
@@ -768,7 +772,7 @@ impl Application {
             self.render().await;
         }
     }
-
+    #[allow(clippy::unused_async)]
     pub async fn handle_language_server_message(
         &mut self,
         call: helix_lsp::Call,
@@ -797,10 +801,7 @@ impl Application {
                         return;
                     }
                     Err(err) => {
-                        error!(
-                            "Ignoring unknown notification from Language Server: {}",
-                            err
-                        );
+                        error!("Ignoring unknown notification from Language Server: {err}");
                         return;
                     }
                 };
@@ -852,7 +853,7 @@ impl Application {
                         self.handle_show_message(params.typ, params.message);
                     }
                     Notification::LogMessage(params) => {
-                        log::info!("window/logMessage: {:?}", params);
+                        log::info!("window/logMessage: {params:?}");
                     }
                     Notification::ProgressMessage(params)
                         if !self
@@ -981,26 +982,20 @@ impl Application {
             }) => {
                 let reply = match MethodCall::parse(&method, params) {
                     Err(helix_lsp::Error::Unhandled) => {
-                        error!(
-                            "Language Server: Method {} not found in request {}",
-                            method, id
-                        );
+                        error!("Language Server: Method {method} not found in request {id}");
                         Err(helix_lsp::jsonrpc::Error {
                             code: helix_lsp::jsonrpc::ErrorCode::MethodNotFound,
-                            message: format!("Method not found: {}", method),
+                            message: format!("Method not found: {method}"),
                             data: None,
                         })
                     }
                     Err(err) => {
                         log::error!(
-                            "Language Server: Received malformed method call {} in request {}: {}",
-                            method,
-                            id,
-                            err
+                            "Language Server: Received malformed method call {method} in request {id}: {err}"
                         );
                         Err(helix_lsp::jsonrpc::Error {
                             code: helix_lsp::jsonrpc::ErrorCode::ParseError,
-                            message: format!("Malformed method call: {}", method),
+                            message: format!("Malformed method call: {method}"),
                             data: None,
                         })
                     }
@@ -1044,7 +1039,7 @@ impl Application {
                         }
                     }
                     Ok(MethodCall::WorkspaceFolders) => {
-                        Ok(json!(&*language_server!().workspace_folders().await))
+                        Ok(json!(&*language_server!().workspace_folders()))
                     }
                     Ok(MethodCall::WorkspaceConfiguration(params)) => {
                         let language_server = language_server!();
@@ -1089,7 +1084,7 @@ impl Application {
                                             Arc::downgrade(client),
                                             reg.id,
                                             ops,
-                                        )
+                                        );
                                     }
                                     _ => {
                                         // Language Servers based on the `vscode-languageserver-node` library often send
@@ -1186,7 +1181,7 @@ impl Application {
                     );
                 }
             }
-            Call::Invalid { id } => log::error!("LSP invalid method call id={:?}", id),
+            Call::Invalid { id } => log::error!("LSP invalid method call id={id:?}"),
         }
     }
 
@@ -1213,7 +1208,7 @@ impl Application {
         {
             self.jobs.callback(crate::open_external_url_callback(&uri));
             return lsp::ShowDocumentResult { success: true };
-        };
+        }
 
         let lsp::ShowDocumentParams {
             uri,
@@ -1248,7 +1243,7 @@ impl Application {
         let doc_id = match self.editor.open(path, action) {
             Ok(id) => id,
             Err(err) => {
-                log::error!("failed to open path: {:?}: {:?}", uri, err);
+                log::error!("failed to open path: {uri:?}: {err:?}");
                 return lsp::ShowDocumentResult { success: false };
             }
         };
@@ -1266,9 +1261,9 @@ impl Application {
                     align_view(doc, view, Align::Center);
                 }
             } else {
-                log::warn!("lsp position out of bounds - {:?}", range);
-            };
-        };
+                log::warn!("lsp position out of bounds - {range:?}");
+            }
+        }
         lsp::ShowDocumentResult { success: true }
     }
 
@@ -1337,7 +1332,7 @@ impl Application {
 
         for err in close_errs {
             self.editor.exit_code = 1;
-            eprintln!("Error: {}", err);
+            eprintln!("Error: {err}");
         }
 
         Ok(self.editor.exit_code)
@@ -1354,12 +1349,12 @@ impl Application {
             .finish(&mut self.editor, Some(&mut self.compositor))
             .await
         {
-            log::error!("Error executing job: {}", err);
+            log::error!("Error executing job: {err}");
             errs.push(err);
-        };
+        }
 
         if let Err(err) = self.editor.flush_writes().await {
-            log::error!("Error writing: {}", err);
+            log::error!("Error writing: {err}");
             errs.push(err);
         }
 

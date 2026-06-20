@@ -104,12 +104,12 @@ pub fn toggle_line_comments(doc: &Rope, selection: &Selection, token: Option<&st
     for line in to_change {
         let pos = text.line_to_char(line) + min;
 
-        if !commented {
-            // comment line
-            changes.push((pos, pos, Some(comment.clone())));
-        } else {
+        if commented {
             // uncomment line
             changes.push((pos, pos + token.len() + margin, None));
+        } else {
+            // comment line
+            changes.push((pos, pos, Some(comment.clone())));
         }
     }
 
@@ -180,12 +180,12 @@ pub fn find_block_comments(
 
                 if len >= start_len + end_len {
                     let start_fragment = selection_slice.slice(start_pos..after_start);
-                    let end_fragment = selection_slice.slice(before_end + 1..end_pos + 1);
+                    let end_fragment = selection_slice.slice(before_end + 1..=end_pos);
 
                     // block commented with these tokens
                     if start_fragment == start.as_str() && end_fragment == end.as_str() {
-                        start_token = start.to_string();
-                        end_token = end.to_string();
+                        start_token.clone_from(start);
+                        end_token.clone_from(end);
                         line_commented = true;
                         break;
                     }
@@ -200,8 +200,8 @@ pub fn find_block_comments(
                     start_margin: selection_slice.get_char(after_start) == Some(' '),
                     end_margin: after_start != before_end
                         && (selection_slice.get_char(before_end) == Some(' ')),
-                    start_token: start_token.to_string(),
-                    end_token: end_token.to_string(),
+                    start_token: start_token.clone(),
+                    end_token: end_token.clone(),
                 });
             } else {
                 comment_changes.push(CommentChange::Uncommented {

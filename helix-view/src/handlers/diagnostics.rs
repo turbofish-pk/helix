@@ -75,6 +75,7 @@ impl Clone for DiagnosticsHandler {
 
 impl DiagnosticsHandler {
     #[allow(clippy::new_without_default)]
+    #[must_use]
     pub fn new() -> Self {
         let active_generation = Arc::new(AtomicUsize::new(0));
         let events = DiagnosticTimeout {

@@ -378,7 +378,7 @@ pub fn char_idx_at_visual_offset(
     loop {
         let (visual_pos_in_block, block_char_offset) =
             visual_offset_from_block(text, anchor, pos, text_fmt, annotations);
-        row_offset += visual_pos_in_block.row as isize;
+        row_offset += visual_pos_in_block.row.cast_signed();
         anchor = block_char_offset;
         if row_offset >= 0 {
             break;
@@ -398,7 +398,7 @@ pub fn char_idx_at_visual_offset(
     char_idx_at_visual_block_offset(
         text,
         anchor,
-        row_offset as usize,
+        usize::try_from(row_offset).unwrap(),
         column,
         text_fmt,
         annotations,
@@ -491,7 +491,7 @@ mod test {
         assert_eq!(coords_at_pos(slice, 6), (1, 0).into());
 
         // Test with grapheme clusters.
-        let text = Rope::from("a̐éö̲\r\n");
+        let text = Rope::from("a̐éö̲\r\n");
         let slice = text.slice(..);
         assert_eq!(coords_at_pos(slice, 0), (0, 0).into());
         assert_eq!(coords_at_pos(slice, 2), (0, 1).into());
@@ -539,7 +539,7 @@ mod test {
         assert_eq!(visual_coords_at_pos(slice, 6, 8), (1, 0).into());
 
         // Test with grapheme clusters.
-        let text = Rope::from("a̐éö̲\r\n");
+        let text = Rope::from("a̐éö̲\r\n");
         let slice = text.slice(..);
         assert_eq!(visual_coords_at_pos(slice, 0, 8), (0, 0).into());
         assert_eq!(visual_coords_at_pos(slice, 2, 8), (0, 1).into());
@@ -625,7 +625,7 @@ mod test {
         );
 
         // Test with grapheme clusters.
-        let text = Rope::from("a̐éö̲\r\n");
+        let text = Rope::from("a̐éö̲\r\n");
         let slice = text.slice(..);
         assert_eq!(
             visual_offset_from_block(slice, 0, 0, &text_fmt, &annot).0,
@@ -716,7 +716,7 @@ mod test {
         assert_eq!(pos_at_coords(slice, (1, 0).into(), false), 6);
 
         // Test with grapheme clusters.
-        let text = Rope::from("a̐éö̲\r\n");
+        let text = Rope::from("a̐éö̲\r\n");
         let slice = text.slice(..);
         assert_eq!(pos_at_coords(slice, (0, 0).into(), false), 0);
         assert_eq!(pos_at_coords(slice, (0, 1).into(), false), 2);
@@ -784,7 +784,7 @@ mod test {
         assert_eq!(pos_at_visual_coords(slice, (1, 0).into(), 4), 6);
 
         // Test with grapheme clusters.
-        let text = Rope::from("a̐éö̲\r\n");
+        let text = Rope::from("a̐éö̲\r\n");
         let slice = text.slice(..);
         assert_eq!(pos_at_visual_coords(slice, (0, 0).into(), 4), 0);
         assert_eq!(pos_at_visual_coords(slice, (0, 1).into(), 4), 2);
@@ -859,14 +859,14 @@ mod test {
                 assert_eq!(
                     char_idx_at_visual_offset(
                         slice,
-                        slice.line_to_char(i as usize),
+                        slice.line_to_char(i.cast_unsigned()),
                         j,
                         3,
                         &text_fmt,
                         &TextAnnotations::default(),
                     )
                     .0,
-                    slice.line_to_char((i + j) as usize) + 3
+                    slice.line_to_char((i + j).cast_unsigned()) + 3
                 );
             }
         }

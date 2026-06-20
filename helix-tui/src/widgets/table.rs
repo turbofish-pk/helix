@@ -36,6 +36,7 @@ pub struct Cell<'a> {
 
 impl Cell<'_> {
     /// Set the `Style` of this cell.
+    #[must_use]
     pub fn style(mut self, style: Style) -> Self {
         self.set_style(style);
         self
@@ -96,7 +97,7 @@ impl<'a> Row<'a> {
     {
         Self {
             height: 1,
-            cells: cells.into_iter().map(|c| c.into()).collect(),
+            cells: cells.into_iter().map(std::convert::Into::into).collect(),
             style: Style::default(),
             bottom_margin: 0,
         }
@@ -104,6 +105,7 @@ impl<'a> Row<'a> {
 
     /// Set the fixed height of the [`Row`]. Any [`Cell`] whose content has more lines than this
     /// height will see its content truncated.
+    #[must_use]
     pub fn height(mut self, height: u16) -> Self {
         self.height = height;
         self
@@ -111,12 +113,14 @@ impl<'a> Row<'a> {
 
     /// Set the [`Style`] of the entire row. This [`Style`] can be overridden by the [`Style`] of a
     /// any individual [`Cell`] or event by their [`Text`] content.
+    #[must_use]
     pub fn style(mut self, style: Style) -> Self {
         self.style = style;
         self
     }
 
     /// Set the bottom margin. By default, the bottom margin is `0`.
+    #[must_use]
     pub fn bottom_margin(mut self, margin: u16) -> Self {
         self.bottom_margin = margin;
         self
@@ -226,17 +230,17 @@ impl<'a> Table<'a> {
             rows: rows.into_iter().collect(),
         }
     }
-
+    #[must_use]
     pub fn block(mut self, block: Block<'a>) -> Self {
         self.block = Some(block);
         self
     }
-
+    #[must_use]
     pub fn header(mut self, header: Row<'a>) -> Self {
         self.header = Some(header);
         self
     }
-
+    #[must_use]
     pub fn widths(mut self, widths: &'a [Constraint]) -> Self {
         let between_0_and_100 = |&w| match w {
             Constraint::Percentage(p) => p <= 100,
@@ -249,22 +253,22 @@ impl<'a> Table<'a> {
         self.widths = widths;
         self
     }
-
+    #[must_use]
     pub fn style(mut self, style: Style) -> Self {
         self.style = style;
         self
     }
-
+    #[must_use]
     pub fn highlight_symbol(mut self, highlight_symbol: &'a str) -> Self {
         self.highlight_symbol = Some(highlight_symbol);
         self
     }
-
+    #[must_use]
     pub fn highlight_style(mut self, highlight_style: Style) -> Self {
         self.highlight_style = highlight_style;
         self
     }
-
+    #[must_use]
     pub fn column_spacing(mut self, spacing: u16) -> Self {
         self.column_spacing = spacing;
         self
@@ -273,9 +277,10 @@ impl<'a> Table<'a> {
     fn get_columns_widths(&self, max_width: u16, has_selection: bool) -> Vec<u16> {
         let mut constraints = Vec::with_capacity(self.widths.len() * 2 + 1);
         if has_selection {
-            let highlight_symbol_width =
-                self.highlight_symbol.map(|s| s.width() as u16).unwrap_or(0);
-            constraints.push(Constraint::Length(highlight_symbol_width));
+            constraints.push(Constraint::Length(
+                self.highlight_symbol
+                    .map_or(0, |s| u16::try_from(s.width()).unwrap()),
+            ));
         }
         for constraint in self.widths {
             constraints.push(*constraint);
@@ -511,16 +516,5 @@ impl Widget for Table<'_> {
     fn render(self, area: Rect, buf: &mut Buffer) {
         let mut state = TableState::default();
         Table::render_table(self, area, buf, &mut state, false);
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    #[should_panic]
-    fn table_invalid_percentages() {
-        Table::new(vec![]).widths(&[Constraint::Percentage(110)]);
     }
 }

@@ -67,7 +67,7 @@ impl ChangeSetBuilder<'_> {
                         fragment.push_str(chunk);
                     }
                 }
-            };
+            }
             self.res.insert(fragment);
         } else {
             // for reasonably small hunks, generating a ChangeSet from char diff can save memory
