@@ -158,9 +158,6 @@ pub fn default() -> HashMap<Mode, KeyTrie> {
         // paste_all
         "P" => paste_before,
 
-        "Q" => record_macro,
-        "q" => replay_macro,
-
         ">" => indent,
         "<" => unindent,
         "=" => format_selections,
@@ -171,9 +168,6 @@ pub fn default() -> HashMap<Mode, KeyTrie> {
 
         "," => keep_primary_selection,
         "A-," => remove_primary_selection,
-
-        // "q" => record_macro,
-        // "Q" => replay_macro,
 
         "&" => align_selections,
         "_" => trim_selections,
