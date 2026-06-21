@@ -19,7 +19,7 @@ body:
     attributes:
       label: Reproduction Steps
       value: |
-        <!-- Ideally provide a key sequence and/or asciinema.org recording. --> 
+        <!-- Ideally provide a key sequence and/or asciinema.org recording. -->
 
         I tried this:
 
@@ -45,7 +45,7 @@ body:
     id: platform
     attributes:
       label: Platform
-      placeholder: Linux / macOS / Windows
+      placeholder: Linux
     validations:
       required: true
   - type: input

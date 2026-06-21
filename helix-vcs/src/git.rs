@@ -118,7 +118,7 @@ fn open_repo(path: &Path, trust_full: bool) -> Result<ThreadSafeRepository> {
         user: true,
         env: true,
         includes: true,
-        git_binary: cfg!(windows),
+        git_binary: false,
     };
 
     let permissions = gix::open::Permissions {

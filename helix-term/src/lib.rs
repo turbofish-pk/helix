@@ -15,7 +15,6 @@ pub mod keymap;
 pub mod logging;
 pub mod ui;
 
-#[cfg(not(windows))]
 use std::env::var_os;
 
 use std::path::Path;
@@ -27,12 +26,6 @@ mod handlers;
 use helix_stdx::Url;
 use ignore::DirEntry;
 
-#[cfg(windows)]
-fn true_color() -> bool {
-    true
-}
-
-#[cfg(not(windows))]
 fn true_color() -> bool {
     if var_os("COLORTERM").is_some_and(|v| v == "truecolor" || v == "24bit")
         || var_os("WSL_DISTRO_NAME").is_some()

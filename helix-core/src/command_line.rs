@@ -1068,7 +1068,7 @@ mod test {
     }
 
     // This escaping behavior is specific to Unix systems.
-    #[cfg(unix)]
+
     #[test]
     fn tokenize_backslash_unix() {
         assert_tokens(r"hello\ world", &["hello world"]);

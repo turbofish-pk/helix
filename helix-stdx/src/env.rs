@@ -23,13 +23,12 @@ pub fn current_working_dir() -> PathBuf {
     let mut cwd = std::env::current_dir().expect("Couldn't determine current working directory");
 
     let pwd = std::env::var_os("PWD");
-    #[cfg(windows)]
-    let pwd = pwd.or_else(|| std::env::var_os("CD"));
 
     if let Some(pwd) = pwd.map(PathBuf::from)
-        && pwd.canonicalize().ok().as_ref() == Some(&cwd) {
-            cwd = pwd;
-        }
+        && pwd.canonicalize().ok().as_ref() == Some(&cwd)
+    {
+        cwd = pwd;
+    }
     let mut dst = CWD.write().unwrap();
     *dst = Some(cwd.clone());
 
@@ -70,7 +69,8 @@ pub fn which<T: AsRef<OsStr>>(
 fn find_brace_end(src: &[u8]) -> Option<usize> {
     use regex_automata::meta::Regex;
 
-    static REGEX: sync::LazyLock<Regex> = sync::LazyLock::new(|| Regex::builder().build("[{}]").unwrap());
+    static REGEX: sync::LazyLock<Regex> =
+        sync::LazyLock::new(|| Regex::builder().build("[{}]").unwrap());
     let mut depth = 0;
     for mat in REGEX.find_iter(src) {
         let pos = mat.start();
@@ -116,8 +116,7 @@ fn expand_impl(src: &OsStr, mut resolve: impl FnMut(&OsStr) -> Option<OsString>)
         let var = &bytes[captures.get_group(1).unwrap().range()];
         let default = if pattern_id == 5 {
             &[]
-
-            } else {
+        } else {
             let Some(bracket_pos) = find_brace_end(&bytes[range.end..]) else {
                 break;
             };

@@ -111,13 +111,10 @@ fn directory() {
 /// replaced by a file. If the contents of the symlink object were returned
 /// a diff between a literal file path and the actual file content would be
 /// produced (bad ui).
-#[cfg(any(unix, windows))]
+
 #[test]
 fn symlink() {
-    #[cfg(unix)]
     use std::os::unix::fs::symlink;
-    #[cfg(not(unix))]
-    use std::os::windows::fs::symlink_file as symlink;
 
     let temp_git = empty_git_repo();
     let file = temp_git.path().join("file.txt");
@@ -134,13 +131,10 @@ fn symlink() {
 
 /// Test that `get_diff_base` returns content when the file is a symlink to
 /// another file that is in a git repo, but the symlink itself is not.
-#[cfg(any(unix, windows))]
+
 #[test]
 fn symlink_to_git_repo() {
-    #[cfg(unix)]
     use std::os::unix::fs::symlink;
-    #[cfg(not(unix))]
-    use std::os::windows::fs::symlink_file as symlink;
 
     let temp_dir = tempfile::tempdir().expect("create temp dir");
     let temp_git = empty_git_repo();

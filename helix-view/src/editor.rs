@@ -576,30 +576,6 @@ pub struct TerminalConfig {
     pub args: Vec<String>,
 }
 
-#[cfg(windows)]
-pub fn get_terminal_provider() -> Option<TerminalConfig> {
-    use helix_stdx::env::binary_exists;
-
-    if binary_exists("wt") {
-        return Some(TerminalConfig {
-            command: "wt".to_string(),
-            args: vec![
-                "new-tab".to_string(),
-                "--title".to_string(),
-                "DEBUG".to_string(),
-                "cmd".to_string(),
-                "/C".to_string(),
-            ],
-        });
-    }
-
-    Some(TerminalConfig {
-        command: "conhost".to_string(),
-        args: vec!["cmd".to_string(), "/C".to_string()],
-    })
-}
-
-#[cfg(not(any(windows, target_arch = "wasm32")))]
 #[must_use]
 pub fn get_terminal_provider() -> Option<TerminalConfig> {
     use helix_stdx::env::{binary_exists, env_var_is_set};
@@ -1131,15 +1107,6 @@ pub enum LineEndingConfig {
     LF,
     /// Carriage return followed by line feed.
     Crlf,
-    /// Form feed.
-    #[cfg(feature = "unicode-lines")]
-    FF,
-    /// Carriage return.
-    #[cfg(feature = "unicode-lines")]
-    CR,
-    /// Next line.
-    #[cfg(feature = "unicode-lines")]
-    Nel,
 }
 
 impl From<LineEndingConfig> for LineEnding {
@@ -1148,12 +1115,6 @@ impl From<LineEndingConfig> for LineEnding {
             LineEndingConfig::Native => NATIVE_LINE_ENDING,
             LineEndingConfig::LF => LineEnding::LF,
             LineEndingConfig::Crlf => LineEnding::Crlf,
-            #[cfg(feature = "unicode-lines")]
-            LineEndingConfig::FF => LineEnding::FF,
-            #[cfg(feature = "unicode-lines")]
-            LineEndingConfig::CR => LineEnding::CR,
-            #[cfg(feature = "unicode-lines")]
-            LineEndingConfig::Nel => LineEnding::Nel,
         }
     }
 }
@@ -1190,11 +1151,7 @@ impl Default for Config {
             scroll_lines: 3,
             mouse: true,
             mouse_yank_register: '*',
-            shell: if cfg!(windows) {
-                vec!["cmd".to_owned(), "/C".to_owned()]
-            } else {
-                vec!["sh".to_owned(), "-c".to_owned()]
-            },
+            shell: vec!["sh".to_owned(), "-c".to_owned()],
             line_number: LineNumber::Absolute,
             cursorline: false,
             cursorcolumn: false,

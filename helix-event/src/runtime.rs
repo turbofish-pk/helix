@@ -13,14 +13,12 @@
 
 use std::ops::Deref;
 
-#[cfg(not(feature = "integration_test"))]
 pub struct RuntimeLocal<T: 'static> {
     /// inner API used in the macro, not part of public API
     #[doc(hidden)]
     pub __data: T,
 }
 
-#[cfg(not(feature = "integration_test"))]
 impl<T> Deref for RuntimeLocal<T> {
     type Target = T;
 
@@ -29,61 +27,11 @@ impl<T> Deref for RuntimeLocal<T> {
     }
 }
 
-#[cfg(not(feature = "integration_test"))]
 #[macro_export]
 macro_rules! runtime_local {
     ($($(#[$attr:meta])* $vis: vis static $name:ident: $ty: ty = $init: expr;)*) => {
         $($(#[$attr])* $vis static $name: $crate::runtime::RuntimeLocal<$ty> = $crate::runtime::RuntimeLocal {
             __data: $init
         };)*
-    };
-}
-
-#[cfg(feature = "integration_test")]
-pub struct RuntimeLocal<T: 'static> {
-    data: parking_lot::RwLock<
-        hashbrown::HashMap<tokio::runtime::Id, &'static T, foldhash::fast::FixedState>,
-    >,
-    init: fn() -> T,
-}
-
-#[cfg(feature = "integration_test")]
-impl<T> RuntimeLocal<T> {
-    /// inner API used in the macro, not part of public API
-    #[doc(hidden)]
-    pub const fn __new(init: fn() -> T) -> Self {
-        Self {
-            data: parking_lot::RwLock::new(hashbrown::HashMap::with_hasher(
-                foldhash::fast::FixedState::with_seed(12345678910),
-            )),
-            init,
-        }
-    }
-}
-
-#[cfg(feature = "integration_test")]
-impl<T> Deref for RuntimeLocal<T> {
-    type Target = T;
-    fn deref(&self) -> &T {
-        let id = tokio::runtime::Handle::current().id();
-        let guard = self.data.read();
-        match guard.get(&id) {
-            Some(res) => res,
-            None => {
-                drop(guard);
-                let data = Box::leak(Box::new((self.init)()));
-                let mut guard = self.data.write();
-                guard.insert(id, data);
-                data
-            }
-        }
-    }
-}
-
-#[cfg(feature = "integration_test")]
-#[macro_export]
-macro_rules! runtime_local {
-    ($($(#[$attr:meta])* $vis: vis static $name:ident: $ty: ty = $init: expr;)*) => {
-         $($(#[$attr])* $vis static $name: $crate::runtime::RuntimeLocal<$ty> = $crate::runtime::RuntimeLocal::__new(|| $init);)*
     };
 }

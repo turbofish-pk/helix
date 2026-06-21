@@ -36,34 +36,15 @@ use std::{
     sync::Arc,
 };
 
-#[cfg_attr(windows, allow(unused_imports))]
 use anyhow::{Context, Error};
 
-#[cfg(not(windows))]
 use {signal_hook::consts::signal, signal_hook_tokio::Signals};
-#[cfg(windows)]
-type Signals = futures_util::stream::Empty<()>;
 
-#[cfg(all(not(windows), not(feature = "integration")))]
 use tui::backend::TerminaBackend;
 
-#[cfg(all(windows, not(feature = "integration")))]
-use tui::backend::CrosstermBackend;
-
-#[cfg(feature = "integration")]
-use tui::backend::TestBackend;
-
-#[cfg(all(not(windows), not(feature = "integration")))]
 type TerminalBackend = TerminaBackend;
-#[cfg(all(windows, not(feature = "integration")))]
-type TerminalBackend = CrosstermBackend<std::io::Stdout>;
-#[cfg(feature = "integration")]
-type TerminalBackend = TestBackend;
 
-#[cfg(not(windows))]
 type TerminalEvent = termina::Event;
-#[cfg(windows)]
-type TerminalEvent = crossterm::event::Event;
 
 type Terminal = tui::terminal::Terminal<TerminalBackend>;
 
@@ -81,15 +62,6 @@ pub struct Application {
     theme_mode: Option<theme::Mode>,
 }
 
-#[cfg(feature = "integration")]
-fn setup_integration_logging() {
-    let level = std::env::var("HELIX_LOG_LEVEL")
-        .map(|lvl| lvl.parse().unwrap())
-        .unwrap_or(log::LevelFilter::Info);
-
-    crate::logging::init_stdout(level);
-}
-
 impl Application {
     pub fn new(
         args: Args,
@@ -97,23 +69,14 @@ impl Application {
         lang_loader: syntax::Loader,
         workspace_trust: helix_loader::workspace_trust::WorkspaceTrust,
     ) -> Result<Self, Error> {
-        #[cfg(feature = "integration")]
-        setup_integration_logging();
-
         use helix_view::editor::Action;
 
         let mut theme_parent_dirs = vec![helix_loader::config_dir()];
         theme_parent_dirs.extend(helix_loader::runtime_dirs().iter().cloned());
         let theme_loader = theme::Loader::new(&theme_parent_dirs);
 
-        #[cfg(all(not(windows), not(feature = "integration")))]
         let backend = TerminaBackend::new((&config.editor).into())
             .context("failed to create terminal backend")?;
-        #[cfg(all(windows, not(feature = "integration")))]
-        let backend = CrosstermBackend::new(std::io::stdout(), (&config.editor).into());
-
-        #[cfg(feature = "integration")]
-        let backend = TestBackend::new(120, 150);
 
         let theme_mode = backend.get_theme_mode();
         let mut terminal = Terminal::new(backend)?;
@@ -223,7 +186,7 @@ impl Application {
             } else {
                 editor.new_file(Action::VerticalSplit);
             }
-        } else if stdin().is_terminal() || cfg!(feature = "integration") {
+        } else if stdin().is_terminal() {
             editor.new_file(Action::VerticalSplit);
         } else {
             editor
@@ -231,9 +194,6 @@ impl Application {
                 .unwrap_or_else(|_| editor.new_file(Action::VerticalSplit));
         }
 
-        #[cfg(windows)]
-        let signals = futures_util::stream::empty();
-        #[cfg(not(windows))]
         let signals = Signals::new([
             signal::SIGTSTP,
             signal::SIGCONT,
@@ -354,25 +314,7 @@ impl Application {
                 }
                 event = self.editor.wait_event() => {
                     let _idle_handled = self.handle_editor_event(event).await;
-
-                    #[cfg(feature = "integration")]
-                    {
-                        // Don't report idle while a save is still in flight, or an assertion on the post-save document state (e.g. its path,
-                        // set in `handle_document_write`) can run before the `DocumentSavedEvent` is processed. Slow file I/O on Windows
-                        // (atomic_save's rename/fsync dance over the still-open temp file) makes this race observable.
-                        // Errors produce an event too, so it cannot hang.
-                        if _idle_handled && self.editor.write_count == 0 {
-                            return true;
-                        }
-                    }
                 }
-            }
-
-            // for integration tests only, reset the idle timer after every
-            // event to signal when test events are done processing
-            #[cfg(feature = "integration")]
-            {
-                self.editor.reset_idle_timer();
             }
         }
     }
@@ -508,13 +450,6 @@ impl Application {
         let _ = editor.set_theme(theme);
     }
 
-    #[cfg(windows)]
-    // no signal handling available on windows
-    pub async fn handle_signals(&mut self, _signal: ()) -> bool {
-        true
-    }
-
-    #[cfg(not(windows))]
     pub async fn handle_signals(&mut self, signal: i32) -> bool {
         match signal {
             signal::SIGTSTP => {
@@ -680,11 +615,6 @@ impl Application {
             EditorEvent::IdleTimer => {
                 self.editor.clear_idle_timer();
                 self.handle_idle_timeout().await;
-
-                #[cfg(feature = "integration")]
-                {
-                    return true;
-                }
             }
         }
 
@@ -692,7 +622,6 @@ impl Application {
     }
 
     pub async fn handle_terminal_events(&mut self, event: std::io::Result<TerminalEvent>) {
-        #[cfg(not(windows))]
         use termina::escape::csi;
 
         let mut cx = crate::compositor::Context {
@@ -702,7 +631,6 @@ impl Application {
         };
         // Handle key events
         let should_redraw = match event.unwrap() {
-            #[cfg(not(windows))]
             termina::Event::WindowResized(termina::WindowSize { rows, cols, .. }) => {
                 self.terminal
                     .resize(Rect::new(0, 0, cols, rows))
@@ -715,13 +643,13 @@ impl Application {
                 self.compositor
                     .handle_event(&Event::Resize(cols, rows), &mut cx)
             }
-            #[cfg(not(windows))]
+
             // Ignore keyboard release events.
             termina::Event::Key(termina::event::KeyEvent {
                 kind: termina::event::KeyEventKind::Release,
                 ..
             }) => false,
-            #[cfg(not(windows))]
+
             termina::Event::Csi(csi::Csi::Mode(csi::Mode::ReportTheme(mode))) => {
                 let config = self.config.load();
                 let mode = mode.into();
@@ -744,26 +672,7 @@ impl Application {
                     false
                 }
             }
-            #[cfg(windows)]
-            TerminalEvent::Resize(width, height) => {
-                self.terminal
-                    .resize(Rect::new(0, 0, width, height))
-                    .expect("Unable to resize terminal");
 
-                let area = self.terminal.size();
-
-                self.compositor.resize(area);
-
-                self.compositor
-                    .handle_event(&Event::Resize(width, height), &mut cx)
-            }
-            #[cfg(windows)]
-            // Ignore keyboard release events.
-            crossterm::event::Event::Key(crossterm::event::KeyEvent {
-                kind: crossterm::event::KeyEventKind::Release,
-                ..
-            }) => false,
-            #[cfg(not(windows))]
             event if event.is_escape() => false,
             event => self.compositor.handle_event(&event.into(), &mut cx),
         };
@@ -1276,7 +1185,6 @@ impl Application {
         self.terminal.restore()
     }
 
-    #[cfg(all(not(feature = "integration"), not(windows)))]
     pub fn event_stream(
         &self,
     ) -> impl Stream<Item = std::io::Result<TerminalEvent>> + Unpin + use<> {
@@ -1290,32 +1198,6 @@ impl Application {
                     termina::Event::Csi(csi::Csi::Mode(csi::Mode::ReportTheme(_)))
                 )
         })
-    }
-
-    #[cfg(all(not(feature = "integration"), windows))]
-    pub fn event_stream(&self) -> impl Stream<Item = std::io::Result<TerminalEvent>> + Unpin {
-        crossterm::event::EventStream::new()
-    }
-
-    #[cfg(feature = "integration")]
-    pub fn event_stream(&self) -> impl Stream<Item = std::io::Result<TerminalEvent>> + Unpin {
-        use std::{
-            pin::Pin,
-            task::{Context, Poll},
-        };
-
-        /// A dummy stream that never polls as ready.
-        pub struct DummyEventStream;
-
-        impl Stream for DummyEventStream {
-            type Item = std::io::Result<TerminalEvent>;
-
-            fn poll_next(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-                Poll::Pending
-            }
-        }
-
-        DummyEventStream
     }
 
     pub async fn run<S>(&mut self, input_stream: &mut S) -> Result<i32, Error>

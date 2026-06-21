@@ -1186,7 +1186,6 @@ impl Document {
                     // not the same code, so we need to suppress the unreachable_patterns lint on
                     // Unix generally.
                     #[allow(unreachable_patterns)]
-                    #[cfg(unix)]
                     Err(err)
                         if matches!(err.raw_os_error(), Some(libc::ENOTSUP | libc::EOPNOTSUPP)) => {
                     }

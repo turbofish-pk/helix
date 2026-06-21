@@ -16,17 +16,7 @@ use tree_house::tree_sitter::Grammar;
 use crate::config::user_lang_config;
 use crate::workspace_trust::{Config, WorkspaceTrust};
 
-#[cfg(target_os = "macos")]
-const DYLIB_EXTENSION: &str = "dylib";
-
-#[cfg(all(unix, not(target_os = "macos")))]
 const DYLIB_EXTENSION: &str = "so";
-
-#[cfg(windows)]
-const DYLIB_EXTENSION: &str = "dll";
-
-#[cfg(target_arch = "wasm32")]
-const DYLIB_EXTENSION: &str = "wasm";
 
 #[derive(Debug, Serialize, Deserialize)]
 struct Configuration {
@@ -68,12 +58,6 @@ pub enum GrammarSource {
 const BUILD_TARGET: &str = env!("BUILD_TARGET");
 const REMOTE_NAME: &str = "origin";
 
-#[cfg(target_arch = "wasm32")]
-pub fn get_language(name: &str) -> Result<Option<Grammar>> {
-    unimplemented!()
-}
-
-#[cfg(not(target_arch = "wasm32"))]
 pub fn get_language(name: &str) -> Result<Option<Grammar>> {
     let mut rel_library_path = PathBuf::new().join("grammars").join(name);
     rel_library_path.set_extension(DYLIB_EXTENSION);
@@ -651,7 +635,6 @@ fn build_tree_sitter_library(
             .arg("/link")
             .arg(format!("/out:{}", library_path.to_str().unwrap()));
     } else {
-        #[cfg(not(windows))]
         command.arg("-fPIC");
 
         command
@@ -675,7 +658,6 @@ fn build_tree_sitter_library(
                 let object_file =
                     library_path.with_file_name(format!("{}_scanner.o", &grammar.grammar_id));
 
-                #[cfg(not(windows))]
                 cpp_command.arg("-fPIC");
 
                 cpp_command
@@ -702,13 +684,9 @@ fn build_tree_sitter_library(
                 _path_guard = TempPath::try_from_path(object_file).unwrap();
             }
         }
-        command.arg("-xc").arg("-std=c11").arg(parser_path);
-        if cfg!(all(
-            unix,
-            not(any(target_os = "macos", target_os = "illumos"))
-        )) {
-            command.arg("-Wl,-z,relro,-z,now");
-        }
+        command.arg("-xc").arg("-std=c23").arg(parser_path);
+
+        command.arg("-Wl,-z,relro,-z,now");
     }
 
     let output = command

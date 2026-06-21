@@ -694,16 +694,6 @@ fn set_line_ending(
         cx.editor.set_status(match line_ending {
             Crlf => "crlf",
             LF => "line feed",
-            #[cfg(feature = "unicode-lines")]
-            FF => "form feed",
-            #[cfg(feature = "unicode-lines")]
-            CR => "carriage return",
-            #[cfg(feature = "unicode-lines")]
-            Nel => "next line",
-
-            // These should never be a document's default line ending.
-            #[cfg(feature = "unicode-lines")]
-            VT | LS | PS => "error",
         });
 
         return Ok(());
@@ -718,12 +708,7 @@ fn set_line_ending(
     let line_ending = match arg {
         arg if arg.starts_with("crlf") => Crlf,
         arg if arg.starts_with("lf") => LF,
-        #[cfg(feature = "unicode-lines")]
-        arg if arg.starts_with("cr") => CR,
-        #[cfg(feature = "unicode-lines")]
-        arg if arg.starts_with("ff") => FF,
-        #[cfg(feature = "unicode-lines")]
-        arg if arg.starts_with("nel") => Nel,
+
         _ => bail!("invalid line ending"),
     };
     let (view, doc) = current!(cx.editor);
@@ -3172,10 +3157,7 @@ pub const TYPABLE_COMMAND_LIST: &[TypableCommand] = &[
     TypableCommand {
         name: "line-ending",
         aliases: &[],
-        #[cfg(not(feature = "unicode-lines"))]
         doc: "Set the document's default line ending. Options: crlf, lf.",
-        #[cfg(feature = "unicode-lines")]
-        doc: "Set the document's default line ending. Options: crlf, lf, cr, ff, nel.",
         fun: set_line_ending,
         completer: CommandCompleter::none(),
         signature: Signature {

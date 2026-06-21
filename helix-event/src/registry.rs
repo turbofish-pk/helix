@@ -5,9 +5,9 @@
 
 use std::any::TypeId;
 
-use anyhow::{bail, Result};
-use hashbrown::hash_map::Entry;
+use anyhow::{Result, bail};
 use hashbrown::HashMap;
+use hashbrown::hash_map::Entry;
 use parking_lot::RwLock;
 
 use crate::hook::ErasedHook;
@@ -26,7 +26,7 @@ impl Registry {
             Entry::Occupied(entry) => {
                 if entry.get() == &ty {
                     // don't warn during tests to avoid log spam
-                    #[cfg(not(feature = "integration_test"))]
+
                     panic!("Event {} was registered multiple times", E::ID);
                 } else {
                     panic!("Multiple events with ID {} were registered", E::ID);

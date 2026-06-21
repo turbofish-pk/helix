@@ -134,8 +134,6 @@ impl EditorConfig {
             .and_then(|value| match value.as_ref() {
                 "lf" => Some(LineEnding::LF),
                 "crlf" => Some(LineEnding::Crlf),
-                #[cfg(feature = "unicode-lines")]
-                "cr" => Some(LineEnding::CR),
                 _ => None,
             });
         let encoding = pairs.get("charset").and_then(|value| match value.as_ref() {
