@@ -187,8 +187,8 @@ pub fn build_grammars(target: Option<String>, strict: bool) -> Result<()> {
         let current = counter.fetch_add(1, Ordering::Relaxed) + 1;
 
         println!(
-            "Building grammars ({}/{}): {}",
-            current, total, grammar.grammar_id
+            "Building grammars ({current}/{total}): {}",
+            grammar.grammar_id
         );
         build_grammar(&grammar, target.as_deref())
     });
@@ -588,106 +588,58 @@ fn build_tree_sitter_library(
     // used to delay dropping the temporary object file until after the compilation is complete
     let _path_guard;
 
-    if compiler.is_like_msvc() {
-        command
-            .args(["/nologo", "/LD", "/I"])
-            .arg(header_path)
-            .arg("/utf-8")
-            .arg("/std:c11");
-        if let Some(scanner_path) = scanner_path.as_ref() {
-            if scanner_path.extension() == Some("c".as_ref()) {
-                command.arg(scanner_path);
-            } else {
-                let mut cpp_command = Command::new(compiler.path());
-                cpp_command.current_dir(src_path);
-                for (key, value) in compiler.env() {
-                    cpp_command.env(key, value);
-                }
-                cpp_command.args(compiler.args());
-                let object_file =
-                    library_path.with_file_name(format!("{}_scanner.obj", &grammar.grammar_id));
-                cpp_command
-                    .args(["/nologo", "/LD", "/I"])
-                    .arg(header_path)
-                    .arg("/utf-8")
-                    .arg("/std:c++14")
-                    .arg(format!("/Fo{}", object_file.display()))
-                    .arg("/c")
-                    .arg(scanner_path);
-                let output = cpp_command
-                    .output()
-                    .context("Failed to execute C++ compiler")?;
+    command
+        .arg("-fPIC")
+        .arg("-shared")
+        .arg("-fno-exceptions")
+        .arg("-I")
+        .arg(header_path)
+        .arg("-o")
+        .arg(&library_path);
 
-                if !output.status.success() {
-                    return Err(anyhow!(
-                        "Parser compilation failed.\nStdout: {}\nStderr: {}",
-                        String::from_utf8_lossy(&output.stdout),
-                        String::from_utf8_lossy(&output.stderr)
-                    ));
-                }
-                command.arg(&object_file);
-                _path_guard = TempPath::try_from_path(object_file).unwrap();
+    if let Some(scanner_path) = scanner_path.as_ref() {
+        if scanner_path.extension() == Some("c".as_ref()) {
+            command.arg("-xc").arg("-std=c23").arg(scanner_path);
+        } else {
+            let mut cpp_command = Command::new(compiler.path());
+            cpp_command.current_dir(src_path);
+            for (key, value) in compiler.env() {
+                cpp_command.env(key, value);
             }
-        }
+            cpp_command.args(compiler.args());
+            let object_file =
+                library_path.with_file_name(format!("{}_scanner.o", &grammar.grammar_id));
 
-        command
-            .arg(parser_path)
-            .arg("/link")
-            .arg(format!("/out:{}", library_path.to_str().unwrap()));
-    } else {
-        command.arg("-fPIC");
-
-        command
-            .arg("-shared")
-            .arg("-fno-exceptions")
-            .arg("-I")
-            .arg(header_path)
-            .arg("-o")
-            .arg(&library_path);
-
-        if let Some(scanner_path) = scanner_path.as_ref() {
-            if scanner_path.extension() == Some("c".as_ref()) {
-                command.arg("-xc").arg("-std=c11").arg(scanner_path);
-            } else {
-                let mut cpp_command = Command::new(compiler.path());
-                cpp_command.current_dir(src_path);
-                for (key, value) in compiler.env() {
-                    cpp_command.env(key, value);
-                }
-                cpp_command.args(compiler.args());
-                let object_file =
-                    library_path.with_file_name(format!("{}_scanner.o", &grammar.grammar_id));
-
-                cpp_command.arg("-fPIC");
-
-                cpp_command
-                    .arg("-fno-exceptions")
-                    .arg("-I")
-                    .arg(header_path)
-                    .arg("-o")
-                    .arg(&object_file)
-                    .arg("-std=c++14")
-                    .arg("-c")
-                    .arg(scanner_path);
-                let output = cpp_command
-                    .output()
-                    .context("Failed to execute C++ compiler")?;
-                if !output.status.success() {
-                    return Err(anyhow!(
-                        "Parser compilation failed.\nStdout: {}\nStderr: {}",
-                        String::from_utf8_lossy(&output.stdout),
-                        String::from_utf8_lossy(&output.stderr)
-                    ));
-                }
-
-                command.arg(&object_file);
-                _path_guard = TempPath::try_from_path(object_file).unwrap();
+            cpp_command
+                .arg("-fPIC")
+                .arg("-fno-exceptions")
+                .arg("-I")
+                .arg(header_path)
+                .arg("-o")
+                .arg(&object_file)
+                .arg("-std=c++20")
+                .arg("-c")
+                .arg(scanner_path);
+            let output = cpp_command
+                .output()
+                .context("Failed to execute C++ compiler")?;
+            if !output.status.success() {
+                return Err(anyhow!(
+                    "Parser compilation failed.\nStdout: {}\nStderr: {}",
+                    String::from_utf8_lossy(&output.stdout),
+                    String::from_utf8_lossy(&output.stderr)
+                ));
             }
-        }
-        command.arg("-xc").arg("-std=c23").arg(parser_path);
 
-        command.arg("-Wl,-z,relro,-z,now");
+            command.arg(&object_file);
+            _path_guard = TempPath::try_from_path(object_file).unwrap();
+        }
     }
+    command
+        .arg("-xc")
+        .arg("-std=c23")
+        .arg(parser_path)
+        .arg("-Wl,-z,relro,-z,now");
 
     let output = command
         .output()
