@@ -499,6 +499,7 @@ impl From<&WorkspaceTrustConfig> for helix_loader::workspace_trust::Config {
 }
 
 impl Config {
+    #[must_use]
     pub fn code_action_hint(&self) -> bool {
         self.gutters.layout.contains(&GutterType::CodeActionHint)
             || self

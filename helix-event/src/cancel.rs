@@ -1,8 +1,11 @@
-use std::borrow::Borrow;
-use std::future::Future;
-use std::sync::Arc;
-use std::sync::atomic::AtomicU64;
-use std::sync::atomic::Ordering::Relaxed;
+use std::{
+    borrow::Borrow,
+    future::Future,
+    sync::{
+        Arc,
+        atomic::{AtomicU64, Ordering::Relaxed},
+    },
+};
 
 use tokio::sync::Notify;
 
@@ -57,7 +60,9 @@ impl Shared {
     #[allow(clippy::cast_possible_truncation)]
     fn inc_generation(&self, num_running: u32) -> (u32, u32) {
         let state = self.state.load(Relaxed);
-        let generation = u32::try_from(state).unwrap();
+        // let generation = u32::try_from(state).unwrap();
+        let generation = u32::try_from(state & 0xFFFF_FFFF).unwrap();
+
         let prev_running = (state >> 32) as u32;
         // no need to create a new generation if the refcount is zero (fastpath)
         if prev_running == 0 && num_running == 0 {

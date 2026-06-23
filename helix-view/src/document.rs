@@ -1,3 +1,4 @@
+#![allow(clippy::missing_errors_doc, clippy::missing_panics_doc)]
 use anyhow::{Error, anyhow, bail};
 use arc_swap::ArcSwap;
 use arc_swap::access::DynAccess;
@@ -379,7 +380,7 @@ impl fmt::Debug for Document {
             .field("pull_diagnostic_controller", &"TaskController")
             .field("document_link_controller", &"TaskController")
             .field("syn_loader", &"Arc<ArcSwap<syntax::Loader>>")
-            .finish()
+            .finish_non_exhaustive()
     }
 }
 // impl fmt::Debug for Document {
@@ -1011,7 +1012,7 @@ impl Document {
         let request = language_server.text_document_formatting(
             self.identifier(),
             lsp::FormattingOptions {
-                tab_size: self.tab_width() as u32,
+                tab_size: u32::try_from(self.tab_width()).unwrap(),
                 insert_spaces: matches!(self.indent_style, IndentStyle::Spaces(_)),
                 ..Default::default()
             },
@@ -1105,14 +1106,12 @@ impl Document {
             }
 
             // Protect against overwriting changes made externally
-            if !force {
-                if let Ok(metadata) = fs::metadata(&path).await {
-                    if let Ok(mtime) = metadata.modified() {
-                        if last_saved_time < mtime {
-                            bail!("file modified by an external process, use :w! to overwrite");
-                        }
-                    }
-                }
+            if !force
+                && let Ok(metadata) = fs::metadata(&path).await
+                && let Ok(mtime) = metadata.modified()
+                && last_saved_time < mtime
+            {
+                bail!("file modified by an external process, use :w! to overwrite");
             }
             let write_path = tokio::fs::read_link(&path)
                 .await
@@ -1299,10 +1298,10 @@ impl Document {
     }
 
     pub fn detect_editor_config(&mut self) {
-        if self.config.load().editor_config {
-            if let Some(path) = self.path.as_ref() {
-                self.editor_config = EditorConfig::find(path);
-            }
+        if self.config.load().editor_config
+            && let Some(path) = self.path.as_ref()
+        {
+            self.editor_config = EditorConfig::find(path);
         }
     }
 
@@ -2233,6 +2232,7 @@ impl Document {
             Severity::{Error, Hint, Info, Warning},
         };
 
+        use helix_core::diagnostic::{DiagnosticTag, NumberOrString};
         // TODO: convert inside server
         // let start =
         //     if let Some(start) = lsp_pos_to_pos(text, diagnostic.range.start, offset_encoding) {
@@ -2262,14 +2262,12 @@ impl Document {
             }
         });
 
-        if let Some(lang_conf) = language_config {
-            if let Some(severity) = severity {
-                if severity < lang_conf.diagnostic_severity {
-                    return None;
-                }
-            }
-        };
-        use helix_core::diagnostic::{DiagnosticTag, NumberOrString};
+        if let Some(lang_conf) = language_config
+            && let Some(severity) = severity
+            && severity < lang_conf.diagnostic_severity
+        {
+            return None;
+        }
 
         let code = match diagnostic.code.clone() {
             Some(x) => match x {
@@ -2280,16 +2278,13 @@ impl Document {
         };
 
         let tags = if let Some(tags) = &diagnostic.tags {
-            let new_tags = tags
-                .iter()
+            tags.iter()
                 .filter_map(|tag| match *tag {
                     lsp::DiagnosticTag::DEPRECATED => Some(DiagnosticTag::Deprecated),
                     lsp::DiagnosticTag::UNNECESSARY => Some(DiagnosticTag::Unnecessary),
                     _ => None,
                 })
-                .collect();
-
-            new_tags
+                .collect()
         } else {
             Vec::new()
         };
@@ -2387,7 +2382,10 @@ impl Document {
             .and_then(|syntax| {
                 let selection = self.selection(view.id).primary();
                 let (start, end) = selection.into_byte_range(self.text().slice(..));
-                let layer = syntax.layer_for_byte_range(start as u32, end as u32);
+                let layer = syntax.layer_for_byte_range(
+                    u32::try_from(start).unwrap(),
+                    u32::try_from(end).unwrap(),
+                );
 
                 let lang_config = loader.language(syntax.layer(layer).language).config();
                 lang_config.auto_pairs.as_ref()
@@ -2432,7 +2430,7 @@ impl Document {
             if text_width >= viewport_width as usize {
                 soft_wrap_at_text_width = false;
             } else {
-                viewport_width = text_width as u16;
+                viewport_width = u16::try_from(text_width).unwrap();
             }
         }
         let config = self.config.load();
@@ -2457,7 +2455,7 @@ impl Document {
             .and_then(|soft_wrap| soft_wrap.wrap_indicator.clone())
             .or_else(|| config.soft_wrap.wrap_indicator.clone())
             .unwrap_or_else(|| "↪ ".into());
-        let tab_width = self.tab_width() as u16;
+        let tab_width = u16::try_from(self.tab_width()).unwrap();
         TextFormat {
             soft_wrap: enable_soft_wrap && viewport_width > 10,
             tab_width,

@@ -18,13 +18,13 @@ mod termina {
         theme::{self, Color, Modifier},
     };
     use termina::{
-        Event, OneBased, PlatformTerminal, Terminal as _, WindowSize,
         escape::{
             csi::{self, Csi, SgrAttributes, SgrModifiers},
             dcs::{self, Dcs},
             osc::{self, Osc},
         },
         style::{CursorStyle, RgbColor},
+        Event, OneBased, PlatformTerminal, Terminal as _, WindowSize,
     };
 
     use crate::{buffer::Cell, terminal::Config};
@@ -619,6 +619,13 @@ mod termina {
             self.flush()
         }
 
+        fn start_sync(&mut self) -> io::Result<()> {
+            self.start_synchronized_render()
+        }
+
+        fn end_sync(&mut self) -> io::Result<()> {
+            self.end_sychronized_render()
+        }
         fn size(&self) -> io::Result<Rect> {
             let WindowSize { rows, cols, .. } = self.terminal.get_dimensions()?;
             Ok(Rect::new(0, 0, cols, rows))
@@ -764,6 +771,12 @@ pub trait Backend {
     fn set_cursor(&mut self, x: u16, y: u16) -> Result<(), io::Error>;
     /// Clears the terminal
     fn clear(&mut self) -> Result<(), io::Error>;
+    /// Begins a synchronized-output frame (if the terminal supports it), so the
+    /// draw and cursor updates between `start_sync` and `end_sync` present as one
+    /// frame instead of flickering.
+    fn start_sync(&mut self) -> Result<(), io::Error>;
+    /// Ends the synchronized-output frame opened by `start_sync`.
+    fn end_sync(&mut self) -> Result<(), io::Error>;
     /// Gets the size of the terminal in cells
     fn size(&self) -> Result<Rect, io::Error>;
     /// Flushes the terminal buffer

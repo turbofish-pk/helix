@@ -1,3 +1,4 @@
+#![allow(clippy::missing_errors_doc, clippy::missing_panics_doc)]
 use helix_event::status::StatusMessage;
 use helix_event::{runtime_local, send_blocking};
 use helix_view::Editor;
@@ -7,7 +8,7 @@ use crate::compositor::Compositor;
 
 use futures_util::future::{BoxFuture, Future, FutureExt};
 use futures_util::stream::{FuturesUnordered, StreamExt};
-use tokio::sync::mpsc::{channel, Receiver, Sender};
+use tokio::sync::mpsc::{Receiver, Sender, channel};
 
 pub type EditorCompositorCallback = Box<dyn FnOnce(&mut Editor, &mut Compositor) + Send>;
 pub type EditorCallback = Box<dyn FnOnce(&mut Editor) + Send>;
@@ -30,7 +31,7 @@ pub async fn dispatch(job: impl FnOnce(&mut Editor, &mut Compositor) + Send + 's
 
 pub fn dispatch_blocking(job: impl FnOnce(&mut Editor, &mut Compositor) + Send + 'static) {
     let jobs = JOB_QUEUE.wait();
-    send_blocking(jobs, Callback::EditorCompositor(Box::new(job)))
+    send_blocking(jobs, Callback::EditorCompositor(Box::new(job)));
 }
 
 pub enum Callback {
@@ -71,7 +72,7 @@ impl Job {
         }
     }
 
-    #[must_use] 
+    #[must_use]
     pub fn wait_before_exiting(mut self) -> Self {
         self.wait = true;
         self
@@ -122,7 +123,7 @@ impl Jobs {
                 Callback::Followup(call) => call(editor),
             },
             Err(e) => {
-                editor.set_error(format!("Async job failed: {}", e));
+                editor.set_error(format!("Async job failed: {e}"));
                 None
             }
         }
@@ -156,10 +157,8 @@ impl Jobs {
                 Ok(callback) => {
                     wait_futures = tail;
 
-                    if let Some(callback) = callback {
-                        // clippy doesn't realize this is an error without the derefs
-                        #[allow(clippy::needless_option_as_deref)]
-                        if let Some(job) = match callback {
+                    if let Some(callback) = callback
+                        && let Some(job) = match callback {
                             Callback::EditorCompositor(call) if compositor.is_some() => {
                                 call(editor, compositor.as_deref_mut().unwrap());
                                 None
@@ -171,12 +170,11 @@ impl Jobs {
                             Callback::Followup(call) => call(editor),
 
                             // skip callbacks for which we don't have the necessary references
-                            _ => None,
-                        } {
-                            if job.wait {
-                                wait_futures.push(job.future);
-                            }
+                            Callback::EditorCompositor(_) => None,
                         }
+                        && job.wait
+                    {
+                        wait_futures.push(job.future);
                     }
                 }
                 Err(e) => {

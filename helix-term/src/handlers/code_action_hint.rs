@@ -1,15 +1,15 @@
 use std::{collections::HashSet, time::Duration};
 
 use futures_util::stream::FuturesUnordered;
-use helix_event::{cancelable_future, register_hook, send_blocking, AsyncHook};
+use helix_event::{AsyncHook, cancelable_future, register_hook, send_blocking};
 use helix_lsp::lsp::{CodeAction, CodeActionOrCommand, CodeActionTriggerKind};
 use helix_view::{
+    DocumentId, Editor, ViewId,
     events::{
         ConfigDidChange, DiagnosticsDidChange, DocumentDidChange, DocumentDidOpen,
         LanguageServerExited, LanguageServerInitialized, SelectionDidChange,
     },
-    handlers::{lsp::CodeActionHintEvent, Handlers},
-    DocumentId, Editor, ViewId,
+    handlers::{Handlers, lsp::CodeActionHintEvent},
 };
 use tokio::time::Instant;
 use tokio_stream::StreamExt;
@@ -39,7 +39,7 @@ impl AsyncHook for Handler {
             for (doc_id, view_id) in ids {
                 request_code_action_hint(editor, doc_id, view_id);
             }
-        })
+        });
     }
 }
 
@@ -79,7 +79,7 @@ fn request_code_action_hint(editor: &mut Editor, doc_id: DocumentId, view_id: Vi
     if futures.is_empty() {
         doc.clear_code_action_hints(view_id);
         return;
-    };
+    }
 
     let cancel = doc.code_action_controller(view_id).restart();
 
@@ -99,7 +99,7 @@ fn request_code_action_hint(editor: &mut Editor, doc_id: DocumentId, view_id: Vi
         }
 
         job::dispatch(move |editor, _| {
-            apply_code_action_hint(editor, doc_id, view_id, actions);
+            apply_code_action_hint(editor, doc_id, view_id, actions.as_slice());
         })
         .await;
     });
@@ -109,7 +109,7 @@ fn apply_code_action_hint(
     editor: &mut Editor,
     doc_id: DocumentId,
     view_id: ViewId,
-    code_actions: Vec<CodeActionOrCommand>,
+    code_actions: &[CodeActionOrCommand],
 ) {
     let Some(doc) = editor.document_mut(doc_id) else {
         return;

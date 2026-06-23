@@ -33,9 +33,10 @@ impl GutterType {
     pub fn width(self, view: &View, doc: &Document) -> usize {
         match self {
             GutterType::LineNumbers => line_numbers_width(view, doc),
-            GutterType::Spacer => 1,
-            GutterType::Diff => 1,
-            GutterType::CodeActionHint => 1,
+            GutterType::Spacer
+            | GutterType::Diff
+            | GutterType::CodeActionHint
+            | GutterType::Diagnostics => 1,
         }
     }
 }

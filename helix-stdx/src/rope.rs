@@ -615,7 +615,7 @@ impl fmt::Debug for RopeGraphemes<'_> {
             .field("chunk_byte_idx", &self.chunk_byte_idx)
             // .field("cursor", &self.cursor)
             .field("is_reversed", &self.is_reversed)
-            .finish()
+            .finish_non_exhaustive()
     }
 }
 

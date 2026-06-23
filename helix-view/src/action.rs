@@ -1,6 +1,6 @@
 use std::{borrow::Cow, fmt};
 
-use helix_lsp::{lsp, LanguageServerId};
+use helix_lsp::{LanguageServerId, lsp};
 
 use crate::Editor;
 
@@ -9,11 +9,12 @@ use crate::Editor;
 /// LSP code actions are converted into `Action`s, but the type is provider-agnostic: internal
 /// features (for example the spell checker) produce `Action`s the same way, so they appear in the
 /// same menu without the menu knowing where they came from.
+#[allow(clippy::struct_field_names)]
 pub struct Action {
     title: Cow<'static, str>,
     /// Sort key; higher priority actions are shown first. See `lsp_code_action_priority`.
     pub priority: u8,
-    action: Box<dyn Fn(&mut Editor) + Send + Sync + 'static>,
+    lsp_action: Box<dyn Fn(&mut Editor) + Send + Sync + 'static>,
 }
 
 impl fmt::Debug for Action {
@@ -34,19 +35,20 @@ impl Action {
         Self {
             title: title.into(),
             priority,
-            action: Box::new(action),
+            lsp_action: Box::new(action),
         }
     }
-
+    #[must_use]
     pub fn title(&self) -> &str {
         &self.title
     }
 
     pub fn execute(&self, editor: &mut Editor) {
-        (self.action)(editor);
+        (self.lsp_action)(editor);
     }
 
     /// Builds an `Action` from an LSP code action or command.
+    #[must_use]
     pub fn lsp(server_id: LanguageServerId, action: lsp::CodeActionOrCommand) -> Self {
         let title = match &action {
             lsp::CodeActionOrCommand::CodeAction(action) => action.title.clone(),
@@ -62,11 +64,11 @@ impl Action {
             let offset_encoding = language_server.offset_encoding();
             match &action {
                 lsp::CodeActionOrCommand::Command(command) => {
-                    log::debug!("code action command: {:?}", command);
+                    log::debug!("code action command: {command:?}");
                     editor.execute_lsp_command(command.clone(), server_id);
                 }
                 lsp::CodeActionOrCommand::CodeAction(code_action) => {
-                    log::debug!("code action: {:?}", code_action);
+                    log::debug!("code action: {code_action:?}");
                     // We support lsp "codeAction/resolve" for `edit` and `command` fields.
                     let resolved;
                     let code_action = if code_action.edit.is_none() || code_action.command.is_none()
@@ -96,7 +98,7 @@ impl Action {
 
 /// Computes the sort priority for an LSP code action; higher is shown first.
 ///
-/// This roughly matches VSCode's ordering: code actions are sorted first by the category declared
+/// This roughly matches `VSCode`'s ordering: code actions are sorted first by the category declared
 /// on the `kind` field, then by whether they fix a diagnostic, then by whether they are marked
 /// preferred. See <https://github.com/microsoft/vscode/blob/eaec601dd69aeb4abb63b9601a6f44308c8d8c6e/src/vs/editor/contrib/codeAction/browser/codeActionWidget.ts>.
 fn lsp_code_action_priority(action: &lsp::CodeActionOrCommand) -> u8 {

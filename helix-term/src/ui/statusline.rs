@@ -1,12 +1,12 @@
 use helix_core::indent::IndentStyle;
-use helix_core::{coords_at_pos, encoding, unicode::width::UnicodeWidthStr, Position};
+use helix_core::{Position, coords_at_pos, encoding, unicode::width::UnicodeWidthStr};
 use helix_lsp::lsp::DiagnosticSeverity;
 use helix_view::document::DEFAULT_LANGUAGE_NAME;
 use helix_view::{
+    Document, Editor, View,
     document::{Mode, SCRATCH_BUFFER_NAME},
     graphics::Rect,
     theme::Style,
-    Document, Editor, View,
 };
 
 use crate::ui::ProgressSpinners;
@@ -74,7 +74,7 @@ pub fn render(context: &mut RenderContext, viewport: Rect, surface: &mut Surface
         viewport.x,
         viewport.y,
         &context.parts.left,
-        context.parts.left.width() as u16,
+        u16::try_from(context.parts.left.width()).unwrap(),
     );
 
     // Right side of the status line.
@@ -90,10 +90,10 @@ pub fn render(context: &mut RenderContext, viewport: Rect, surface: &mut Surface
         viewport.x
             + viewport
                 .width
-                .saturating_sub(context.parts.right.width() as u16),
+                .saturating_sub(u16::try_from(context.parts.right.width()).unwrap()),
         viewport.y,
         &context.parts.right,
-        context.parts.right.width() as u16,
+        u16::try_from(context.parts.right.width()).unwrap(),
     );
 
     // Center of the status line.
@@ -108,9 +108,10 @@ pub fn render(context: &mut RenderContext, viewport: Rect, surface: &mut Surface
     // Width of the empty space between the left and center area and between the center and right area.
     let spacing = 1u16;
 
-    let edge_width = context.parts.left.width().max(context.parts.right.width()) as u16;
+    let edge_width =
+        u16::try_from(context.parts.left.width().max(context.parts.right.width())).unwrap();
     let center_max_width = viewport.width.saturating_sub(2 * edge_width + 2 * spacing);
-    let center_width = center_max_width.min(context.parts.center.width() as u16);
+    let center_width = center_max_width.min(u16::try_from(context.parts.center.width()).unwrap());
 
     surface.set_spans(
         viewport.x + viewport.width / 2 - center_width / 2,
@@ -438,9 +439,8 @@ where
         let rel_path = context.doc.relative_path();
         let path = rel_path
             .as_ref()
-            .map(|p| p.to_string_lossy())
-            .unwrap_or_else(|| SCRATCH_BUFFER_NAME.into());
-        format!(" {} ", path)
+            .map_or_else(|| SCRATCH_BUFFER_NAME.into(), |p| p.to_string_lossy());
+        format!(" {path} ")
     };
 
     write(context, title.into());
@@ -497,7 +497,7 @@ where
             .as_ref()
             .and_then(|p| p.file_name().map(|s| s.to_string_lossy()))
             .unwrap_or_else(|| SCRATCH_BUFFER_NAME.into());
-        format!(" {} ", path)
+        format!(" {path} ")
     };
 
     write(context, title.into());
@@ -577,6 +577,6 @@ where
     F: Fn(&mut RenderContext<'a>, Span<'a>) + Copy,
 {
     if context.focused && context.doc.code_action_hints(context.view.id) {
-        write(context, " ⋮ ".into())
+        write(context, " ⋮ ".into());
     }
 }

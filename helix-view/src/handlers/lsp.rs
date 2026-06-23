@@ -1,5 +1,5 @@
-use std::collections::btree_map::Entry;
 use std::collections::HashSet;
+use std::collections::btree_map::Entry;
 use std::fmt::Display;
 
 use crate::editor::Action;
@@ -7,11 +7,11 @@ use crate::events::{
     DiagnosticsDidChange, DocumentDidChange, DocumentDidClose, LanguageServerInitialized,
 };
 use crate::{DocumentId, Editor, ViewId};
-use helix_core::diagnostic::DiagnosticProvider;
 use helix_core::Uri;
+use helix_core::diagnostic::DiagnosticProvider;
 use helix_event::register_hook;
 use helix_lsp::util::generate_transaction_from_edits;
-use helix_lsp::{lsp, LanguageServerId, OffsetEncoding};
+use helix_lsp::{LanguageServerId, OffsetEncoding, lsp};
 
 use super::Handlers;
 
@@ -116,13 +116,13 @@ impl Editor {
         };
 
         let doc = doc_mut!(self, &doc_id);
-        if let Some(version) = version {
-            if version != doc.version() {
-                let err = format!("outdated workspace edit for {path:?}");
-                log::error!("{err}, expected {} but got {version}", doc.version());
-                self.set_error(err);
-                return Err(ApplyEditErrorKind::DocumentChanged);
-            }
+        if let Some(version) = version
+            && version != doc.version()
+        {
+            let err = format!("outdated workspace edit for {}", path.display());
+            log::error!("{err}, expected {} but got {version}", doc.version());
+            self.set_error(err);
+            return Err(ApplyEditErrorKind::DocumentChanged);
         }
 
         // Need to determine a view for apply/append_changes_to_history
@@ -293,11 +293,14 @@ impl Editor {
             .values_mut()
             .find(|doc| doc.uri().is_some_and(|u| u == uri));
 
-        if let Some((version, doc)) = version.zip(doc.as_ref()) {
-            if version != doc.version() {
-                log::info!("Version ({version}) is out of date for {uri:?} (expected ({})), dropping PublishDiagnostic notification", doc.version());
-                return;
-            }
+        if let Some((version, doc)) = version.zip(doc.as_ref())
+            && version != doc.version()
+        {
+            log::info!(
+                "Version ({version}) is out of date for {uri:?} (expected ({})), dropping PublishDiagnostic notification",
+                doc.version()
+            );
+            return;
         }
 
         let mut unchanged_diag_sources = Vec::new();

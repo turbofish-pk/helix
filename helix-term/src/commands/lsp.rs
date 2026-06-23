@@ -1,36 +1,37 @@
-use futures_util::{stream::FuturesUnordered, FutureExt};
+use super::{Align, Context, Editor, align_view, push_jump};
+use futures_util::{FutureExt, stream::FuturesUnordered};
 use helix_lsp::{
-    block_on,
+    Client, LanguageServerId, OffsetEncoding, block_on,
     lsp::{
         self, CodeAction, CodeActionKind, CodeActionOrCommand, CodeActionTriggerKind,
         DiagnosticSeverity, NumberOrString,
     },
     util::{diagnostic_to_lsp_diagnostic, lsp_range_to_range, range_to_lsp_range},
-    Client, LanguageServerId, OffsetEncoding,
 };
 use tokio_stream::StreamExt;
-use tui::{text::Span, widgets::Row};
-
-use super::{align_view, push_jump, Align, Context, Editor};
+use tui::{
+    text::Span,
+    widgets::{Cell, Row},
+};
 
 use helix_core::{
-    diagnostic::DiagnosticProvider, syntax::config::LanguageServerFeature,
-    text_annotations::InlineAnnotation, Selection, Uri,
+    Selection, Uri, diagnostic::DiagnosticProvider, syntax::config::LanguageServerFeature,
+    text_annotations::InlineAnnotation,
 };
 use helix_stdx::path;
 use helix_view::{
+    Document, DocumentId, View,
     action::Action as CodeActionItem,
     document::{DocumentInlayHints, DocumentInlayHintsId},
     editor::Action,
     handlers::lsp::SignatureHelpInvoked,
     theme::Style,
-    Document, DocumentId, View,
 };
 
 use crate::{
     compositor::{self, Compositor},
     job::{Callback, Job},
-    ui::{self, overlay::overlaid, FileLocation, Picker, Popup, PromptEvent},
+    ui::{self, FileLocation, Picker, Popup, PromptEvent, overlay::overlaid},
 };
 
 use std::{
@@ -143,18 +144,15 @@ fn jump_to_position(
     let doc = match editor.open(path, action) {
         Ok(id) => doc_mut!(editor, &id),
         Err(err) => {
-            let err = format!("failed to open path: {:?}: {:?}", path, err);
+            let err = format!("failed to open path: {}: {err:?}", path.display());
             editor.set_error(err);
             return;
         }
     };
     let view = view_mut!(editor);
     // TODO: convert inside server
-    let new_range = if let Some(new_range) = lsp_range_to_range(doc.text(), range, offset_encoding)
-    {
-        new_range
-    } else {
-        log::warn!("lsp position out of bounds - {:?}", range);
+    let Some(new_range) = lsp_range_to_range(doc.text(), range, offset_encoding) else {
+        log::warn!("lsp position out of bounds - {range:?}");
         return;
     };
     // we flip the range so that the cursor sits on the start of the symbol
@@ -194,7 +192,7 @@ fn display_symbol_kind(kind: lsp::SymbolKind) -> &'static str {
         lsp::SymbolKind::OPERATOR => "operator",
         lsp::SymbolKind::TYPE_PARAMETER => "typeparam",
         _ => {
-            log::warn!("Unknown symbol kind: {:?}", kind);
+            log::warn!("Unknown symbol kind: {kind:?}");
             ""
         }
     }
@@ -292,7 +290,7 @@ fn diag_picker(
                         .to_string()
                         .into()
                 } else {
-                    Default::default()
+                    Cell::default()
                 }
             }),
         );
@@ -359,9 +357,8 @@ pub fn symbol_picker(cx: &mut Context) {
                 .expect("docs with active language servers must be backed by paths");
 
             async move {
-                let symbols = match request.await? {
-                    Some(symbols) => symbols,
-                    None => return anyhow::Ok(vec![]),
+                let Some(symbols) = request.await? else {
+                    return anyhow::Ok(vec![]);
                 };
                 // lsp has two ways to represent symbols (flat/nested)
                 // convert the nested variant to flat, so that we have a homogeneous list
@@ -386,7 +383,7 @@ pub fn symbol_picker(cx: &mut Context) {
                                 &doc_uri,
                                 symbol,
                                 offset_encoding,
-                            )
+                            );
                         }
                         flat_symbols
                     }
@@ -412,16 +409,16 @@ pub fn symbol_picker(cx: &mut Context) {
         }
         let call = move |_editor: &mut Editor, compositor: &mut Compositor| {
             let columns = [
-                ui::PickerColumn::new("kind", |item: &SymbolInformationItem, _| {
+                ui::PickerColumn::new("kind", |item: &SymbolInformationItem, ()| {
                     display_symbol_kind(item.symbol.kind).into()
                 }),
                 // Some symbols in the document symbol picker may have a URI that isn't
                 // the current file. It should be rare though, so we concatenate that
                 // URI in with the symbol name in this picker.
-                ui::PickerColumn::new("name", |item: &SymbolInformationItem, _| {
+                ui::PickerColumn::new("name", |item: &SymbolInformationItem, ()| {
                     item.symbol.name.as_str().into()
                 }),
-                ui::PickerColumn::new("container", |item: &SymbolInformationItem, _| {
+                ui::PickerColumn::new("container", |item: &SymbolInformationItem, ()| {
                     item.symbol
                         .container_name
                         .as_deref()
@@ -442,7 +439,7 @@ pub fn symbol_picker(cx: &mut Context) {
             .with_preview(move |_editor, item| location_to_file_location(&item.location))
             .truncate_start(false);
 
-            compositor.push(Box::new(overlaid(picker)))
+            compositor.push(Box::new(overlaid(picker)));
         };
 
         Ok(Callback::EditorCompositor(Box::new(call)))
@@ -530,21 +527,21 @@ pub fn workspace_symbol_picker(cx: &mut Context) {
         .boxed()
     };
     let columns = [
-        ui::PickerColumn::new("kind", |item: &SymbolInformationItem, _| {
+        ui::PickerColumn::new("kind", |item: &SymbolInformationItem, ()| {
             display_symbol_kind(item.symbol.kind).into()
         }),
-        ui::PickerColumn::new("name", |item: &SymbolInformationItem, _| {
+        ui::PickerColumn::new("name", |item: &SymbolInformationItem, ()| {
             item.symbol.name.as_str().into()
         })
         .without_filtering(),
-        ui::PickerColumn::new("container", |item: &SymbolInformationItem, _| {
+        ui::PickerColumn::new("container", |item: &SymbolInformationItem, ()| {
             item.symbol
                 .container_name
                 .as_deref()
                 .unwrap_or_default()
                 .into()
         }),
-        ui::PickerColumn::new("path", |item: &SymbolInformationItem, _| {
+        ui::PickerColumn::new("path", |item: &SymbolInformationItem, ()| {
             if let Some(path) = item.location.uri.as_path() {
                 path::get_relative_path(path)
                     .to_string_lossy()
@@ -674,10 +671,10 @@ pub fn code_action(cx: &mut Context) {
 pub(crate) fn code_actions_for_range(
     doc: &Document,
     range: helix_core::Range,
-    only: Option<Vec<CodeActionKind>>,
+    only: Option<&Vec<CodeActionKind>>,
     trigger_kind: CodeActionTriggerKind,
 ) -> Vec<(
-    impl Future<Output = Result<Option<Vec<CodeActionOrCommand>>, helix_lsp::Error>>,
+    impl Future<Output = Result<Option<Vec<CodeActionOrCommand>>, helix_lsp::Error>> + use<>,
     LanguageServerId,
 )> {
     let mut seen_language_servers = HashSet::new();
@@ -699,7 +696,7 @@ pub(crate) fn code_actions_for_range(
                     })
                     .map(|diag| diagnostic_to_lsp_diagnostic(doc.text(), diag, offset_encoding))
                     .collect(),
-                only: only.clone(),
+                only: only.cloned(),
                 trigger_kind: Some(trigger_kind),
             };
             let code_action_request =
@@ -750,14 +747,12 @@ fn code_action_on_save_step(
         let doc = doc!(editor, &doc_id);
         let version = doc.version();
         let full_range = helix_core::Range::new(0, doc.text().len_chars());
-        let Some((request, ls_id)) = code_actions_for_range(
-            doc,
-            full_range,
-            Some(vec![kind.clone()]),
-            CodeActionTriggerKind::INVOKED,
-        )
-        .into_iter()
-        .next() else {
+        let only = vec![kind.clone()];
+        let Some((request, ls_id)) =
+            code_actions_for_range(doc, full_range, Some(&only), CodeActionTriggerKind::INVOKED)
+                .into_iter()
+                .next()
+        else {
             // No server offers this kind for the document: skip to the next.
             return code_action_on_save_step(doc_id, kinds, tail);
         };
@@ -935,7 +930,7 @@ fn goto_impl(editor: &mut Editor, compositor: &mut Compositor, locations: Vec<Lo
             )];
 
             let picker = Picker::new(columns, 0, locations, cwdir, |cx, location, action| {
-                jump_to_location(cx.editor, location, action)
+                jump_to_location(cx.editor, location, action);
             })
             .with_preview(|_editor, location| location_to_file_location(location));
             compositor.push(Box::new(overlaid(picker)));
@@ -968,7 +963,7 @@ where
                         locations.extend(lsp_location_to_location(lsp_location, offset_encoding));
                     }
                     Some(lsp::GotoDefinitionResponse::Array(lsp_locations)) => {
-                        locations.extend(lsp_locations.into_iter().flat_map(|location| {
+                        locations.extend(lsp_locations.into_iter().filter_map(|location| {
                             lsp_location_to_location(location, offset_encoding)
                         }));
                     }
@@ -982,7 +977,7 @@ where
                                         location_link.target_range,
                                     )
                                 })
-                                .flat_map(|location| {
+                                .filter_map(|location| {
                                     lsp_location_to_location(location, offset_encoding)
                                 }),
                         );
@@ -1070,7 +1065,7 @@ pub fn goto_reference(cx: &mut Context) {
                     lsp_locations
                         .into_iter()
                         .flatten()
-                        .flat_map(|location| lsp_location_to_location(location, offset_encoding)),
+                        .filter_map(|location| lsp_location_to_location(location, offset_encoding)),
                 ),
                 Err(err) => log::error!("Error requesting references: {err}"),
             }
@@ -1089,7 +1084,7 @@ pub fn goto_reference(cx: &mut Context) {
 pub fn signature_help(cx: &mut Context) {
     cx.editor
         .handlers
-        .trigger_signature_help(SignatureHelpInvoked::Manual, cx.editor)
+        .trigger_signature_help(SignatureHelpInvoked::Manual, cx.editor);
 }
 
 pub fn hover(cx: &mut Context) {
@@ -1140,7 +1135,7 @@ pub fn hover(cx: &mut Context) {
             }
 
             // create new popup
-            let contents = Hover::new(hovers, editor.syn_loader.clone());
+            let contents = Hover::new(hovers, &editor.syn_loader.clone());
             let popup = Popup::new(Hover::ID, contents).auto_close(true);
             compositor.replace_or_push(Hover::ID, popup);
         };
@@ -1156,7 +1151,7 @@ pub fn rename_symbol(cx: &mut Context) {
         if primary_selection.len() > 1 {
             primary_selection
         } else {
-            use helix_core::textobject::{textobject_word, TextObject};
+            use helix_core::textobject::{TextObject, textobject_word};
             textobject_word(text, primary_selection, TextObject::Inside, 1, false)
         }
         .fragment(text)
@@ -1335,9 +1330,8 @@ pub fn compute_inlay_hints_for_all_views(editor: &mut Editor, jobs: &mut crate::
     }
 
     for (view, _) in editor.tree.views() {
-        let doc = match editor.documents.get(&view.doc) {
-            Some(doc) => doc,
-            None => continue,
+        let Some(doc) = editor.documents.get(&view.doc) else {
+            continue;
         };
         if let Some(callback) = compute_inlay_hints_for_view(view, doc) {
             jobs.callback(callback);
@@ -1348,7 +1342,9 @@ pub fn compute_inlay_hints_for_all_views(editor: &mut Editor, jobs: &mut crate::
 fn compute_inlay_hints_for_view(
     view: &View,
     doc: &Document,
-) -> Option<std::pin::Pin<Box<impl Future<Output = Result<crate::job::Callback, anyhow::Error>>>>> {
+) -> Option<
+    std::pin::Pin<Box<impl Future<Output = Result<crate::job::Callback, anyhow::Error>> + use<>>>,
+> {
     let view_id = view.id;
     let doc_id = view.doc;
 
@@ -1405,9 +1401,8 @@ fn compute_inlay_hints_for_view(
             }
 
             // Add annotations to relevant document, not the current one (it may have changed in between)
-            let doc = match editor.documents.get_mut(&doc_id) {
-                Some(doc) => doc,
-                None => return,
+            let Some(doc) = editor.documents.get_mut(&doc_id) else {
+                return;
             };
 
             // If we have neither hints nor an LSP, empty the inlay hints since they're now oudated
@@ -1437,21 +1432,18 @@ fn compute_inlay_hints_for_view(
             let inlay_hints_length_limit = doc.config.load().lsp.inlay_hints_length_limit;
 
             for hint in hints {
-                let char_idx =
-                    match helix_lsp::util::lsp_pos_to_pos(doc_text, hint.position, offset_encoding)
-                    {
-                        Some(pos) => pos,
-                        // Skip inlay hints that have no "real" position
-                        None => continue,
-                    };
+                let Some(char_idx) =
+                    helix_lsp::util::lsp_pos_to_pos(doc_text, hint.position, offset_encoding)
+                else {
+                    continue;
+                };
 
                 let mut label = match hint.label {
                     lsp::InlayHintLabel::String(s) => s,
-                    lsp::InlayHintLabel::LabelParts(parts) => parts
-                        .into_iter()
-                        .map(|p| p.value)
-                        .collect::<Vec<_>>()
-                        .join(""),
+                    lsp::InlayHintLabel::LabelParts(parts) => {
+                        parts.into_iter().map(|p| p.value).collect::<String>()
+                    } // .collect::<Vec<_>>()
+                      // .join(""),
                 };
                 // Truncate the hint if too long
                 if let Some(limit) = inlay_hints_length_limit {
