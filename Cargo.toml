@@ -61,17 +61,17 @@ arrayvec = "0.7"
 criterion = { version = "0.8", default-features = false, features = ["cargo_bench_support"] }
 quickcheck = { version = "1", default-features = false }
 
-[workspace.lints.clippy]
-enum-glob-use = "allow"
-explicit-iter-loop = "allow"
-items-after-statements = "allow"
-map-unwrap-or = "allow"
-match-wildcard-for-single-variants = "allow"
-missing-errors-doc = "allow"
-mut-mut = "allow"
-redundant-closure-for-method-calls = "allow"
-struct-excessive-bools = "allow"
-unnecessary-semicolon = "allow"
+# [workspace.lints.clippy]
+# enum-glob-use = "allow"
+# explicit-iter-loop = "allow"
+# items-after-statements = "allow"
+# map-unwrap-or = "allow"
+# match-wildcard-for-single-variants = "allow"
+# missing-errors-doc = "allow"
+# mut-mut = "allow"
+# redundant-closure-for-method-calls = "allow"
+# struct-excessive-bools = "allow"
+# unnecessary-semicolon = "allow"
 
 [workspace.package]
 version = "25.7.1"
