@@ -14,7 +14,6 @@ use tempfile::TempPath;
 use tree_house::tree_sitter::Grammar;
 
 use crate::config::user_lang_config;
-use crate::workspace_trust::{Config, WorkspaceTrust};
 
 const DYLIB_EXTENSION: &str = "so";
 
@@ -73,26 +72,6 @@ pub fn get_language(name: &str) -> Result<Option<Grammar>> {
 fn ensure_git_is_available() -> Result<()> {
     helix_stdx::env::which("git")?;
     Ok(())
-}
-
-/// Print a notice if the current workspace has a `.helix/languages.toml` that we *would* have
-/// merged but the workspace-trust gate is keeping us from.
-fn warn_if_workspace_languages_skipped(trust: &WorkspaceTrust) {
-    let workspace_languages = crate::workspace_lang_config_file();
-    if !workspace_languages.exists() {
-        return;
-    }
-    if trust
-        .query_current(crate::workspace_trust::TrustQuery::LocalConfig)
-        .is_trusted()
-    {
-        return;
-    }
-    println!(
-        "Note: workspace `{}` was skipped because the workspace is not trusted. Run \
-         `:workspace-trust` from an interactive helix session in this workspace to opt in.",
-        workspace_languages.display(),
-    );
 }
 
 pub fn fetch_grammars(strict: bool) -> Result<()> {
@@ -239,9 +218,7 @@ fn get_grammar_configs() -> Result<Vec<GrammarConfiguration>> {
     // `.helix/languages.toml` in through `fully_trusted`, a malicious workspace could inject a
     // grammar with an attacker-controlled git source — running grammar build in that
     // directory would clone and compile attacker code
-    let trust = WorkspaceTrust::new(Config::default());
-    warn_if_workspace_languages_skipped(&trust);
-    let config: Configuration = user_lang_config(&trust)
+    let config: Configuration = user_lang_config()
         .context("Could not parse languages.toml")?
         .try_into()?;
 
@@ -263,12 +240,7 @@ fn get_grammar_configs() -> Result<Vec<GrammarConfiguration>> {
 }
 
 pub fn get_grammar_names() -> Result<Option<HashSet<String>>> {
-    // See `get_grammar_configs`, same threat: workspace-local
-    // `languages.toml` must not influence the grammar set without
-    // explicit on-disk trust.
-    let trust = WorkspaceTrust::new(Config::default());
-    warn_if_workspace_languages_skipped(&trust);
-    let config: Configuration = user_lang_config(&trust)
+    let config: Configuration = user_lang_config()
         .context("Could not parse languages.toml")?
         .try_into()?;
 

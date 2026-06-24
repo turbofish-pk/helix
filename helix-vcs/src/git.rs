@@ -27,15 +27,17 @@ fn get_repo_dir(file: &Path) -> Result<&Path> {
     file.parent().context("file has no parent directory")
 }
 
-pub fn get_diff_base(file: &Path, trust_full: bool) -> Result<Vec<u8>> {
+pub fn get_diff_base(file: &Path, _trust_full: bool) -> Result<Vec<u8>> {
     debug_assert!(!file.exists() || file.is_file());
     debug_assert!(file.is_absolute());
     let file = gix::path::realpath(file).context("resolve symlinks")?;
+    // let file = helix_gix::path::realpath(file).context("resolve symlinks")?;
 
     // TODO cache repository lookup
 
     let repo_dir = get_repo_dir(&file)?;
-    let repo = open_repo(repo_dir, trust_full)
+    // let repo = open_repo(repo_dir, trust_full)
+    let repo = open_repo(repo_dir, true)
         .context("failed to open git repo")?
         .to_thread_local();
     let head = repo.head_commit()?;
@@ -54,7 +56,10 @@ pub fn get_diff_base(file: &Path, trust_full: bool) -> Result<Vec<u8>> {
     if let Some(work_dir) = repo.workdir() {
         let rela_path = file.strip_prefix(work_dir)?;
         let rela_path = gix::path::try_into_bstr(rela_path)?;
-        let (mut pipeline, _) = repo.filter_pipeline(None)?;
+
+        // let (mut pipeline, _) = repo.filter_pipeline(None)?;
+        //
+        let mut pipeline = repo.filter_pipeline()?;
         let mut worktree_outcome =
             pipeline.convert_to_worktree(&data, rela_path.as_ref(), Delay::Forbid)?;
         let mut buf = Vec::with_capacity(data.len());

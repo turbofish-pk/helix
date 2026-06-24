@@ -30,11 +30,6 @@ assets = [
   { source = "../contrib/helix.png", dest = "/usr/share/icons/hicolor/256x256/apps/helix.png", mode = "644" },
 ]
 
-[features]
-default = ["git"]
-unicode-lines = ["helix-core/unicode-lines", "helix-view/unicode-lines"]
-integration = ["helix-event/integration_test"]
-git = ["helix-vcs/git"]
 
 [[bin]]
 name = "hx"

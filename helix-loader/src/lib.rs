@@ -116,7 +116,6 @@ pub fn runtime_file(rel_path: impl AsRef<Path>) -> PathBuf {
 }
 #[must_use]
 pub fn config_dir() -> PathBuf {
-    // TODO: allow env var override
     let strategy = choose_base_strategy().expect("Unable to find the config directory!");
     let mut path = strategy.config_dir();
     path.push("helix");

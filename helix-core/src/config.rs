@@ -14,7 +14,7 @@ pub fn default_lang_config() -> Configuration {
 }
 
 /// Language configuration loader based on built-in languages.toml.
-#[must_use] 
+#[must_use]
 pub fn default_lang_loader() -> Loader {
     Loader::new(default_lang_config()).expect("Could not compile loader for default config")
 }
@@ -41,14 +41,14 @@ impl std::fmt::Display for LanguageLoaderError {
 impl std::error::Error for LanguageLoaderError {}
 
 /// Language configuration based on user configured languages.toml.
-pub fn user_lang_config(trust: &WorkspaceTrust) -> Result<Configuration, toml::de::Error> {
-    helix_loader::config::user_lang_config(trust)?.try_into()
+pub fn user_lang_config() -> Result<Configuration, toml::de::Error> {
+    helix_loader::config::user_lang_config()?.try_into()
 }
 
 /// Language configuration loader based on user configured languages.toml.
-pub fn user_lang_loader(trust: &WorkspaceTrust) -> Result<Loader, LanguageLoaderError> {
-    let config_val = helix_loader::config::user_lang_config(trust)
-        .map_err(LanguageLoaderError::DeserializeError)?;
+pub fn user_lang_loader(_trust: &WorkspaceTrust) -> Result<Loader, LanguageLoaderError> {
+    let config_val =
+        helix_loader::config::user_lang_config().map_err(LanguageLoaderError::DeserializeError)?;
     let config = config_val.clone().try_into().map_err(|e| {
         if let Some(languages) = config_val.get("language").and_then(|v| v.as_array()) {
             for lang in languages {

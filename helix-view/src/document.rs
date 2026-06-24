@@ -1378,7 +1378,6 @@ impl Document {
         }
 
         self.version_control_head = provider_registry.get_current_head_name(&path, trust_full);
-
         Ok(())
     }
 
@@ -1588,9 +1587,9 @@ impl Document {
 
         // // TODO: all of that should likely just be hooks
         // // start computing the diff in parallel
-        // if let Some(diff_handle) = &self.diff_handle {
-        //     diff_handle.update_document(self.text.clone(), false);
-        // }
+        if let Some(diff_handle) = &self.diff_handle {
+            let _ = diff_handle.update_document(self.text.clone(), false);
+        }
 
         // map diagnostics over changes too
         changes.update_positions(self.diagnostics.iter_mut().map(|diagnostic| {
