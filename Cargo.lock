@@ -596,7 +596,6 @@ dependencies = [
  "gix-actor",
  "gix-attributes",
  "gix-command",
- "gix-commitgraph",
  "gix-config",
  "gix-date",
  "gix-diff",
@@ -617,12 +616,9 @@ dependencies = [
  "gix-pack",
  "gix-path",
  "gix-pathspec",
- "gix-protocol",
  "gix-ref",
  "gix-refspec",
- "gix-revwalk",
  "gix-sec",
- "gix-shallow",
  "gix-status",
  "gix-submodule",
  "gix-tempfile",
@@ -693,19 +689,6 @@ dependencies = [
  "gix-quote",
  "gix-trace",
  "shell-words",
-]
-
-[[package]]
-name = "gix-commitgraph"
-version = "0.37.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7f675d0df484a7f6a47e64bd6f311af489d947c0323b0564f36d14f3d7762abb"
-dependencies = [
- "gix-chunk",
- "gix-error",
- "gix-hash",
- "memmap2",
- "nonempty",
 ]
 
 [[package]]
@@ -1065,24 +1048,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "gix-protocol"
-version = "0.63.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "978468bae4ea2df20c72db3b20d0bdb548a0c1090b85a83643b553e6e0e041f2"
-dependencies = [
- "bstr",
- "gix-date",
- "gix-features",
- "gix-hash",
- "gix-ref",
- "gix-shallow",
- "gix-transport",
- "gix-utils",
- "maybe-async",
- "thiserror",
-]
-
-[[package]]
 name = "gix-quote"
 version = "0.7.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1119,41 +1084,9 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7bc36a4fb1a1540b59cf2da498783080743fa274b02a3f19ca444fc4015a9d4f"
 dependencies = [
  "bstr",
- "gix-error",
  "gix-glob",
  "gix-hash",
- "gix-revision",
  "gix-validate",
- "smallvec",
- "thiserror",
-]
-
-[[package]]
-name = "gix-revision"
-version = "0.47.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "885075c3c21eb9c06e0be3b3728ba5932c04e1c1011dcee7c81801980e3e986f"
-dependencies = [
- "bstr",
- "gix-date",
- "gix-error",
- "gix-hash",
- "gix-object",
- "gix-revwalk",
-]
-
-[[package]]
-name = "gix-revwalk"
-version = "0.33.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8f11fe7ca2585193d3d70bbe0be175a2008d883a704cc7a55e454e113e689455"
-dependencies = [
- "gix-commitgraph",
- "gix-date",
- "gix-error",
- "gix-hash",
- "gix-hashtable",
- "gix-object",
  "smallvec",
  "thiserror",
 ]
@@ -1168,19 +1101,6 @@ dependencies = [
  "gix-path",
  "libc",
  "windows-sys 0.61.2",
-]
-
-[[package]]
-name = "gix-shallow"
-version = "0.12.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a292fc2fe548c5dfa575479d16b445b0ddf1dd2f56f1fec6aed386f82553cd97"
-dependencies = [
- "bstr",
- "gix-hash",
- "gix-lock",
- "nonempty",
- "thiserror",
 ]
 
 [[package]]
@@ -1238,31 +1158,13 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "44dc45eae785c0eb14173e0f152e6e224dcf4d45b6a6999a3aed22af541ad678"
 
 [[package]]
-name = "gix-transport"
-version = "0.57.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "186874f7ad1fb2f9a2f2aa9c2dabc7f9dd087bef74c1a0eee2b4a9cf0248fcb3"
-dependencies = [
- "bstr",
- "gix-packetline",
- "gix-sec",
- "thiserror",
-]
-
-[[package]]
 name = "gix-traverse"
 version = "0.59.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5062cca8f2977565bbaf666ec31dbdb9bc9d9293beb65f9bec52e6c1121b62a1"
 dependencies = [
- "bitflags",
- "gix-commitgraph",
- "gix-date",
  "gix-hash",
- "gix-hashtable",
  "gix-object",
- "gix-revwalk",
- "smallvec",
  "thiserror",
 ]
 
@@ -1436,7 +1338,6 @@ version = "25.7.1"
 dependencies = [
  "anyhow",
  "arc-swap",
- "bitflags",
  "chrono",
  "encoding_rs",
  "foldhash 0.2.0",
@@ -1546,7 +1447,6 @@ dependencies = [
  "bitflags",
  "dunce",
  "etcetera",
- "once_cell",
  "percent-encoding",
  "regex-automata",
  "regex-cursor",
@@ -1568,7 +1468,6 @@ dependencies = [
  "arc-swap",
  "dashmap",
  "futures-util",
- "grep-matcher",
  "grep-regex",
  "grep-searcher",
  "helix-core",
@@ -1587,7 +1486,6 @@ dependencies = [
  "nucleo",
  "once_cell",
  "open",
- "parking_lot",
  "pulldown-cmark",
  "same-file",
  "serde",
@@ -1614,7 +1512,6 @@ dependencies = [
  "helix-core",
  "helix-view",
  "log",
- "once_cell",
  "termina",
  "termini",
  "unicode-segmentation",
@@ -1662,7 +1559,6 @@ dependencies = [
  "quickcheck",
  "rustix",
  "serde",
- "serde_json",
  "slotmap",
  "tempfile",
  "termina",
@@ -1885,17 +1781,6 @@ name = "log"
 version = "0.4.33"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0ceec5bc11778974d1bcb055b18002eba7f4b3518b6a0081b3af5f21666da9ad"
-
-[[package]]
-name = "maybe-async"
-version = "0.2.11"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "746873a384ad60adc5db74471dfaba74bd278afbdcfd81db93fafcdfc8b5ca0c"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn",
-]
 
 [[package]]
 name = "memchr"
@@ -3369,12 +3254,10 @@ name = "xtask"
 version = "25.7.1"
 dependencies = [
  "helix-core",
- "helix-loader",
  "helix-stdx",
  "helix-term",
  "helix-view",
  "ropey",
- "toml",
 ]
 
 [[package]]

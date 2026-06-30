@@ -6,16 +6,18 @@ use std::path::Path;
 use std::sync::Arc;
 
 use gix::bstr::ByteSlice;
-use gix::diff::Rewrites;
-use gix::dir::entry::Status;
-use gix::objs::tree::EntryKind;
-use gix::sec::trust::DefaultForLevel;
-use gix::status::{
-    UntrackedFiles,
-    index_worktree::Item,
-    plumbing::index_as_worktree::{Change, EntryStatus},
+use gix::{
+    Commit, ObjectId, Repository, ThreadSafeRepository,
+    diff::Rewrites,
+    dir::entry::Status,
+    objs::tree::EntryKind,
+    sec::trust::DefaultForLevel,
+    status::{
+        UntrackedFiles,
+        index_worktree::Item,
+        plumbing::index_as_worktree::{Change, EntryStatus},
+    },
 };
-use gix::{Commit, ObjectId, Repository, ThreadSafeRepository};
 
 use crate::FileChange;
 
