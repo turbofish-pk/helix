@@ -474,21 +474,15 @@ impl MappableCommand {
         commit_undo_checkpoint, "Commit changes to new checkpoint",
         yank, "Yank selection",
         yank_to_clipboard, "Yank selections to clipboard",
-        yank_to_primary_clipboard, "Yank selections to primary clipboard",
         yank_joined, "Join and yank selections",
         yank_joined_to_clipboard, "Join and yank selections to clipboard",
         yank_main_selection_to_clipboard, "Yank main selection to clipboard",
-        yank_joined_to_primary_clipboard, "Join and yank selections to primary clipboard",
-        yank_main_selection_to_primary_clipboard, "Yank main selection to primary clipboard",
         replace_with_yanked, "Replace with yanked text",
         replace_selections_with_clipboard, "Replace selections by clipboard content",
-        replace_selections_with_primary_clipboard, "Replace selections by primary clipboard",
         paste_after, "Paste after selection",
         paste_before, "Paste before selection",
         paste_clipboard_after, "Paste clipboard after selections",
         paste_clipboard_before, "Paste clipboard before selections",
-        paste_primary_clipboard_after, "Paste primary clipboard after selections",
-        paste_primary_clipboard_before, "Paste primary clipboard before selections",
         indent, "Indent selection",
         unindent, "Unindent selection",
         format_selections, "Format selection",
@@ -535,9 +529,7 @@ impl MappableCommand {
         vsplit_new, "Vertical right split scratch buffer",
         wclose, "Close window",
         wonly, "Close windows except current",
-        select_register, "Select register",
-        insert_register, "Insert register",
-        copy_between_registers, "Copy between two registers",
+
         align_view_middle, "Align view middle",
         align_view_top, "Align view top",
         align_view_center, "Align view center",
@@ -2145,7 +2137,7 @@ fn select_all(cx: &mut Context) {
 }
 
 fn select_regex(cx: &mut Context) {
-    let reg = cx.register.unwrap_or('/');
+    let reg = '/';
     ui::regex_prompt(
         cx,
         "select:".into(),
@@ -2169,7 +2161,7 @@ fn select_regex(cx: &mut Context) {
 }
 
 fn split_selection(cx: &mut Context) {
-    let reg = cx.register.unwrap_or('/');
+    let reg = '/';
     ui::regex_prompt(
         cx,
         "split:".into(),
@@ -2307,7 +2299,7 @@ fn rsearch(cx: &mut Context) {
 }
 
 fn searcher(cx: &mut Context, direction: Direction) {
-    let reg = cx.register.unwrap_or('/');
+    let reg = '/';
     let config = cx.editor.config();
     let scrolloff = config.scrolloff;
     let wrap_around = config.search.wrap_around;
@@ -2443,7 +2435,7 @@ fn search_selection_impl(cx: &mut Context, detect_word_boundaries: bool) {
         char_is_word(prev_ch) && !char_is_word(ch)
     }
 
-    let register = cx.register.unwrap_or('/');
+    let register = '/';
     let (view, doc) = current!(cx.editor);
     let text = doc.text().slice(..);
 
@@ -2684,7 +2676,7 @@ fn global_search(cx: &mut Context) {
         .boxed()
     };
 
-    let reg = cx.register.unwrap_or('/');
+    let reg = '/';
     cx.editor.registers.last_search_register = reg;
 
     let picker = Picker::new(
@@ -4875,10 +4867,6 @@ fn yank_main_selection_to_clipboard(cx: &mut Context) {
     exit_select_mode(cx);
 }
 
-fn yank_main_selection_to_primary_clipboard(cx: &mut Context) {
-    yank_main_selection_to_register(cx.editor, '*');
-    exit_select_mode(cx);
-}
 
 #[derive(Copy, Clone)]
 pub(crate) enum Paste {
@@ -4993,16 +4981,6 @@ fn paste_clipboard_before(cx: &mut Context) {
     exit_select_mode(cx);
 }
 
-fn paste_primary_clipboard_after(cx: &mut Context) {
-    paste(cx.editor, '*', Paste::After, cx.count());
-    exit_select_mode(cx);
-}
-
-fn paste_primary_clipboard_before(cx: &mut Context) {
-    paste(cx.editor, '*', Paste::Before, cx.count());
-    exit_select_mode(cx);
-}
-
 fn replace_with_yanked(cx: &mut Context) {
     replace_selections_with_register(
         cx.editor,
@@ -5058,11 +5036,6 @@ pub(crate) fn replace_selections_with_register(editor: &mut Editor, register: ch
 
 fn replace_selections_with_clipboard(cx: &mut Context) {
     replace_selections_with_register(cx.editor, '+', cx.count());
-    exit_select_mode(cx);
-}
-
-fn replace_selections_with_primary_clipboard(cx: &mut Context) {
-    replace_selections_with_register(cx.editor, '*', cx.count());
     exit_select_mode(cx);
 }
 
@@ -5988,83 +5961,6 @@ fn wonly(cx: &mut Context) {
             cx.editor.close(view_id);
         }
     }
-}
-
-fn select_register(cx: &mut Context) {
-    cx.editor.autoinfo = Some(Info::from_registers(
-        "Select register",
-        &cx.editor.registers,
-    ));
-    cx.on_next_key(move |cx, event| {
-        cx.editor.autoinfo = None;
-        if let Some(ch) = event.char() {
-            cx.editor.selected_register = Some(ch);
-        }
-    });
-}
-
-fn insert_register(cx: &mut Context) {
-    // TODO: count is reset to 1 before next key so we move it into the closure here.
-    // Would be nice to carry over.
-    let count = cx.count();
-    cx.editor.autoinfo = Some(Info::from_registers(
-        "Insert register",
-        &cx.editor.registers,
-    ));
-    cx.on_next_key(move |cx, event| {
-        cx.editor.autoinfo = None;
-        if let Some(ch) = event.char() {
-            cx.register = Some(ch);
-            paste(
-                cx.editor,
-                cx.register
-                    .unwrap_or(cx.editor.config().default_yank_register),
-                Paste::Cursor,
-                count,
-            );
-        }
-    });
-}
-
-fn copy_between_registers(cx: &mut Context) {
-    cx.editor.autoinfo = Some(Info::from_registers(
-        "Copy from register",
-        &cx.editor.registers,
-    ));
-    cx.on_next_key(move |cx, event| {
-        cx.editor.autoinfo = None;
-
-        let Some(source) = event.char() else {
-            return;
-        };
-
-        let Some(values) = cx.editor.registers.read(source, cx.editor) else {
-            cx.editor.set_error(format!("register {source} is empty"));
-            return;
-        };
-        let values: Vec<_> = values.map(|value| value.to_string()).collect();
-
-        cx.editor.autoinfo = Some(Info::from_registers(
-            "Copy into register",
-            &cx.editor.registers,
-        ));
-        cx.on_next_key(move |cx, event| {
-            cx.editor.autoinfo = None;
-
-            let Some(dest) = event.char() else {
-                return;
-            };
-
-            let n_values = values.len();
-            match cx.editor.registers.write(dest, values) {
-                Ok(()) => cx.editor.set_status(format!(
-                    "yanked {n_values} value{} from register {source} to {dest}",
-                    if n_values == 1 { "" } else { "s" }
-                )),
-                Err(err) => cx.editor.set_error(err.to_string()),
-            }
-        });
-    });
 }
 
 fn align_view_top(cx: &mut Context) {

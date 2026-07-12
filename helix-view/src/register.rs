@@ -5,8 +5,8 @@ use arc_swap::access::DynAccess;
 use helix_core::NATIVE_LINE_ENDING;
 
 use crate::{
+    clipboard::{ClipboardError, ClipboardProvider},
     Editor,
-    clipboard::{ClipboardError, ClipboardProvider, ClipboardType},
 };
 
 /// A key-value store for saving sets of values.
@@ -19,8 +19,7 @@ use crate::{
 /// * Selection indices (`#`): index number of each selection starting at 1
 /// * Selection contents (`.`)
 /// * Document path (`%`): filename of the current buffer
-/// * System clipboard (`*`)
-/// * Primary clipboard (`+`)
+/// * System clipboard (`+`)
 pub struct Registers {
     /// The mapping of register to values.
     /// Values are stored in reverse order when inserted with `Registers::write`.
@@ -62,14 +61,9 @@ impl Registers {
                 let path = doc!(editor).display_name();
                 Some(RegisterValues::new(iter::once(path)))
             }
-            '*' | '+' => Some(read_from_clipboard(
+            '+' => Some(read_from_clipboard(
                 &self.clipboard_provider.load(),
                 self.inner.get(&name),
-                match name {
-                    '+' => ClipboardType::Clipboard,
-                    '*' => ClipboardType::Selection,
-                    _ => unreachable!(),
-                },
             )),
             _ => self
                 .inner
@@ -82,15 +76,10 @@ impl Registers {
         match name {
             '_' => Ok(()),
             '#' | '.' | '%' => Err(anyhow::anyhow!("Register {name} does not support writing")),
-            '*' | '+' => {
-                self.clipboard_provider.load().set_contents(
-                    &values.join(NATIVE_LINE_ENDING.as_str()),
-                    match name {
-                        '+' => ClipboardType::Clipboard,
-                        '*' => ClipboardType::Selection,
-                        _ => unreachable!(),
-                    },
-                )?;
+            '+' => {
+                self.clipboard_provider
+                    .load()
+                    .set_contents(&values.join(NATIVE_LINE_ENDING.as_str()))?;
                 values.reverse();
                 self.inner.insert(name, values);
                 Ok(())
@@ -107,16 +96,8 @@ impl Registers {
         match name {
             '_' => Ok(()),
             '#' | '.' | '%' => Err(anyhow::anyhow!("Register {name} does not support pushing")),
-            '*' | '+' => {
-                let clipboard_type = match name {
-                    '+' => ClipboardType::Clipboard,
-                    '*' => ClipboardType::Selection,
-                    _ => unreachable!(),
-                };
-                let contents = self
-                    .clipboard_provider
-                    .load()
-                    .get_contents(clipboard_type)?;
+            '+' => {
+                let contents = self.clipboard_provider.load().get_contents()?;
                 let saved_values = self.inner.entry(name).or_default();
 
                 if !contents_are_saved(saved_values, &contents) {
@@ -130,9 +111,7 @@ impl Registers {
                     value.push_str(NATIVE_LINE_ENDING.as_str());
                 }
                 value.push_str(&contents);
-                self.clipboard_provider
-                    .load()
-                    .set_contents(&value, clipboard_type)?;
+                self.clipboard_provider.load().set_contents(&value)?;
 
                 Ok(())
             }
@@ -155,7 +134,7 @@ impl Registers {
     pub fn iter_preview(&self) -> impl Iterator<Item = (char, &str)> {
         self.inner
             .iter()
-            .filter(|(name, _)| !matches!(name, '*' | '+'))
+            .filter(|(name, _)| **name != '+')
             .map(|(name, values)| {
                 let preview = values
                     .last()
@@ -171,7 +150,6 @@ impl Registers {
                     ('.', "<selection contents>"),
                     ('%', "<document path>"),
                     ('+', "<system clipboard>"),
-                    ('*', "<primary clipboard>"),
                 ]
                 .iter()
                 .copied(),
@@ -179,19 +157,14 @@ impl Registers {
     }
 
     pub fn clear(&mut self) {
-        self.clear_clipboard(ClipboardType::Clipboard);
-        self.clear_clipboard(ClipboardType::Selection);
+        self.clear_clipboard();
         self.inner.clear();
     }
 
     pub fn remove(&mut self, name: char) -> bool {
         match name {
-            '*' | '+' => {
-                self.clear_clipboard(match name {
-                    '+' => ClipboardType::Clipboard,
-                    '*' => ClipboardType::Selection,
-                    _ => unreachable!(),
-                });
+            '+' => {
+                self.clear_clipboard();
                 self.inner.remove(&name);
 
                 true
@@ -201,19 +174,9 @@ impl Registers {
         }
     }
 
-    fn clear_clipboard(&mut self, clipboard_type: ClipboardType) {
-        if let Err(err) = self
-            .clipboard_provider
-            .load()
-            .set_contents("", clipboard_type)
-        {
-            log::error!(
-                "Failed to clear {} clipboard: {err}",
-                match clipboard_type {
-                    ClipboardType::Clipboard => "system",
-                    ClipboardType::Selection => "primary",
-                }
-            );
+    fn clear_clipboard(&mut self) {
+        if let Err(err) = self.clipboard_provider.load().set_contents("") {
+            log::error!("Failed to clear clipboard: {err}");
         }
     }
 
@@ -226,9 +189,8 @@ impl Registers {
 fn read_from_clipboard<'a>(
     provider: &ClipboardProvider,
     saved_values: Option<&'a Vec<String>>,
-    clipboard_type: ClipboardType,
 ) -> RegisterValues<'a> {
-    match provider.get_contents(clipboard_type) {
+    match provider.get_contents() {
         Ok(contents) => {
             // If we're pasting the same values that we just yanked, re-use
             // the saved values. This allows pasting multiple selections
@@ -248,13 +210,7 @@ fn read_from_clipboard<'a>(
             None => RegisterValues::new(iter::empty()),
         },
         Err(err) => {
-            log::error!(
-                "Failed to read {} clipboard: {err}",
-                match clipboard_type {
-                    ClipboardType::Clipboard => "system",
-                    ClipboardType::Selection => "primary",
-                }
-            );
+            log::error!("Failed to read clipboard: {err}");
 
             RegisterValues::new(iter::empty())
         }
@@ -295,8 +251,8 @@ pub struct RegisterValues<'a> {
 impl<'a> RegisterValues<'a> {
     fn new(
         iter: impl DoubleEndedIterator<Item = Cow<'a, str>>
-        + ExactSizeIterator<Item = Cow<'a, str>>
-        + 'a,
+            + ExactSizeIterator<Item = Cow<'a, str>>
+            + 'a,
     ) -> Self {
         Self {
             iter: Box::new(iter),
