@@ -5,7 +5,7 @@ use helix_core::graphemes::Grapheme;
 use helix_core::str_utils::char_to_byte_idx;
 use helix_core::syntax::{self, HighlightEvent, Highlighter, OverlayHighlights};
 use helix_core::text_annotations::TextAnnotations;
-use helix_core::{Position, RopeSlice, visual_offset_from_block};
+use helix_core::{visual_offset_from_block, Position, RopeSlice};
 use helix_stdx::rope::RopeSliceExt;
 use helix_view::editor::{WhitespaceConfig, WhitespaceRenderValue};
 use helix_view::graphics::Rect;
@@ -430,7 +430,7 @@ impl<'a> TextRenderer<'a> {
         if (y as usize) < self.offset.row {
             return;
         }
-        let y = y - self.offset.row as u16;
+        let y = y - u16::try_from(self.offset.row).unwrap();
         self.surface
             .set_string(x, y + self.viewport.y, string, style);
     }
@@ -439,7 +439,7 @@ impl<'a> TextRenderer<'a> {
         if (y as usize) < self.offset.row {
             return;
         }
-        let y = y - self.offset.row as u16;
+        let y = y - u16::try_from(self.offset.row).unwrap();
         self.surface
             .set_stringn(x, y + self.viewport.y, string, width, style);
     }
@@ -447,7 +447,7 @@ impl<'a> TextRenderer<'a> {
     /// Sets the style of an area **within the text viewport* this accounts
     /// both for the renderers vertical offset and its viewport
     pub fn set_style(&mut self, mut area: Rect, style: Style) {
-        let offset = self.offset.row as u16;
+        let offset = u16::try_from(self.offset.row).unwrap();
         if area.y < offset {
             area.height = area.height.saturating_sub(offset - area.y);
             area.y = offset;
@@ -470,7 +470,7 @@ impl<'a> TextRenderer<'a> {
         if (y as usize) < self.offset.row {
             return (x, y);
         }
-        let y = y - self.offset.row as u16;
+        let y = y - u16::try_from(self.offset.row).unwrap();
         self.surface.set_string_truncated(
             x,
             y + self.viewport.y,

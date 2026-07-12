@@ -267,7 +267,7 @@ pub fn request_all_document_diagnostics_for_language_server(
         .documents
         .values()
         .filter(|doc| doc.supports_language_server(server_id))
-        .map(|doc| doc.id())
+        .map(helix_view::Document::id)
         .collect();
     for doc_id in doc_ids {
         request_document_diagnostics(editor, doc_id);

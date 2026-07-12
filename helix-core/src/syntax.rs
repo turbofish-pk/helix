@@ -1155,7 +1155,7 @@ fn pretty_print_tree_impl<W: fmt::Write>(
         let moved = cursor.goto_parent();
         // The parent of the first child must exist, and must be `node`.
         debug_assert!(moved);
-        debug_assert!(cursor.node() == node);
+        debug_assert_eq!(cursor.node(), node);
     }
 
     if visible {

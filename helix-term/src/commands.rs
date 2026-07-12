@@ -2467,7 +2467,7 @@ fn search_selection_impl(cx: &mut Context, detect_word_boundaries: bool) {
         .collect::<Vec<_>>()
         .join("|");
 
-    let msg = format!("register '{}' set to '{}'", register, &regex);
+    let msg = format!("register '{register}' set to '{regex}'");
     match cx.editor.registers.push(register, regex) {
         Ok(()) => {
             cx.editor.registers.last_search_register = register;
@@ -2506,7 +2506,7 @@ fn make_search_word_bounded(cx: &mut Context) {
         new_regex.push_str("\\b");
     }
 
-    let msg = format!("register '{}' set to '{}'", register, &new_regex);
+    let msg = format!("register '{register}' set to '{new_regex}'") ;
     match cx.editor.registers.push(register, new_regex) {
         Ok(()) => {
             cx.editor.registers.last_search_register = register;
@@ -3778,7 +3778,7 @@ fn continued_line_comment_token<'a>(
 ) -> Option<&'a str> {
     if let Some(syntax) = doc.syntax() {
         let mut token = None;
-        for layer in syntax.layers_for_byte_range(byte_pos as u32, byte_pos as u32) {
+        for layer in syntax.layers_for_byte_range(u32::try_from(byte_pos).unwrap(), u32::try_from(byte_pos).unwrap()) {
             let config = loader.language(syntax.layer(layer).language).config();
             if let Some(tokens) = config.comment_tokens.as_ref() {
                 token = comment::get_comment_token(text, tokens, line_num).or(token);
@@ -4265,12 +4265,12 @@ fn hunk_range(hunk: &Hunk, text: RopeSlice) -> Range {
 }
 
 pub mod insert {
-    use crate::{events::PostInsertChar, key};
+    use crate::{commands::continued_line_comment_token, events::PostInsertChar, key};
 
     use super::{
         Context, Cow, Deletion, Direction, Document, DynAccess, IndentStyle, KeyCode, KeyEvent,
         Mode, Range, Rope, RopeSlice, RopeSliceExt, Selection, SmallVec, Tendril, Transaction,
-        UnicodeWidthChar, append_mode, comment, delete_by_selection_insert_mode, goto_next_tabstop,
+        UnicodeWidthChar, append_mode,  delete_by_selection_insert_mode, goto_next_tabstop,
         graphemes, indent, insert, insert_mode, move_parent_node_end, movement,
     };
     pub type Hook = fn(&Rope, &Selection, char) -> Option<Transaction>;

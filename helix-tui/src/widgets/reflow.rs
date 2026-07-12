@@ -45,7 +45,7 @@ impl<'a> LineComposer<'a> for WordWrapper<'a, '_> {
             return None;
         }
         std::mem::swap(&mut self.current_line, &mut self.next_line);
-        self.next_line.truncate(0);
+        self.next_line.clear();
 
         let mut current_line_width = self
             .current_line
@@ -158,7 +158,7 @@ impl<'a> LineComposer<'a> for LineTruncator<'a, '_> {
             return None;
         }
 
-        self.current_line.truncate(0);
+        self.current_line.clear();
         let mut current_line_width = 0;
 
         let mut skip_rest = false;
@@ -331,7 +331,8 @@ mod test {
         let width = 20;
         let text =
             "abcd efghij klmnopabcd efgh ijklmnopabcdefg hijkl mnopab c d e f g h i j k l m n o";
-        let text_multi_space = "abcd efghij    klmnopabcd efgh     ijklmnopabcdefg hijkl mnopab c d e f g h i j k l \
+        let text_multi_space =
+            "abcd efghij    klmnopabcd efgh     ijklmnopabcdefg hijkl mnopab c d e f g h i j k l \
              m n o";
         let (word_wrapper_single_space, _) = run_composer(
             Composer::WordWrapper { trim: true },

@@ -255,7 +255,7 @@ mod termina {
                     decreset!(AnyEventMouse),
                     decreset!(RXVTMouse),
                     decreset!(SGRMouse),
-                    &hook_reset_cursor_command,
+                    hook_reset_cursor_command,
                     decreset!(BracketedPaste),
                     decreset!(FocusTracking),
                     Osc::ResetDynamicColor(osc::DynamicColorNumber::TextBackgroundColor),
@@ -476,7 +476,7 @@ mod termina {
             write!(
                 self.terminal,
                 "{}{}{}{}",
-                &self.reset_cursor_command,
+                self.reset_cursor_command,
                 decreset!(BracketedPaste),
                 decreset!(FocusTracking),
                 decreset!(ClearAndEnableAlternateScreen),
@@ -567,7 +567,7 @@ mod termina {
                     )?;
                 }
 
-                write!(self.terminal, "{}", &cell.symbol)?;
+                write!(self.terminal, "{}", cell.symbol)?;
             }
 
             write!(self.terminal, "{}", Csi::Sgr(csi::Sgr::Reset))?;
@@ -676,7 +676,7 @@ mod termina {
                 let _ = write!(
                     self.terminal,
                     "{}{}{}{}",
-                    &self.reset_cursor_command,
+                    self.reset_cursor_command,
                     decreset!(BracketedPaste),
                     decreset!(FocusTracking),
                     decreset!(ClearAndEnableAlternateScreen),

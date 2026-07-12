@@ -4,13 +4,13 @@ use std::{
     str,
 };
 
-use anyhow::{Result, anyhow};
+use anyhow::{anyhow, Result};
 use helix_core::{hashmap, syntax::Highlight};
 use helix_loader::merge_toml_values;
 use log::warn;
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Deserializer};
-use toml::{Value, map::Map};
+use toml::{map::Map, Value};
 
 use crate::graphics::UnderlineStyle;
 pub use crate::graphics::{Color, Modifier, Style};
@@ -473,10 +473,9 @@ impl Theme {
             if let Some(highlight) = self.find_highlight_exact(scope) {
                 return Some(highlight);
             }
-            if let Some(new_end) = scope.rfind('.') {
+            {
+                let new_end = scope.rfind('.')?;
                 scope = &scope[..new_end];
-            } else {
-                return None;
             }
         }
     }

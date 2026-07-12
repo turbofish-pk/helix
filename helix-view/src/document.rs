@@ -2041,8 +2041,7 @@ impl Document {
 
     pub fn servers_to_load(&self) -> bool {
         self.language_config()
-            .map(|lang| !lang.language_servers.is_empty())
-            .unwrap_or(false)
+.is_some_and(|lang| !lang.language_servers.is_empty())
     }
 
     pub fn diff_handle(&self) -> Option<&DiffHandle> {

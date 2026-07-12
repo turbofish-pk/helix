@@ -16,7 +16,7 @@ pub fn default_lang_config() -> toml::Value {
 pub fn user_lang_config() -> Result<toml::Value, toml::de::Error> {
     let global_config = crate::lang_config_file();
 
-    let files = vec![global_config];
+    let files = [global_config];
 
     let config = files
         .iter()

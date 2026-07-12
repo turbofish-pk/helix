@@ -681,7 +681,7 @@ impl Application {
             self.render().await;
         }
     }
-    #[allow(clippy::unused_async)]
+    #[allow(clippy::unused_async, clippy::too_many_lines)]
     pub async fn handle_language_server_message(
         &mut self,
         call: helix_lsp::Call,
@@ -848,7 +848,7 @@ impl Application {
                                         &mut self.editor,
                                         server_id,
                                     );
-                                };
+                                }
                             }
                         }
                     }

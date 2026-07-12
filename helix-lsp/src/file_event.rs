@@ -93,7 +93,7 @@ impl Handler {
         while let Some(event) = rx.recv().await {
             match event {
                 Event::FileChanged { path } => {
-                    log::debug!("Received file event for {}", &path.display());
+                    log::debug!("Received file event for {}", path.display());
 
                     state.retain(|id, client_state| {
                         if !client_state
