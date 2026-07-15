@@ -4777,11 +4777,6 @@ fn yank_to_clipboard(cx: &mut Context) {
     exit_select_mode(cx);
 }
 
-fn yank_to_primary_clipboard(cx: &mut Context) {
-    yank_impl(cx.editor, '*');
-    exit_select_mode(cx);
-}
-
 fn yank_impl(editor: &mut Editor, register: char) {
     let (view, doc) = current!(editor);
     let text = doc.text().slice(..);
@@ -4841,12 +4836,6 @@ fn yank_joined(cx: &mut Context) {
 fn yank_joined_to_clipboard(cx: &mut Context) {
     let line_ending = doc!(cx.editor).line_ending;
     yank_joined_impl(cx.editor, line_ending.as_str(), '+');
-    exit_select_mode(cx);
-}
-
-fn yank_joined_to_primary_clipboard(cx: &mut Context) {
-    let line_ending = doc!(cx.editor).line_ending;
-    yank_joined_impl(cx.editor, line_ending.as_str(), '*');
     exit_select_mode(cx);
 }
 

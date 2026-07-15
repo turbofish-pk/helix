@@ -169,8 +169,8 @@ pub fn default() -> HashMap<Mode, KeyTrie> {
         "," => keep_primary_selection,
         "A-," => remove_primary_selection,
 
-        "&" => align_selections,
-        "_" => trim_selections,
+           "&" => align_selections,
+      "_" => trim_selections,
 
         "(" => rotate_selections_backward,
         ")" => rotate_selections_forward,

@@ -75,7 +75,7 @@ fn ensure_git_is_available() -> Result<()> {
 }
 
 pub fn fetch_grammars(strict: bool) -> Result<()> {
-    ensure_git_is_available()?;
+    // ensure_git_is_available()?;
 
     // We do not need to fetch local grammars.
     let mut grammars = get_grammar_configs()?;
