@@ -12,7 +12,7 @@ members = [
   "helix-vcs",
   "helix-parsec",
   "helix-stdx",
-  "xtask",
+  "xtask",  # NOTE(pk): temporary deactivation
 ]
 
 default-members = [
@@ -77,7 +77,6 @@ quickcheck = { version = "1", default-features = false }
 version = "25.7.1"
 edition = "2024"
 authors = ["Blaž Hrastnik <blaz@mxxn.io>"]
-categories = ["editor"]
 repository = "https://github.com/helix-editor/helix"
 homepage = "https://helix-editor.com"
 license = "MPL-2.0"

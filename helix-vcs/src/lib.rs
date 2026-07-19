@@ -1,23 +1,18 @@
 //! `helix_vcs` provides types for working with diffs from a Version Control System (VCS).
 //! Currently `git` is the only supported provider for diffs, but this architecture allows
 //! for other providers to be added in the future.
+mod diff;
+mod git;
+mod status;
 
-use anyhow::{Result, anyhow, bail};
+use anyhow::{anyhow, bail, Result};
 use arc_swap::ArcSwap;
+pub use diff::{DiffHandle, Hunk};
+pub use status::FileChange;
 use std::{
     path::{Path, PathBuf},
     sync::Arc,
 };
-
-mod git;
-
-mod diff;
-
-pub use diff::{DiffHandle, Hunk};
-
-mod status;
-
-pub use status::FileChange;
 
 /// Contains all active diff providers. Diff providers are compiled in via features. Currently
 /// only `git` is supported.
@@ -29,11 +24,10 @@ pub struct DiffProviderRegistry {
 impl DiffProviderRegistry {
     /// Get the given file from the VCS. This provides the unedited document as a "base"
     /// for a diff to be created.
-    #[must_use]
-    pub fn get_diff_base(&self, file: &Path, trust_full: bool) -> Option<Vec<u8>> {
+    pub fn get_diff_base(&self, file: &Path) -> Option<Vec<u8>> {
         self.providers
             .iter()
-            .find_map(|provider| match provider.get_diff_base(file, trust_full) {
+            .find_map(|provider| match provider.get_diff_base(file) {
                 Ok(res) => Some(res),
                 Err(err) => {
                     log::debug!("{err:#?}");
@@ -44,23 +38,17 @@ impl DiffProviderRegistry {
     }
 
     /// Get the current name of the current [HEAD](https://stackoverflow.com/questions/2304087/what-is-head-in-git).
-    #[must_use]
-    pub fn get_current_head_name(
-        &self,
-        file: &Path,
-        _trust_full: bool,
-    ) -> Option<Arc<ArcSwap<Box<str>>>> {
-        self.providers.iter().find_map(|provider| {
-            // match provider.get_current_head_name(file, trust_full) {
-            match provider.get_current_head_name(file, true) {
+    pub fn get_current_head_name(&self, file: &Path) -> Option<Arc<ArcSwap<Box<str>>>> {
+        self.providers
+            .iter()
+            .find_map(|provider| match provider.get_current_head_name(file) {
                 Ok(res) => Some(res),
                 Err(err) => {
                     log::debug!("{err:#?}");
                     log::debug!("failed to obtain current head name for {}", file.display());
                     None
                 }
-            }
-        })
+            })
     }
 
     /// Fire-and-forget changed file iteration. Runs everything in a background task. Keeps
@@ -68,14 +56,13 @@ impl DiffProviderRegistry {
     pub fn for_each_changed_file(
         self,
         cwd: PathBuf,
-        trust_full: bool,
         f: impl Fn(Result<FileChange>) -> bool + Send + 'static,
     ) {
         tokio::task::spawn_blocking(move || {
             if self
                 .providers
                 .iter()
-                .find_map(|provider| provider.for_each_changed_file(&cwd, trust_full, &f).ok())
+                .find_map(|provider| provider.for_each_changed_file(&cwd, &f).ok())
                 .is_none()
             {
                 f(Err(anyhow!("no diff provider returns success")));
@@ -86,13 +73,15 @@ impl DiffProviderRegistry {
 
 impl Default for DiffProviderRegistry {
     fn default() -> Self {
+        // currently only git is supported
+        // TODO make this configurable when more providers are added
         let providers = vec![DiffProvider::Git, DiffProvider::None];
         DiffProviderRegistry { providers }
     }
 }
 
-/// A union type that includes all types that implement [`DiffProvider`]. We need this type to allow
-/// cloning [`DiffProviderRegistry`] as `Clone` cannot be used in trait objects.
+/// A union type that includes all types that implement [DiffProvider]. We need this type to allow
+/// cloning [DiffProviderRegistry] as `Clone` cannot be used in trait objects.
 ///
 /// `Copy` is simply to ensure the `clone()` call is the simplest it can be.
 #[derive(Copy, Clone)]
@@ -102,32 +91,27 @@ enum DiffProvider {
 }
 
 impl DiffProvider {
-    fn get_diff_base(self, file: &Path, trust_full: bool) -> Result<Vec<u8>> {
+    fn get_diff_base(&self, file: &Path) -> Result<Vec<u8>> {
         match self {
-            Self::Git => git::get_diff_base(file, trust_full),
+            Self::Git => git::get_diff_base(file),
             Self::None => bail!("No diff support compiled in"),
         }
     }
 
-    fn get_current_head_name(
-        self,
-        file: &Path,
-        trust_full: bool,
-    ) -> Result<Arc<ArcSwap<Box<str>>>> {
+    fn get_current_head_name(&self, file: &Path) -> Result<Arc<ArcSwap<Box<str>>>> {
         match self {
-            Self::Git => git::get_current_head_name(file, trust_full),
+            Self::Git => git::get_current_head_name(file),
             Self::None => bail!("No diff support compiled in"),
         }
     }
 
     fn for_each_changed_file(
-        self,
+        &self,
         cwd: &Path,
-        trust_full: bool,
         f: impl Fn(Result<FileChange>) -> bool,
     ) -> Result<()> {
         match self {
-            Self::Git => git::for_each_changed_file(cwd, trust_full, f),
+            Self::Git => git::for_each_changed_file(cwd, f),
             Self::None => bail!("No diff support compiled in"),
         }
     }

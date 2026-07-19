@@ -8,8 +8,8 @@ use helix_view::{
     graphics::{CursorKind, Rect},
     theme::Color,
 };
-
-mod termina {
+#[cfg(feature = "termina")]
+pub(crate) mod termina {
     use std::io::{self, Write as _};
 
     use helix_view::{
@@ -18,13 +18,13 @@ mod termina {
         theme::{self, Color, Modifier},
     };
     use termina::{
+        Event, OneBased, PlatformTerminal, Terminal as _, WindowSize,
         escape::{
             csi::{self, Csi, SgrAttributes, SgrModifiers},
             dcs::{self, Dcs},
             osc::{self, Osc},
         },
         style::{CursorStyle, RgbColor},
-        Event, OneBased, PlatformTerminal, Terminal as _, WindowSize,
     };
 
     use crate::{buffer::Cell, terminal::Config};

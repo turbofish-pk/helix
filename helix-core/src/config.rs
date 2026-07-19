@@ -1,8 +1,8 @@
 use helix_loader::workspace_trust::WorkspaceTrust;
 
 use crate::syntax::{
-    Loader, LoaderError,
     config::{Configuration, LanguageConfiguration},
+    Loader, LoaderError,
 };
 
 /// Language configuration based on built-in languages.toml.

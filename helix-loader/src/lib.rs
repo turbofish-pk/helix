@@ -265,6 +265,9 @@ pub fn find_workspace_in(dir: impl AsRef<Path>) -> (PathBuf, bool) {
             || ancestor.join(".svn").exists()
             || ancestor.join(".jj").exists()
             || ancestor.join(".helix").exists()
+            || ancestor.join(".idea").exists()
+            || ancestor.join(".zed").exists()
+            || ancestor.join(".vscode").exists()
         {
             return (ancestor.to_owned(), false);
         }

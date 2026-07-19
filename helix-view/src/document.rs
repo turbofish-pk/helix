@@ -1342,7 +1342,7 @@ impl Document {
         &mut self,
         view: &mut View,
         provider_registry: &DiffProviderRegistry,
-        trust_full: bool,
+        _trust_full: bool,
     ) -> Result<(), Error> {
         let encoding = self.encoding;
         let path = match self.path() {
@@ -1371,13 +1371,11 @@ impl Document {
         self.reset_modified();
         self.pickup_last_saved_time();
         self.detect_indent_and_line_ending();
-
-        match provider_registry.get_diff_base(&path, trust_full) {
-            Some(diff_base) => self.set_diff_base(diff_base.as_slice()),
-            None => self.diff_handle = None,
+        if let Some(diff_base) = provider_registry.get_diff_base(&path) {
+            self.set_diff_base(diff_base.as_slice())
         }
 
-        self.version_control_head = provider_registry.get_current_head_name(&path, trust_full);
+        self.version_control_head = provider_registry.get_current_head_name(&path);
         Ok(())
     }
 
@@ -2041,7 +2039,7 @@ impl Document {
 
     pub fn servers_to_load(&self) -> bool {
         self.language_config()
-.is_some_and(|lang| !lang.language_servers.is_empty())
+            .is_some_and(|lang| !lang.language_servers.is_empty())
     }
 
     pub fn diff_handle(&self) -> Option<&DiffHandle> {
