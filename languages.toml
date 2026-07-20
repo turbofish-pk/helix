@@ -2760,18 +2760,61 @@ name = "markdoc"
 source = { git = "https://github.com/markdoc-extra/tree-sitter-markdoc", rev = "e4211fe541a13350275e4684de79adfebe9a91f8" }
 
 [[language]]
+<<<<<<< HEAD
 
-name = "forth"
-scope = "source.forth"
-injection-regex = "forth"
-file-types = ["fs", "forth", "fth", "4th"]
-comment-token = "\\"
-language-servers = ["forth-lsp"]
-indent = { tab-width = 3, unit = "   " }
+=======
+name = "opencl"
+scope = "source.cl"
+injection-regex = "(cl|opencl)"
+file-types = ["cl"]
+comment-token = "//"
+language-servers = [ "clangd" ]
 
 [[grammar]]
-name = "forth"
-source = { git = "https://github.com/alexanderbrevig/tree-sitter-forth", rev = "360ef13f8c609ec6d2e80782af69958b84e36cd0" }
+name = "opencl"
+source = { git = "https://github.com/lefp/tree-sitter-opencl", rev = "8e1d24a57066b3cd1bb9685bbc1ca9de5c1b78fb" }
+
+[[language]]
+name = "just"
+scope = "source.just"
+file-types = ["just", { glob = "justfile" }, { glob = "Justfile" }, { glob = ".justfile" }, { glob = ".Justfile" }]
+injection-regex = "just"
+comment-token = "#"
+indent = { tab-width = 4, unit = "    " }
+language-servers = ["just-lsp"]
+formatter = { command = "just", args = ["--fmt", "--justfile", "-"] }
+
+[[grammar]]
+name = "just"
+source = { git = "https://github.com/poliorcetics/tree-sitter-just", rev = "00859eebfb774d371af174ea1e582d46e697b469" }
+
+[[language]]
+name = "gn"
+scope = "source.gn"
+injection-regex = "gn"
+file-types = ["gn", "gni"]
+roots = []
+comment-token = "#"
+indent = { tab-width = 2, unit = "  " }
+formatter = { command = "gn", args = ["format", "--stdin"] }
+
+[[grammar]]
+name = "gn"
+source = { git = "https://github.com/willcassella/tree-sitter-gn", rev = "fbaa7b3d52b958e3ac06e15416e1785138bde063" }
+
+[[language]]
+name = "blueprint"
+scope = "source.blueprint"
+injection-regex = "blueprint"
+file-types = ["blp"]
+comment-token = "//"
+block-comment-tokens = { start = "/*", end = "*/" }
+language-servers = [ "blueprint-compiler" ]
+indent = { tab-width = 4, unit = "    " }
+
+[[grammar]]
+name = "blueprint"
+source = { git = "https://gitlab.com/gabmus/tree-sitter-blueprint", rev = "355ef84ef8a958ac822117b652cf4d49bac16c79" }
 
 [[language]]
 name = "fsharp"
