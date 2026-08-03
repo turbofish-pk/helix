@@ -383,8 +383,8 @@ mod tests {
     use indexmap::indexmap;
 
     #[test]
-#[allow(clippy::should_panic_without_expect)]
-#[should_panic]
+    #[allow(clippy::should_panic_without_expect)]
+    #[should_panic]
     fn duplicate_keys_should_panic() {
         keymap!({ "Normal mode"
             "i" => normal_mode,

@@ -1,33 +1,18 @@
-<!--
-# YY.0M (YYYY-0M-0D)
-
-
-changes
-
-
-
 Breaking changes:
 
-Features:
+ures:
 
-Commands:
+mands:
 
-Usability improvements:
-
-Fixes:
-
-Themes:
-
+Usabovements:
 New languages:
-
-Updated languages and queries:
 
 Packaging:
 -->
 
-# 25.07.1 (2025-07-18)
+# 27-18)
 
-This is a patch release which lowers the GLIBC requirements of the release artifacts published to GitHub ([#13983](https://github.com/helix-editor/helix/pull/13983))
+This is a ich lowers the GLIBC requirements of the release artifacts published to GitHub ([#13983](https://github.com/helix-editor/helix/pull/13983))
 
 # 25.07 (2025-07-15)
 
@@ -2933,22 +2918,4 @@ to distinguish it in bug reports..
   certain language servers (typescript)
 - LSP failing to start no longer panics
 - Elixir language queries were fixed
-
-# 0.0.10
-
-Keymaps:
-
-- Add mappings to jump to diagnostics
-- Add gt/gm/gb mappings to jump to top/middle/bottom of screen
-- ^ and $ are now gh, gl
-
-- The runtime/ can now optionally be embedded in the binary
-- Haskell syntax added
-- Window mode (ctrl-w) added
-- Show matching bracket (Vim's matchbrackets)
-- Themes now support style modifiers
-- First user contributed theme
-- Create a document if it doesn't exist yet on save
-- Detect language on a new file on save
-
-- Panic fixes, lots of them
+  anic fixes, lots of them

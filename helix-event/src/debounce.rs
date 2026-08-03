@@ -3,7 +3,7 @@
 use std::time::Duration;
 
 use futures_executor::block_on;
-use tokio::sync::mpsc::{self, error::TrySendError, Sender};
+use tokio::sync::mpsc::{self, Sender, error::TrySendError};
 use tokio::time::Instant;
 
 /// Async hooks provide a convenient framework for implementing (debounced)
@@ -42,12 +42,13 @@ async fn run<Hook: AsyncHook>(mut hook: Hook, mut rx: mpsc::Receiver<Hook::Event
         let event = match deadline {
             Some(deadline_) => {
                 let res = tokio::time::timeout_at(deadline_, rx.recv()).await;
-                if let Ok(event) = res { event} else {
-                        hook.finish_debounce();
-                        deadline = None;
-                        continue;
-                    }
-
+                if let Ok(event) = res {
+                    event
+                } else {
+                    hook.finish_debounce();
+                    deadline = None;
+                    continue;
+                }
             }
             None => rx.recv().await,
         };

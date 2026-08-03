@@ -2236,22 +2236,6 @@ name = "cpon"
 source = { git = "https://github.com/fvacek/tree-sitter-cpon", rev = "0d01fcdae5a53191df5b1349f9bce053833270e7" }
 
 [[language]]
-name = "odin"
-auto-format = true
-scope = "source.odin"
-file-types = ["odin"]
-roots = ["ols.json", "main.odin"]
-language-servers = ["ols"]
-comment-token = "//"
-block-comment-tokens = { start = "/*", end = "*/" }
-indent = { tab-width = 4, unit = "\t" }
-formatter = { command = "odinfmt", args = ["-stdin"] }
-
-[[grammar]]
-name = "odin"
-source = { git = "https://github.com/tree-sitter-grammars/tree-sitter-odin", rev = "6c6b07e354a52f8f2a9bc776cbc262a74e74fd26" }
-
-[[language]]
 name = "meson"
 scope = "source.meson"
 injection-regex = "meson"
@@ -2297,22 +2281,6 @@ indent = { tab-width = 2, unit = "  " }
 [[grammar]]
 name = "scheme"
 source = { git = "https://github.com/6cdh/tree-sitter-scheme", rev = "c6cb7c7d7a04b3f5d999c28e2e9c0c31b2d50ece" }
-
-[[language]]
-name = "v"
-scope = "source.v"
-file-types = ["v", "vv", "vsh"]
-shebangs = ["v run"]
-roots = ["v.mod"]
-language-servers = ["vlang-language-server"]
-auto-format = true
-comment-token = "//"
-block-comment-tokens = { start = "/*", end = "*/" }
-indent = { tab-width = 4, unit = "\t" }
-
-[[grammar]]
-name = "v"
-source = { git = "https://github.com/vlang/v-analyzer", subpath = "tree_sitter_v", rev = "59a8889d84a293d7c0366d14c8dbb0eec24fe889" }
 
 [[language]]
 name = "edoc"

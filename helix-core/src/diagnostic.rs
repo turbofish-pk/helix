@@ -68,7 +68,7 @@ pub enum DiagnosticProvider {
 }
 
 impl DiagnosticProvider {
-    #[must_use] 
+    #[must_use]
     pub fn language_server_id(&self) -> Option<LanguageServerId> {
         match self {
             Self::Lsp { server_id, .. } => Some(*server_id),
@@ -93,7 +93,7 @@ impl fmt::Display for LanguageServerId {
 
 impl Diagnostic {
     #[inline]
-    #[must_use] 
+    #[must_use]
     pub fn severity(&self) -> Severity {
         self.severity.unwrap_or(Severity::Warning)
     }

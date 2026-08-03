@@ -492,12 +492,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5baebc0774151f905a1a2cc41989300b1e6fbb29aff0ceffa1064fdd3088d582"
 
 [[package]]
-name = "fnv"
-version = "1.0.7"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3f9eec918d3f24069decb9af1554cad7c880e2da24a9afd88aca000531ab82c1"
-
-[[package]]
 name = "foldhash"
 version = "0.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -582,338 +576,29 @@ dependencies = [
 name = "gix"
 version = "0.85.0"
 dependencies = [
- "bstr",
- "gix-attributes",
- "gix-command",
- "gix-config",
- "gix-diff",
- "gix-dir",
- "gix-features",
- "gix-filter",
- "gix-glob",
- "gix-hash",
- "gix-index",
- "gix-object",
- "gix-odb",
- "gix-pack",
- "gix-path",
- "gix-ref",
- "gix-sec",
- "gix-worktree",
- "thiserror",
-]
-
-[[package]]
-name = "gix-attributes"
-version = "0.33.2"
-dependencies = [
- "bstr",
- "gix-glob",
- "gix-path",
- "gix-quote",
- "kstring",
- "smallvec",
- "thiserror",
- "unicode-bom",
-]
-
-[[package]]
-name = "gix-bitmap"
-version = "0.3.2"
-dependencies = [
- "gix-error",
-]
-
-[[package]]
-name = "gix-command"
-version = "0.9.1"
-
-[[package]]
-name = "gix-config"
-version = "0.58.0"
-dependencies = [
- "bstr",
- "gix-config-value",
- "gix-features",
- "gix-glob",
- "gix-path",
- "gix-ref",
- "gix-sec",
- "smallvec",
- "thiserror",
- "unicode-bom",
-]
-
-[[package]]
-name = "gix-config-value"
-version = "0.18.1"
-dependencies = [
+ "arc-swap",
  "bitflags",
  "bstr",
- "gix-path",
- "libc",
- "thiserror",
-]
-
-[[package]]
-name = "gix-date"
-version = "0.15.5"
-dependencies = [
- "gix-error",
-]
-
-[[package]]
-name = "gix-diff"
-version = "0.65.0"
-dependencies = [
- "bstr",
- "gix-command",
- "gix-hash",
- "gix-imara-diff",
- "gix-index",
- "gix-object",
-]
-
-[[package]]
-name = "gix-dir"
-version = "0.27.0"
-dependencies = [
- "bstr",
- "gix-ignore",
- "thiserror",
-]
-
-[[package]]
-name = "gix-error"
-version = "0.2.4"
-dependencies = [
- "bstr",
-]
-
-[[package]]
-name = "gix-features"
-version = "0.48.1"
-dependencies = [
+ "clru",
  "crc32fast",
- "gix-path",
+ "encoding_rs",
+ "faster-hex",
+ "filetime",
+ "hashbrown 0.17.1",
+ "itoa",
+ "kstring",
  "libc",
+ "memmap2",
  "parking_lot",
  "prodash",
- "thiserror",
- "walkdir",
- "zlib-rs",
-]
-
-[[package]]
-name = "gix-filter"
-version = "0.32.0"
-dependencies = [
- "bstr",
- "encoding_rs",
- "gix-attributes",
- "gix-command",
- "gix-hash",
- "gix-object",
- "gix-utils",
- "smallvec",
- "thiserror",
-]
-
-[[package]]
-name = "gix-fs"
-version = "0.21.2"
-dependencies = [
- "bstr",
- "gix-features",
- "gix-path",
- "thiserror",
-]
-
-[[package]]
-name = "gix-glob"
-version = "0.26.1"
-dependencies = [
- "bitflags",
- "bstr",
- "gix-features",
- "gix-path",
-]
-
-[[package]]
-name = "gix-hash"
-version = "0.25.1"
-dependencies = [
- "faster-hex",
- "gix-features",
  "sha1-checked",
- "thiserror",
-]
-
-[[package]]
-name = "gix-hashtable"
-version = "0.15.2"
-dependencies = [
- "gix-hash",
- "hashbrown 0.17.1",
- "parking_lot",
-]
-
-[[package]]
-name = "gix-ignore"
-version = "0.21.1"
-dependencies = [
- "bstr",
- "gix-glob",
- "unicode-bom",
-]
-
-[[package]]
-name = "gix-imara-diff"
-version = "0.2.3"
-dependencies = [
- "bstr",
- "hashbrown 0.17.1",
-]
-
-[[package]]
-name = "gix-index"
-version = "0.53.0"
-dependencies = [
- "bitflags",
- "bstr",
- "filetime",
- "fnv",
- "gix-bitmap",
- "gix-features",
- "gix-hash",
- "gix-object",
- "gix-utils",
- "hashbrown 0.17.1",
- "libc",
- "memmap2",
- "rustix",
- "smallvec",
- "thiserror",
-]
-
-[[package]]
-name = "gix-object"
-version = "0.62.0"
-dependencies = [
- "bstr",
- "gix-date",
- "gix-error",
- "gix-hash",
- "gix-utils",
- "itoa",
- "smallvec",
- "thiserror",
-]
-
-[[package]]
-name = "gix-odb"
-version = "0.82.0"
-dependencies = [
- "arc-swap",
- "gix-features",
- "gix-hash",
- "gix-hashtable",
- "gix-object",
- "gix-pack",
- "gix-path",
- "gix-quote",
- "memmap2",
- "parking_lot",
- "tempfile",
- "thiserror",
-]
-
-[[package]]
-name = "gix-pack"
-version = "0.72.0"
-dependencies = [
- "clru",
- "gix-error",
- "gix-features",
- "gix-hash",
- "gix-hashtable",
- "gix-object",
- "memmap2",
  "smallvec",
  "thiserror",
  "uluru",
-]
-
-[[package]]
-name = "gix-path"
-version = "0.12.1"
-dependencies = [
- "bstr",
- "gix-validate",
- "thiserror",
-]
-
-[[package]]
-name = "gix-quote"
-version = "0.7.2"
-dependencies = [
- "bstr",
- "gix-error",
- "gix-utils",
-]
-
-[[package]]
-name = "gix-ref"
-version = "0.65.0"
-dependencies = [
- "gix-features",
- "gix-fs",
- "gix-hash",
- "gix-object",
- "gix-path",
- "gix-utils",
- "gix-validate",
- "memmap2",
- "thiserror",
-]
-
-[[package]]
-name = "gix-sec"
-version = "0.14.1"
-dependencies = [
- "bitflags",
-]
-
-[[package]]
-name = "gix-utils"
-version = "0.3.3"
-dependencies = [
- "bstr",
- "fastrand",
- "getrandom 0.4.3",
+ "unicode-bom",
  "unicode-normalization",
-]
-
-[[package]]
-name = "gix-validate"
-version = "0.11.2"
-dependencies = [
- "bstr",
-]
-
-[[package]]
-name = "gix-worktree"
-version = "0.54.0"
-dependencies = [
- "bstr",
- "gix-attributes",
- "gix-fs",
- "gix-glob",
- "gix-ignore",
- "gix-index",
- "gix-object",
- "gix-path",
- "gix-validate",
+ "walkdir",
+ "zlib-rs",
 ]
 
 [[package]]

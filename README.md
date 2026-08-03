@@ -1,14 +1,10 @@
-<div align="center">
-
-<h1>
-<picture>
-abc
-  <source media="(prefers-color-scheme: dark)" srcset="logo_dark.svg">
-  <source media="(prefers-color-scheme: light)" srcset="logo_light.svg">
+<source media="(prefers-color-scheme: light)" srcset="logo_light.svg">
   <img alt="Helix" height="128" src="logo_light.svg">
+
 </picture>
 </h1>
 
+asdfasd
 [![Build status](https://github.com/helix-editor/helix/actions/workflows/build.yml/badge.svg)](https://github.com/helix-editor/helix/actions)
 [![GitHub Release](https://img.shields.io/github/v/release/helix-editor/helix)](https://github.com/helix-editor/helix/releases/latest)
 [![Documentation](https://shields.io/badge/-documentation-452859)](https://docs.helix-editor.com/)
@@ -49,10 +45,6 @@ Note: Only certain languages have indentation definitions at the moment. Check
 [Installation documentation](https://docs.helix-editor.com/install.html).
 
 [![Packaging status](https://repology.org/badge/vertical-allrepos/helix-editor.svg?exclude_unsupported=1)](https://repology.org/project/helix-editor/versions)
-
-# Contributing
-
-Contributing guidelines can be found [here](./docs/CONTRIBUTING.md).
 
 # Getting help
 

@@ -5,8 +5,8 @@ use arc_swap::access::DynAccess;
 use helix_core::NATIVE_LINE_ENDING;
 
 use crate::{
-    clipboard::{ClipboardError, ClipboardProvider},
     Editor,
+    clipboard::{ClipboardError, ClipboardProvider},
 };
 
 /// A key-value store for saving sets of values.
@@ -251,8 +251,8 @@ pub struct RegisterValues<'a> {
 impl<'a> RegisterValues<'a> {
     fn new(
         iter: impl DoubleEndedIterator<Item = Cow<'a, str>>
-            + ExactSizeIterator<Item = Cow<'a, str>>
-            + 'a,
+        + ExactSizeIterator<Item = Cow<'a, str>>
+        + 'a,
     ) -> Self {
         Self {
             iter: Box::new(iter),

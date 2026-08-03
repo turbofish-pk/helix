@@ -622,7 +622,7 @@ fn lsp_item_to_transaction(
         // we can still generate a transaction regardless but if the
         // document changed (and not just the selection) then we will
         // likely delete the wrong text (same if we applied an edit sent by the LS)
-        debug_assert_eq!(primary_cursor , trigger_offset);
+        debug_assert_eq!(primary_cursor, trigger_offset);
         (None, new_text)
     };
 

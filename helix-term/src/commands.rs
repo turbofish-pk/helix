@@ -2498,7 +2498,7 @@ fn make_search_word_bounded(cx: &mut Context) {
         new_regex.push_str("\\b");
     }
 
-    let msg = format!("register '{register}' set to '{new_regex}'") ;
+    let msg = format!("register '{register}' set to '{new_regex}'");
     match cx.editor.registers.push(register, new_regex) {
         Ok(()) => {
             cx.editor.registers.last_search_register = register;
@@ -3502,9 +3502,7 @@ fn changed_file_picker(cx: &mut Context) {
     cx.editor
         .diff_providers
         .clone()
-        .for_each_changed_file(
-            cwd,
-            move |change| match change {
+        .for_each_changed_file(cwd, move |change| match change {
             Ok(change) => injector.push(change).is_ok(),
             Err(err) => {
                 status::report_blocking(err);
@@ -3765,7 +3763,10 @@ fn continued_line_comment_token<'a>(
 ) -> Option<&'a str> {
     if let Some(syntax) = doc.syntax() {
         let mut token = None;
-        for layer in syntax.layers_for_byte_range(u32::try_from(byte_pos).unwrap(), u32::try_from(byte_pos).unwrap()) {
+        for layer in syntax.layers_for_byte_range(
+            u32::try_from(byte_pos).unwrap(),
+            u32::try_from(byte_pos).unwrap(),
+        ) {
             let config = loader.language(syntax.layer(layer).language).config();
             if let Some(tokens) = config.comment_tokens.as_ref() {
                 token = comment::get_comment_token(text, tokens, line_num).or(token);
@@ -4257,7 +4258,7 @@ pub mod insert {
     use super::{
         Context, Cow, Deletion, Direction, Document, DynAccess, IndentStyle, KeyCode, KeyEvent,
         Mode, Range, Rope, RopeSlice, RopeSliceExt, Selection, SmallVec, Tendril, Transaction,
-        UnicodeWidthChar, append_mode,  delete_by_selection_insert_mode, goto_next_tabstop,
+        UnicodeWidthChar, append_mode, delete_by_selection_insert_mode, goto_next_tabstop,
         graphemes, indent, insert, insert_mode, move_parent_node_end, movement,
     };
     pub type Hook = fn(&Rope, &Selection, char) -> Option<Transaction>;
@@ -4850,7 +4851,6 @@ fn yank_main_selection_to_clipboard(cx: &mut Context) {
     yank_main_selection_to_register(cx.editor, '+');
     exit_select_mode(cx);
 }
-
 
 #[derive(Copy, Clone)]
 pub(crate) enum Paste {

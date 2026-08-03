@@ -325,7 +325,12 @@ pub enum LanguageServerFeature {
 
 impl Display for LanguageServerFeature {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        use LanguageServerFeature::{Format, GotoDeclaration, GotoDefinition, GotoTypeDefinition, GotoReference, GotoImplementation, SignatureHelp, Hover, DocumentHighlight, Completion, CodeAction, DocumentLinks, WorkspaceCommand, DocumentSymbols, WorkspaceSymbols, Diagnostics, PullDiagnostics, RenameSymbol, InlayHints, DocumentColors, CallHierarchy};
+        use LanguageServerFeature::{
+            CallHierarchy, CodeAction, Completion, Diagnostics, DocumentColors, DocumentHighlight,
+            DocumentLinks, DocumentSymbols, Format, GotoDeclaration, GotoDefinition,
+            GotoImplementation, GotoReference, GotoTypeDefinition, Hover, InlayHints,
+            PullDiagnostics, RenameSymbol, SignatureHelp, WorkspaceCommand, WorkspaceSymbols,
+        };
         let feature = match self {
             Format => "format",
             GotoDeclaration => "goto-declaration",

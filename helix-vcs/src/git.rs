@@ -4,11 +4,9 @@ use arc_swap::ArcSwap;
 use crate::FileChange;
 
 use gix::{
-    dir::GixDirEntryStatus,
-    helix::index_worktree::Item,
-    helix::EntryKind,
-    types::{IndexAsWorktreeChange, IndexAsWorktreeEntryStatus},
-    ByteSlice, Commit, ObjectId, Repository, ThreadSafeRepository,
+    helix_real_path, index_worktree::IndexWorktreeItem, ByteSlice, Commit, EntryKind,
+    GixDirEntryStatus, IndexAsWorktreeChange, IndexAsWorktreeEntryStatus, ObjectId, Repository,
+    RepositoryPath, ThreadSafeRepository,
 };
 use std::{io::Read, path::Path, sync::Arc};
 
@@ -19,7 +17,7 @@ fn get_repo_dir(file: &Path) -> Result<&Path> {
 
 pub fn get_diff_base(file: &Path) -> Result<Vec<u8>> {
     // let file = gix::path::realpath(file).context("resolve symlinks")?;
-    let file = gix::helix_real_path(file).context("resolve symlinks")?;
+    let file = helix_real_path(file).context("resolve symlinks")?;
 
     // let file = helix_gix::path::realpath(file).context("resolve symlinks")?;
 
@@ -30,11 +28,14 @@ pub fn get_diff_base(file: &Path) -> Result<Vec<u8>> {
         .context("failed to open git repo")?
         .into();
     let head = repo.helix_head_commit()?;
+    eprintln!("HEAD ok");
     let file_oid = find_file_in_commit(&repo, &head, &file)?;
 
     // let file_object = repo.hx_find_object(file_oid)?;
     // let data = file_object.detach().data;
     let data = repo.helix_find_object_data(file_oid)?;
+    eprintln!("obj: {} bytes", data.len());
+
     // Get the actual data that git would make out of the git object.
     // This will apply the user's git config or attributes like crlf conversions.
     //
@@ -57,7 +58,7 @@ pub fn get_diff_base(file: &Path) -> Result<Vec<u8>> {
 }
 
 pub fn get_current_head_name(file: &Path) -> Result<Arc<ArcSwap<Box<str>>>> {
-    let file = gix::helix_real_path(file).context("resolve symlinks")?;
+    let file = helix_real_path(file).context("resolve symlinks")?;
 
     let repo_dir = get_repo_dir(&file)?;
     let repo: Repository = open_repo(repo_dir)
@@ -68,7 +69,7 @@ pub fn get_current_head_name(file: &Path) -> Result<Arc<ArcSwap<Box<str>>>> {
 
     let name = match head_ref {
         Some(reference) => reference.name().shorten(),
-        None => head_commit.id.to_hex_with_len(),
+        None => head_commit.id.hx_to_hex_with_len(),
     };
 
     Ok(Arc::new(ArcSwap::from_pointee(name.into_boxed_str())))
@@ -79,7 +80,7 @@ pub fn for_each_changed_file(cwd: &Path, f: impl Fn(Result<FileChange>) -> bool)
 }
 
 fn open_repo(path: &Path) -> Result<ThreadSafeRepository> {
-    let repo_path: gix::types::RepositoryPath =
+    let repo_path: RepositoryPath =
         gix::helix_discover_upwards_opts(path).context("failed to discover git repo")?;
 
     Ok(ThreadSafeRepository::helix_open_opts(
@@ -113,7 +114,7 @@ fn git_status(repo: &Repository, f: impl Fn(Result<FileChange>) -> bool) -> Resu
             continue;
         };
         let change = match index_item {
-            Item::Modification {
+            IndexWorktreeItem::Modification {
                 rela_path, status, ..
             } => {
                 let path = work_dir.join(rela_path.to_path()?);
@@ -135,14 +136,14 @@ fn git_status(repo: &Repository, f: impl Fn(Result<FileChange>) -> bool) -> Resu
                     _ => continue,
                 }
             }
-            Item::DirectoryContents { entry, .. }
+            IndexWorktreeItem::DirectoryContents { entry, .. }
                 if entry.status == GixDirEntryStatus::Untracked =>
             {
                 FileChange::Untracked {
                     path: work_dir.join(entry.rela_path.to_os_str().map(Path::new).unwrap()),
                 }
             }
-            Item::Rewrite {
+            IndexWorktreeItem::Rewrite {
                 source,
                 dirwalk_entry,
                 ..
@@ -150,7 +151,7 @@ fn git_status(repo: &Repository, f: impl Fn(Result<FileChange>) -> bool) -> Resu
                 from_path: work_dir.join(source.helix_rela_path().to_path()?),
                 to_path: work_dir.join(dirwalk_entry.rela_path.to_path()?),
             },
-            Item::DirectoryContents { .. } => continue,
+            IndexWorktreeItem::DirectoryContents { .. } => continue,
         };
         if !f(Ok(change)) {
             break;
