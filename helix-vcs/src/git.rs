@@ -6,7 +6,7 @@ use crate::FileChange;
 use gix::{
     dir::GixDirEntryStatus,
     helix::index_worktree::Item,
-    objs::tree::EntryKind,
+    helix::EntryKind,
     types::{IndexAsWorktreeChange, IndexAsWorktreeEntryStatus},
     ByteSlice, Commit, ObjectId, Repository, ThreadSafeRepository,
 };

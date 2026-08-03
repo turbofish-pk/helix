@@ -787,9 +787,7 @@ dependencies = [
  "gix-features",
  "gix-hash",
  "gix-object",
- "gix-traverse",
  "gix-utils",
- "gix-validate",
  "hashbrown 0.17.1",
  "libc",
  "memmap2",
@@ -805,7 +803,6 @@ dependencies = [
  "bstr",
  "gix-date",
  "gix-error",
- "gix-features",
  "gix-hash",
  "gix-utils",
  "itoa",
@@ -885,15 +882,6 @@ name = "gix-sec"
 version = "0.14.1"
 dependencies = [
  "bitflags",
-]
-
-[[package]]
-name = "gix-traverse"
-version = "0.59.0"
-dependencies = [
- "gix-hash",
- "gix-object",
- "thiserror",
 ]
 
 [[package]]
