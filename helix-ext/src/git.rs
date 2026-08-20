@@ -54,6 +54,206 @@ enum State {
   AttributesStack(Attributes),
 }
 
+pub fn helix_discover_upwards_opts(directory: &Path) -> Result<RepositoryPath, GitError> {
+  let error = || GitError::Gen;
+  let current_dir = std::env::current_dir().map_err(|_| GitError::Gen)?;
+  let dir = hx_path_normalize(directory.into(), &current_dir).ok_or_else(&error)?;
+  let dir_metadata = dir.metadata().map_err(|_| GitError::Gen)?;
+  if !dir_metadata.is_dir() {
+    return Err(GitError::Gen);
+  }
+  let initial_device = &dir_metadata.st_dev();
+  let mut cursor = dir.clone().into_owned();
+  let mut cursor_metadata = Some(dir_metadata);
+  loop {
+    let metadata = if let Some(metadata) = cursor_metadata.take() {
+      metadata
+    } else {
+      let path = if cursor.as_os_str().is_empty() {
+        Path::new(".")
+      } else {
+        cursor.as_path()
+      };
+      path.metadata().map_err(|_| GitError::Gen)?
+    };
+    if &metadata.st_dev() != initial_device {
+      return Err(GitError::Gen);
+    }
+    cursor_metadata = Some(metadata);
+    let candidate = if cursor.file_name() == Some(OsStr::new(DOT_GIT_DIR)) {
+      match cursor_metadata.take() {
+        Some(metadata) => hx_is_git_with_metadata(&cursor, &metadata, &current_dir),
+        None => hx_is_git(&cursor),
+      }
+    } else {
+      cursor.push(DOT_GIT_DIR);
+      hx_is_git(&cursor)
+    };
+    if let Ok(repository_kind) = candidate {
+      return RepositoryPath::hx_from_dot_git_dir(cursor, repository_kind, &current_dir)
+        .ok_or_else(error);
+    }
+    cursor.pop();
+    if cursor.as_os_str().is_empty() || cursor.as_os_str() == OsStr::new(".") {
+      cursor.clone_from(&current_dir);
+    }
+    if !cursor.pop() {
+      return Err(GitError::Gen);
+    }
+  }
+}
+
+impl Repository {
+  pub fn helix_repository_filter_pipeline(&self) -> Result<Pipeline, GitError> {
+    Pipeline::new(
+      self,
+      GixWorktreeStack::new(
+        self.work_tree.as_deref().unwrap_or(&self.refs.git_dir),
+        AttributesStack(self.repository_config.hx_assemble_attribute_globals()),
+        Case::Sensitive,
+      ),
+    )
+    .map_err(|_| GitError::Gen)
+  }
+  pub fn helix_find_object_data(&self, id: impl Into<ObjectId>) -> Result<Vec<u8>, GitError> {
+    Ok(self.hx_find_object(id)?.detach().data)
+  }
+  fn hx_find_object(&self, id: impl Into<ObjectId>) -> Result<Object<'_>, GitError> {
+    let id = id.into(); // 20 bytes long sha1 hash
+
+    let empty_tree_sha1 = ObjectId::Sha1([
+      0x4b, 0x82, 0x5d, 0xc6, 0x42, 0xcb, 0x6e, 0xb9, 0xa0, 0x60, 0xe5, 0x4b, 0xf8, 0xd6, 0x92,
+      0x88, 0xfb, 0xee, 0x49, 0x04,
+    ]);
+
+    if id == empty_tree_sha1 {
+      return Ok(Object {
+        id,
+        kind: ObjectKind::Tree,
+        data: Vec::new(),
+        repo: self,
+      });
+    }
+    let mut buf = self
+      .bufs
+      .as_ref()
+      .and_then(|bufs| bufs.borrow_mut().pop())
+      .unwrap_or_default();
+
+    Ok(Object {
+      id,
+      kind: self.objects.find(&id, &mut buf)?.kind,
+      data: buf,
+      repo: self,
+    })
+  }
+
+  pub fn helix_head_ref(&self) -> Result<Option<Reference<'_>>, GitError> {
+    Ok(self.hx_head()?.try_into_referent())
+  }
+  pub fn helix_head_commit(&self) -> Result<Commit<'_>, GitError> {
+    self.hx_head()?.hx_peel_to_commit()
+  }
+  pub fn helix_repository_status(&self) -> Result<Platform<'_>, GitError> {
+    let platform = Platform {
+      repo: self,
+      head_tree: Some(None),
+    };
+
+    Ok(platform)
+  }
+  fn hx_head(&self) -> Result<Head<'_>, GitError> {
+    let head = self.hx_find_reference("HEAD")?;
+    Ok(
+      match head.inner.target {
+        Target::Symbolic(branch) => match self.hx_find_reference(&branch) {
+          Ok(r) => GixGitHeadKind::Symbolic(r.detach()),
+          Err(GitError::NotFound) => GixGitHeadKind::Unborn(branch),
+          Err(_) => return Err(GitError::Gen),
+        },
+        Target::Object(target) => GixGitHeadKind::Detached {
+          target,
+          peeled: head.inner.peeled,
+        },
+      }
+      .attach(self),
+    )
+  }
+  fn hx_head_tree_id_or_empty(&self) -> Result<Id<'_>, GitError> {
+      Ok(self
+          .helix_head_commit()
+          .ok()
+          .and_then(|commit| commit.hx_tree_id().ok())
+          .unwrap_or_else(|| {
+              let tree = self
+                  .hx_find_object(ObjectId::empty_tree())
+                  .expect("always present")
+                  .into_tree();
+              Id::from_id(tree.id, tree.repo)
+          }))
+  }
+
+
+  fn hx_find_reference<'a, Name>(&self, name: Name) -> Result<Reference<'_>, GitError>
+  where
+      Name: TryInto<&'a PartialNameRef>,
+  {
+      self.refs
+          .try_find(name)
+          .ok()
+          .flatten()
+          .map(|r| Reference::from_ref(r, self))
+          .ok_or(GitError::NotFound)
+  }
+
+
+
+  #[inline]
+  fn free_buf(&self) -> Vec<u8> {
+    self
+      .bufs
+      .as_ref()
+      .and_then(|bufs| bufs.borrow_mut().pop())
+      .unwrap_or_default()
+  }
+
+  #[inline]
+  fn reuse_buffer(&self, data: &mut Vec<u8>) {
+    if data.capacity() > 0
+      && let Some(bufs) = self.bufs.as_ref()
+    {
+      bufs.borrow_mut().push(std::mem::take(data));
+    }
+  }
+  #[allow(clippy::too_many_arguments)]
+  fn from_refs_and_objects(
+    refs: RefFileStore,
+    objects: Proxy<OdbCache<OdbHandle<Arc<Store>>>>,
+    work_tree: Option<std::path::PathBuf>,
+    config: Cache,
+  ) -> Self {
+    Repository {
+      bufs: Some(RefCell::new(Vec::with_capacity(4))),
+      work_tree,
+      objects,
+      refs,
+      repository_config: config,
+    }
+  }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
 #[derive(Debug)]
 pub enum GitError {
   Gen,
@@ -142,54 +342,7 @@ pub enum GixDirEntryStatus {
   Untracked,
 }
 
-pub fn helix_discover_upwards_opts(directory: &Path) -> Result<RepositoryPath, GitError> {
-  let error = || GitError::Gen;
-  let current_dir = std::env::current_dir().map_err(|_| GitError::Gen)?;
-  let dir = hx_path_normalize(directory.into(), &current_dir).ok_or_else(&error)?;
-  let dir_metadata = dir.metadata().map_err(|_| GitError::Gen)?;
-  if !dir_metadata.is_dir() {
-    return Err(GitError::Gen);
-  }
-  let initial_device = &dir_metadata.st_dev();
-  let mut cursor = dir.clone().into_owned();
-  let mut cursor_metadata = Some(dir_metadata);
-  loop {
-    let metadata = if let Some(metadata) = cursor_metadata.take() {
-      metadata
-    } else {
-      let path = if cursor.as_os_str().is_empty() {
-        Path::new(".")
-      } else {
-        cursor.as_path()
-      };
-      path.metadata().map_err(|_| GitError::Gen)?
-    };
-    if &metadata.st_dev() != initial_device {
-      return Err(GitError::Gen);
-    }
-    cursor_metadata = Some(metadata);
-    let candidate = if cursor.file_name() == Some(OsStr::new(DOT_GIT_DIR)) {
-      match cursor_metadata.take() {
-        Some(metadata) => hx_is_git_with_metadata(&cursor, &metadata, &current_dir),
-        None => hx_is_git(&cursor),
-      }
-    } else {
-      cursor.push(DOT_GIT_DIR);
-      hx_is_git(&cursor)
-    };
-    if let Ok(repository_kind) = candidate {
-      return RepositoryPath::hx_from_dot_git_dir(cursor, repository_kind, &current_dir)
-        .ok_or_else(error);
-    }
-    cursor.pop();
-    if cursor.as_os_str().is_empty() || cursor.as_os_str() == OsStr::new(".") {
-      cursor.clone_from(&current_dir);
-    }
-    if !cursor.pop() {
-      return Err(GitError::Gen);
-    }
-  }
-}
+
 
 impl ThreadSafeRepository {
   // helix
@@ -236,154 +389,26 @@ impl ThreadSafeRepository {
   }
 }
 
-impl Repository {
-  // pub fn helix_repository_filter_pipeline(&self) -> Result<Pipeline<'_>, GitError> {
-  pub fn helix_repository_filter_pipeline(&self) -> Result<Pipeline, GitError> {
-    Pipeline::new(
-      self,
-      GixWorktreeStack::new(
-        self.work_tree.as_deref().unwrap_or(&self.refs.git_dir),
-        AttributesStack(self.repository_config.hx_assemble_attribute_globals()),
-        Case::Sensitive,
-      ),
-    )
-    .map_err(|_| GitError::Gen)
-  }
-  pub fn helix_find_object_data(&self, id: impl Into<ObjectId>) -> Result<Vec<u8>, GitError> {
-    Ok(self.hx_find_object(id)?.detach().data)
-  }
-  fn hx_find_object(&self, id: impl Into<ObjectId>) -> Result<Object<'_>, GitError> {
-    let id = id.into(); // 20 bytes long sha1 hash
-
-    let empty_tree_sha1 = ObjectId::Sha1([
-      0x4b, 0x82, 0x5d, 0xc6, 0x42, 0xcb, 0x6e, 0xb9, 0xa0, 0x60, 0xe5, 0x4b, 0xf8, 0xd6, 0x92,
-      0x88, 0xfb, 0xee, 0x49, 0x04,
-    ]);
-
-    // ObjectId::Sha1(*EMPTY_TREE_SHA1)
-    if id == empty_tree_sha1 {
-      return Ok(Object {
-        id,
-        kind: ObjectKind::Tree,
-        data: Vec::new(),
-        repo: self,
-      });
+impl RewriteSource {
+  #[must_use]
+  pub fn helix_rela_path(&self) -> &bstr::BStr {
+    match self {
+      RewriteSource::RewriteFromIndex {
+        source_rela_path, ..
+      } => source_rela_path.as_ref(),
+      RewriteSource::CopyFromDirectoryEntry {
+        source_dirwalk_entry,
+      } => source_dirwalk_entry.rela_path.as_ref(),
     }
-    let mut buf = self
-      .bufs
-      .as_ref()
-      .and_then(|bufs| bufs.borrow_mut().pop())
-      .unwrap_or_default();
+  }
+}
 
-    Ok(Object {
-      id,
-      kind: self.objects.find(&id, &mut buf)?.kind,
-      data: buf,
-      repo: self,
+impl Platform<'_> {
+  pub fn helix_into_index_worktree_iter(mut self) -> Result<IndexWorktreeIter, GitError> {
+    self.head_tree = None;
+    Ok(IndexWorktreeIter {
+      inner: self.into_iter()?,
     })
-  }
-
-  pub fn helix_head_ref(&self) -> Result<Option<Reference<'_>>, GitError> {
-    Ok(self.hx_head()?.try_into_referent())
-  }
-  pub fn helix_head_commit(&self) -> Result<Commit<'_>, GitError> {
-    self.hx_head()?.hx_peel_to_commit()
-  }
-
-  fn hx_head(&self) -> Result<Head<'_>, GitError> {
-    let head = self.hx_find_reference("HEAD")?;
-    Ok(
-      match head.inner.target {
-        Target::Symbolic(branch) => match self.hx_find_reference(&branch) {
-          Ok(r) => GixGitHeadKind::Symbolic(r.detach()),
-          Err(GitError::NotFound) => GixGitHeadKind::Unborn(branch),
-          Err(_) => return Err(GitError::Gen),
-        },
-        Target::Object(target) => GixGitHeadKind::Detached {
-          target,
-          peeled: head.inner.peeled,
-        },
-      }
-      .attach(self),
-    )
-  }
-
-  fn hx_head_tree_id_or_empty(&self) -> Result<Id<'_>, GitError> {
-    Ok(
-      self
-        .helix_head_commit()
-        .ok()
-        .and_then(|commit| commit.hx_tree_id().ok())
-        .unwrap_or_else(|| {
-          {
-            self
-              .hx_find_object(ObjectId::empty_tree())
-              .expect("always present")
-              .into_tree()
-          }
-          .id()
-        }),
-    )
-  }
-  fn hx_find_reference<'a, Name>(&self, name: Name) -> Result<Reference<'_>, GitError>
-  where
-    Name: TryInto<&'a PartialNameRef>,
-  {
-    self.try_find_reference(name)?.ok_or(GitError::NotFound)
-  }
-
-  fn try_find_reference<'a, Name>(&self, name: Name) -> Result<Option<Reference<'_>>, GitError>
-  where
-    Name: TryInto<&'a PartialNameRef>,
-  {
-    match self.refs.try_find(name) {
-      Ok(r) => match r {
-        Some(r) => Ok(Some(Reference::from_ref(r, self))),
-        None => Ok(None),
-      },
-      Err(_) => Err(GitError::Gen),
-    }
-  }
-  pub fn helix_repository_status(&self) -> Result<Platform<'_>, GitError> {
-    let platform = Platform {
-      repo: self,
-      head_tree: Some(None),
-    };
-
-    Ok(platform)
-  }
-
-  #[inline]
-  fn free_buf(&self) -> Vec<u8> {
-    self
-      .bufs
-      .as_ref()
-      .and_then(|bufs| bufs.borrow_mut().pop())
-      .unwrap_or_default()
-  }
-
-  #[inline]
-  fn reuse_buffer(&self, data: &mut Vec<u8>) {
-    if data.capacity() > 0
-      && let Some(bufs) = self.bufs.as_ref()
-    {
-      bufs.borrow_mut().push(std::mem::take(data));
-    }
-  }
-  #[allow(clippy::too_many_arguments)]
-  fn from_refs_and_objects(
-    refs: RefFileStore,
-    objects: Proxy<OdbCache<OdbHandle<Arc<Store>>>>,
-    work_tree: Option<std::path::PathBuf>,
-    config: Cache,
-  ) -> Self {
-    Repository {
-      bufs: Some(RefCell::new(Vec::with_capacity(4))),
-      work_tree,
-      objects,
-      refs,
-      repository_config: config,
-    }
   }
 }
 
@@ -397,10 +422,6 @@ enum GitRepositoryKind {
 }
 
 impl<'repo> Tree<'repo> {
-  #[must_use]
-  fn id(&self) -> Id<'repo> {
-    Id::from_id(self.id, self.repo)
-  }
 
   /// helix ++++
   pub fn helix_lookup_entry_by_path(
@@ -508,28 +529,7 @@ pub enum RewriteSource {
   CopyFromDirectoryEntry { source_dirwalk_entry: GixDirEntry },
 }
 
-impl RewriteSource {
-  #[must_use]
-  pub fn helix_rela_path(&self) -> &bstr::BStr {
-    match self {
-      RewriteSource::RewriteFromIndex {
-        source_rela_path, ..
-      } => source_rela_path.as_ref(),
-      RewriteSource::CopyFromDirectoryEntry {
-        source_dirwalk_entry,
-      } => source_dirwalk_entry.rela_path.as_ref(),
-    }
-  }
-}
 
-impl Platform<'_> {
-  pub fn helix_into_index_worktree_iter(mut self) -> Result<IndexWorktreeIter, GitError> {
-    self.head_tree = None;
-    Ok(IndexWorktreeIter {
-      inner: self.into_iter()?,
-    })
-  }
-}
 // helix
 impl Iterator for IndexWorktreeIter {
   type Item = Result<IndexWorktreeItem, GitError>;
@@ -692,7 +692,7 @@ impl Platform<'_> {
 
     let should_interrupt = OwnedOrStaticAtomicBool::Owned {
       flag: Arc::new(AtomicBool::default()),
-      _private: true,
+
     };
 
     {
@@ -2158,7 +2158,7 @@ impl Pipeline {
 enum OwnedOrStaticAtomicBool {
   Owned {
     flag: std::sync::Arc<AtomicBool>,
-    _private: bool,
+
   },
 }
 
@@ -2166,7 +2166,7 @@ impl Default for OwnedOrStaticAtomicBool {
   fn default() -> Self {
     OwnedOrStaticAtomicBool::Owned {
       flag: Arc::new(AtomicBool::default()),
-      _private: true,
+
     }
   }
 }
@@ -2185,7 +2185,7 @@ impl<'a> From<&'a std::sync::Arc<AtomicBool>> for OwnedOrStaticAtomicBool {
   fn from(value: &'a std::sync::Arc<AtomicBool>) -> Self {
     OwnedOrStaticAtomicBool::Owned {
       flag: value.clone(),
-      _private: false,
+
     }
   }
 }
@@ -2194,7 +2194,7 @@ impl From<Arc<AtomicBool>> for OwnedOrStaticAtomicBool {
   fn from(flag: std::sync::Arc<AtomicBool>) -> Self {
     OwnedOrStaticAtomicBool::Owned {
       flag,
-      _private: false,
+
     }
   }
 }
