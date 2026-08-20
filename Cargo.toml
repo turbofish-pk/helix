@@ -12,7 +12,7 @@ members = [
   "helix-vcs",
   "helix-parsec",
   "helix-stdx",
-  "xtask",  # NOTE(pk): temporary deactivation
+  "xtask", "helix-ext",  # NOTE(pk): temporary deactivation
 ]
 
 default-members = [

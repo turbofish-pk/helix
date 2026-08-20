@@ -1,0 +1,30 @@
+[package]
+name = "helix-ext"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+arc-swap = "1.9.0"
+bitflags = "2"
+bstr = { version = "1.12.0", default-features = false, features = ["std", "unicode"] }
+crc32fast = { version = "1.5.0" }
+encoding_rs = "0.8.32"
+faster-hex = { version = "0.10.0", default-features = false, features = ["std"] }
+filetime = "0.2.29"
+hashbrown = { version = "0.17.1", default-features = false, features = ["inline-more"] }
+itoa = "1.0.17"
+kstring = "2.0.0"
+libc = { version = "0.2.186" }
+memmap2 = "0.9.11"
+parking_lot = { version = "0.12.4", default-features = false }
+sha1-checked = { version = "0.10.0", default-features = false }
+smallvec = { version = "1", features = ["write"] }
+uluru = { version = "3.0.0" }
+unicode-bom = { version = "2.0.3" }
+unicode-normalization = { version = "0.1.19", default-features = false }
+zlib-rs = { version = "0.6.2" }
