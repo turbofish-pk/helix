@@ -738,7 +738,6 @@ dependencies = [
  "smallvec",
  "tempfile",
  "termina",
- "termini",
  "thiserror",
  "tokio",
  "tokio-stream",
