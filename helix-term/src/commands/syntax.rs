@@ -13,6 +13,7 @@ use helix_core::{
     Rope, RopeSlice, Selection, Syntax, Uri,
     syntax::{Loader, QueryMatchIterEvent},
 };
+use helix_ext::ignore::{DirEntry, WalkBuilder, WalkState};
 use helix_stdx::{
     path,
     rope::{self, RopeSliceExt},
@@ -21,7 +22,6 @@ use helix_view::{
     Align, Document, DocumentId, Editor, align_view,
     document::{SCRATCH_BUFFER_NAME, from_reader},
 };
-use ignore::{DirEntry, WalkBuilder, WalkState};
 
 use crate::{
     filter_picker_entry,
@@ -359,59 +359,66 @@ pub fn syntax_workspace_symbol_picker(cx: &mut Context) {
                 let documents = &documents;
                 let pattern = pattern.clone();
                 let syntax_cache = &state.syntax_cache;
-                Box::new(move |entry: Result<DirEntry, ignore::Error>| -> WalkState {
-                    let Ok(entry) = entry else {
-                        return WalkState::Continue;
-                    };
-                    if !entry.path().is_file() {
-                        return WalkState::Continue;
-                    }
-                    let path = entry.path();
-                    // If this document is open, skip it because we've already processed it above.
-                    if documents.contains(path) {
-                        return WalkState::Continue;
-                    }
-                    let mut quit = false;
-                    let sink = sinks::UTF8(|_line, _content| {
-                        if !syntax_cache.contains_key(path) {
-                            // Read the file into a Rope and attempt to recognize the language
-                            // and parse it with tree-sitter. Save the Rope and Syntax for future
-                            // queries.
-                            syntax_cache.insert(path.to_path_buf(), syntax_for_path(path, &loader));
-                        }
-                        let entry = syntax_cache.get(path).unwrap();
-                        let Some((text, syntax)) = entry.value() else {
-                            // If the file couldn't be parsed, move on.
-                            return Ok(false);
+                Box::new(
+                    move |entry: Result<DirEntry, helix_ext::ignore::Error>| -> WalkState {
+                        let Ok(entry) = entry else {
+                            return WalkState::Continue;
                         };
-                        let uri = Uri::from(path::normalize(path));
-                        for tag in tags_iter(
-                            syntax,
-                            &loader,
-                            text.slice(..),
-                            UriOrDocumentId::Uri(uri),
-                            Some(&pattern),
-                        ) {
-                            if injector.push(tag).is_err() {
-                                quit = true;
-                                break;
-                            }
+                        if !entry.path().is_file() {
+                            return WalkState::Continue;
                         }
-                        // Quit after seeing the first regex match. We only care to find files
-                        // that contain the pattern and then we run the tags query within
-                        // those. The location and contents of a match are irrelevant - it's
-                        // only important _if_ a file matches.
-                        Ok(false)
-                    });
-                    if let Err(err) = searcher.search_path(&matcher, path, sink) {
-                        log::info!("Workspace syntax search error: {}, {}", path.display(), err);
-                    }
-                    if quit {
-                        WalkState::Quit
-                    } else {
-                        WalkState::Continue
-                    }
-                })
+                        let path = entry.path();
+                        // If this document is open, skip it because we've already processed it above.
+                        if documents.contains(path) {
+                            return WalkState::Continue;
+                        }
+                        let mut quit = false;
+                        let sink = sinks::UTF8(|_line, _content| {
+                            if !syntax_cache.contains_key(path) {
+                                // Read the file into a Rope and attempt to recognize the language
+                                // and parse it with tree-sitter. Save the Rope and Syntax for future
+                                // queries.
+                                syntax_cache
+                                    .insert(path.to_path_buf(), syntax_for_path(path, &loader));
+                            }
+                            let entry = syntax_cache.get(path).unwrap();
+                            let Some((text, syntax)) = entry.value() else {
+                                // If the file couldn't be parsed, move on.
+                                return Ok(false);
+                            };
+                            let uri = Uri::from(path::normalize(path));
+                            for tag in tags_iter(
+                                syntax,
+                                &loader,
+                                text.slice(..),
+                                UriOrDocumentId::Uri(uri),
+                                Some(&pattern),
+                            ) {
+                                if injector.push(tag).is_err() {
+                                    quit = true;
+                                    break;
+                                }
+                            }
+                            // Quit after seeing the first regex match. We only care to find files
+                            // that contain the pattern and then we run the tags query within
+                            // those. The location and contents of a match are irrelevant - it's
+                            // only important _if_ a file matches.
+                            Ok(false)
+                        });
+                        if let Err(err) = searcher.search_path(&matcher, path, sink) {
+                            log::info!(
+                                "Workspace syntax search error: {}, {}",
+                                path.display(),
+                                err
+                            );
+                        }
+                        if quit {
+                            WalkState::Quit
+                        } else {
+                            WalkState::Continue
+                        }
+                    },
+                )
             });
             Ok(())
         }

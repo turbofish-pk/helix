@@ -23,8 +23,8 @@ use std::process::Stdio;
 use futures_util::Future;
 mod handlers;
 
+use helix_ext::ignore::DirEntry;
 use helix_stdx::Url;
-use ignore::DirEntry;
 
 fn true_color() -> bool {
     if var_os("COLORTERM").is_some_and(|v| v == "truecolor" || v == "24bit")

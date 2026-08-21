@@ -62,7 +62,8 @@ log = { version = "0.4", features = ["std"] }
 
 # File picker
 nucleo.workspace = true
-ignore = "0.4"
+# ignore = "0.4"
+helix-ext = { path = "../helix-ext" }
 grep-regex = "0.1"
 grep-searcher = "0.1"
 # grep-matcher = "0.1"
@@ -81,10 +82,7 @@ serde = { version = "1.0", features = ["derive"] }
 
 dashmap = "6.2"
 
-# parking_lot.workspace = true
-
-
-[target.'cfg(not(windows))'.dependencies]  # https://github.com/vorner/signal-hook/issues/100
+# https://github.com/vorner/signal-hook/issues/100
 signal-hook-tokio = { version = "0.4", features = ["futures-v0_3"] }
 libc = "0.2.186"
 
@@ -93,6 +91,4 @@ helix-loader = { path = "../helix-loader" }
 
 [dev-dependencies]
 smallvec = "1.15"
-indoc = "2.0.6"
 tempfile.workspace = true
-same-file = "1.0.1"

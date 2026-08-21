@@ -9,7 +9,8 @@ use helix_stdx::{
     path::{self, find_paths},
     rope::{self, RopeSliceExt},
 };
-use helix_vcs::{FileChange, Hunk};
+// use helix_vcs::{FileChange, Hunk};
+use helix_vcs::Hunk;
 pub use lsp::*;
 pub use syntax::*;
 use tui::{
@@ -73,11 +74,14 @@ use crate::{
 };
 
 use crate::job::{self, Jobs};
+
+use helix_ext::ignore::DirEntry;
+
 use std::{
     char::{ToLowercase, ToUppercase},
     cmp::Ordering,
     collections::{HashMap, HashSet},
-    error::Error,
+    // error::Error,
     fmt,
     future::Future,
     io::Read,
@@ -95,7 +99,7 @@ use serde::de::{self, Deserialize, Deserializer};
 
 use grep_regex::RegexMatcherBuilder;
 use grep_searcher::{BinaryDetection, SearcherBuilder, sinks};
-use ignore::{DirEntry, WalkBuilder, WalkState};
+use helix_ext::ignore::{WalkBuilder, WalkState};
 
 pub type OnKeyCallback = Box<dyn FnOnce(&mut Context, KeyEvent)>;
 #[derive(PartialEq, Eq, Clone, Copy, Debug)]
@@ -396,7 +400,7 @@ impl MappableCommand {
         symbol_picker, "Open symbol picker",
         syntax_symbol_picker, "Open symbol picker from syntax information",
         lsp_or_syntax_symbol_picker, "Open symbol picker from LSP or syntax information",
-        changed_file_picker, "Open changed file picker",
+        // changed_file_picker, "Open changed file picker",
         select_references_to_symbol_under_cursor, "Select symbol references",
         workspace_symbol_picker, "Open workspace symbol picker",
         syntax_workspace_symbol_picker, "Open workspace symbol picker from syntax information",
@@ -2616,60 +2620,66 @@ fn global_search(cx: &mut Context) {
                     let matcher = matcher.clone();
                     let injector = injector.clone();
                     let documents = &documents;
-                    Box::new(move |entry: Result<DirEntry, ignore::Error>| -> WalkState {
-                        let Ok(entry) = entry else {
-                            return WalkState::Continue;
-                        };
+                    Box::new(
+                        move |entry: Result<DirEntry, helix_ext::ignore::Error>| -> WalkState {
+                            let Ok(entry) = entry else {
+                                return WalkState::Continue;
+                            };
 
-                        if !entry.path().is_file() {
-                            return WalkState::Continue;
-                        }
-
-                        let mut stop = false;
-                        let sink = sinks::UTF8(|line_start, line_content| {
-                            let line_start = usize::try_from(line_start).unwrap() - 1;
-                            let line_end = line_start + line_content.lines().count() - 1;
-                            stop = injector
-                                .push(FileResult::new(entry.path(), line_start, line_end))
-                                .is_err();
-
-                            Ok(!stop)
-                        });
-                        let doc = documents.iter().find(|&(doc_path, _)| {
-                            doc_path
-                                .as_ref()
-                                .is_some_and(|doc_path| doc_path == entry.path())
-                        });
-
-                        let result = if let Some((_, doc)) = doc {
-                            // there is already a buffer for this file
-                            // search the buffer instead of the file because it's faster
-                            // and captures new edits without requiring a save
-                            if searcher.multi_line_with_matcher(&matcher) {
-                                // in this case a continuous buffer is required
-                                // convert the rope to a string
-                                let text = doc.to_string();
-                                searcher.search_slice(&matcher, text.as_bytes(), sink)
-                            } else {
-                                searcher.search_reader(
-                                    &matcher,
-                                    RopeReader::new(doc.slice(..)),
-                                    sink,
-                                )
+                            if !entry.path().is_file() {
+                                return WalkState::Continue;
                             }
-                        } else {
-                            searcher.search_path(&matcher, entry.path(), sink)
-                        };
 
-                        if let Err(err) = result {
-                            log::error!("Global search error: {}, {}", entry.path().display(), err);
-                        }
-                        if stop {
-                            WalkState::Quit
-                        } else {
-                            WalkState::Continue
-                        }
-                    })
+                            let mut stop = false;
+                            let sink = sinks::UTF8(|line_start, line_content| {
+                                let line_start = usize::try_from(line_start).unwrap() - 1;
+                                let line_end = line_start + line_content.lines().count() - 1;
+                                stop = injector
+                                    .push(FileResult::new(entry.path(), line_start, line_end))
+                                    .is_err();
+
+                                Ok(!stop)
+                            });
+                            let doc = documents.iter().find(|&(doc_path, _)| {
+                                doc_path
+                                    .as_ref()
+                                    .is_some_and(|doc_path| doc_path == entry.path())
+                            });
+
+                            let result = if let Some((_, doc)) = doc {
+                                // there is already a buffer for this file
+                                // search the buffer instead of the file because it's faster
+                                // and captures new edits without requiring a save
+                                if searcher.multi_line_with_matcher(&matcher) {
+                                    // in this case a continuous buffer is required
+                                    // convert the rope to a string
+                                    let text = doc.to_string();
+                                    searcher.search_slice(&matcher, text.as_bytes(), sink)
+                                } else {
+                                    searcher.search_reader(
+                                        &matcher,
+                                        RopeReader::new(doc.slice(..)),
+                                        sink,
+                                    )
+                                }
+                            } else {
+                                searcher.search_path(&matcher, entry.path(), sink)
+                            };
+
+                            if let Err(err) = result {
+                                log::error!(
+                                    "Global search error: {}, {}",
+                                    entry.path().display(),
+                                    err
+                                );
+                            }
+                            if stop {
+                                WalkState::Quit
+                            } else {
+                                WalkState::Continue
+                            }
+                        },
+                    )
                 });
             Ok(())
         }
@@ -3418,100 +3428,100 @@ fn jumplist_picker(cx: &mut Context) {
     cx.push_layer(Box::new(overlaid(picker)));
 }
 
-fn changed_file_picker(cx: &mut Context) {
-    pub struct FileChangeData {
-        cwd: PathBuf,
-        style_untracked: Style,
-        style_modified: Style,
-        style_conflict: Style,
-        style_deleted: Style,
-        style_renamed: Style,
-    }
+// fn changed_file_picker(cx: &mut Context) {
+//     pub struct FileChangeData {
+//         cwd: PathBuf,
+//         style_untracked: Style,
+//         style_modified: Style,
+//         style_conflict: Style,
+//         style_deleted: Style,
+//         style_renamed: Style,
+//     }
 
-    let cwd = helix_stdx::env::current_working_dir();
-    if !cwd.exists() {
-        cx.editor
-            .set_error("Current working directory does not exist");
-        return;
-    }
+//     let cwd = helix_stdx::env::current_working_dir();
+//     if !cwd.exists() {
+//         cx.editor
+//             .set_error("Current working directory does not exist");
+//         return;
+//     }
 
-    let added = cx.editor.theme.get("diff.plus");
-    let modified = cx.editor.theme.get("diff.delta");
-    let conflict = cx.editor.theme.get("diff.delta.conflict");
-    let deleted = cx.editor.theme.get("diff.minus");
-    let renamed = cx.editor.theme.get("diff.delta.moved");
+//     let added = cx.editor.theme.get("diff.plus");
+//     let modified = cx.editor.theme.get("diff.delta");
+//     let conflict = cx.editor.theme.get("diff.delta.conflict");
+//     let deleted = cx.editor.theme.get("diff.minus");
+//     let renamed = cx.editor.theme.get("diff.delta.moved");
 
-    let columns = [
-        PickerColumn::new("change", |change: &FileChange, data: &FileChangeData| {
-            match change {
-                FileChange::Untracked { .. } => Span::styled("+ untracked", data.style_untracked),
-                FileChange::Modified { .. } => Span::styled("~ modified", data.style_modified),
-                FileChange::Conflict { .. } => Span::styled("x conflict", data.style_conflict),
-                FileChange::Deleted { .. } => Span::styled("- deleted", data.style_deleted),
-                FileChange::Renamed { .. } => Span::styled("> renamed", data.style_renamed),
-            }
-            .into()
-        }),
-        PickerColumn::new("path", |change: &FileChange, data: &FileChangeData| {
-            let display_path = |path: &PathBuf| {
-                path.strip_prefix(&data.cwd)
-                    .unwrap_or(path)
-                    .display()
-                    .to_string()
-            };
-            match change {
-                FileChange::Untracked { path }
-                | FileChange::Modified { path }
-                | FileChange::Conflict { path }
-                | FileChange::Deleted { path } => display_path(path),
-                FileChange::Renamed { from_path, to_path } => {
-                    format!("{} -> {}", display_path(from_path), display_path(to_path))
-                }
-            }
-            .into()
-        }),
-    ];
+//     let columns = [
+//         PickerColumn::new("change", |change: &FileChange, data: &FileChangeData| {
+//             match change {
+//                 FileChange::Untracked { .. } => Span::styled("+ untracked", data.style_untracked),
+//                 FileChange::Modified { .. } => Span::styled("~ modified", data.style_modified),
+//                 FileChange::Conflict { .. } => Span::styled("x conflict", data.style_conflict),
+//                 FileChange::Deleted { .. } => Span::styled("- deleted", data.style_deleted),
+//                 FileChange::Renamed { .. } => Span::styled("> renamed", data.style_renamed),
+//             }
+//             .into()
+//         }),
+//         PickerColumn::new("path", |change: &FileChange, data: &FileChangeData| {
+//             let display_path = |path: &PathBuf| {
+//                 path.strip_prefix(&data.cwd)
+//                     .unwrap_or(path)
+//                     .display()
+//                     .to_string()
+//             };
+//             match change {
+//                 FileChange::Untracked { path }
+//                 | FileChange::Modified { path }
+//                 | FileChange::Conflict { path }
+//                 | FileChange::Deleted { path } => display_path(path),
+//                 FileChange::Renamed { from_path, to_path } => {
+//                     format!("{} -> {}", display_path(from_path), display_path(to_path))
+//                 }
+//             }
+//             .into()
+//         }),
+//     ];
 
-    let picker = Picker::new(
-        columns,
-        1, // path
-        [],
-        FileChangeData {
-            cwd: cwd.clone(),
-            style_untracked: added,
-            style_modified: modified,
-            style_conflict: conflict,
-            style_deleted: deleted,
-            style_renamed: renamed,
-        },
-        |cx, meta: &FileChange, action| {
-            let path_to_open = meta.path();
-            if let Err(e) = cx.editor.open(path_to_open, action) {
-                let err = if let Some(err) = e.source() {
-                    format!("{err}")
-                } else {
-                    format!("unable to open \"{}\"", path_to_open.display())
-                };
-                cx.editor.set_error(err);
-            }
-        },
-    )
-    .with_preview(|_editor, meta| Some((meta.path().into(), None)));
-    let injector = picker.injector();
+//     let picker = Picker::new(
+//         columns,
+//         1, // path
+//         [],
+//         FileChangeData {
+//             cwd: cwd.clone(),
+//             style_untracked: added,
+//             style_modified: modified,
+//             style_conflict: conflict,
+//             style_deleted: deleted,
+//             style_renamed: renamed,
+//         },
+//         |cx, meta: &FileChange, action| {
+//             let path_to_open = meta.path();
+//             if let Err(e) = cx.editor.open(path_to_open, action) {
+//                 let err = if let Some(err) = e.source() {
+//                     format!("{err}")
+//                 } else {
+//                     format!("unable to open \"{}\"", path_to_open.display())
+//                 };
+//                 cx.editor.set_error(err);
+//             }
+//         },
+//     )
+//     .with_preview(|_editor, meta| Some((meta.path().into(), None)));
+//     let injector = picker.injector();
 
-    cx.editor
-        .diff_providers
-        .clone()
-        .for_each_changed_file(cwd, move |change| match change {
-            Ok(change) => injector.push(change).is_ok(),
-            Err(err) => {
-                status::report_blocking(err);
-                true
-            }
-        });
+//     cx.editor
+//         .diff_providers
+//         .clone()
+//         .for_each_changed_file(cwd, move |change| match change {
+//             Ok(change) => injector.push(change).is_ok(),
+//             Err(err) => {
+//                 status::report_blocking(err);
+//                 true
+//             }
+//         });
 
-    cx.push_layer(Box::new(overlaid(picker)));
-}
+//     cx.push_layer(Box::new(overlaid(picker)));
+// }
 
 pub fn command_palette(cx: &mut Context) {
     let register = cx.register;

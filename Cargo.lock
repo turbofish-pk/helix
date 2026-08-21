@@ -685,7 +685,6 @@ dependencies = [
  "helix-parsec",
  "helix-stdx",
  "imara-diff",
- "indoc",
  "log",
  "nucleo",
  "once_cell",
@@ -729,16 +728,25 @@ dependencies = [
  "bitflags",
  "bstr",
  "crc32fast",
+ "crossbeam-deque",
  "encoding_rs",
  "faster-hex",
  "filetime",
+ "futures-core",
+ "globset",
  "hashbrown 0.17.1",
  "itoa",
  "kstring",
  "libc",
+ "log",
+ "memchr",
  "memmap2",
  "parking_lot",
+ "regex-automata",
+ "rustix",
+ "same-file",
  "sha1-checked",
+ "signal-hook 0.3.18",
  "smallvec",
  "uluru",
  "unicode-bom",
@@ -818,10 +826,8 @@ dependencies = [
  "rustix",
  "serde",
  "serde_json",
- "tempfile",
  "unicode-segmentation",
  "which",
- "windows-sys",
 ]
 
 [[package]]
@@ -836,22 +842,20 @@ dependencies = [
  "grep-searcher",
  "helix-core",
  "helix-event",
+ "helix-ext",
  "helix-loader",
  "helix-lsp",
  "helix-stdx",
  "helix-tui",
  "helix-vcs",
  "helix-view",
- "ignore",
  "indexmap",
- "indoc",
  "libc",
  "log",
  "nucleo",
  "once_cell",
  "open",
  "pulldown-cmark",
- "same-file",
  "serde",
  "serde_json",
  "signal-hook 0.4.4",
@@ -887,14 +891,12 @@ version = "25.7.1"
 dependencies = [
  "anyhow",
  "arc-swap",
- "bstr",
  "helix-core",
  "helix-event",
  "helix-ext",
  "imara-diff",
  "log",
  "parking_lot",
- "tempfile",
  "tokio",
 ]
 
@@ -914,7 +916,6 @@ dependencies = [
  "helix-loader",
  "helix-lsp",
  "helix-stdx",
- "helix-tui",
  "helix-vcs",
  "kstring",
  "libc",
@@ -922,7 +923,6 @@ dependencies = [
  "once_cell",
  "parking_lot",
  "quickcheck",
- "rustix",
  "serde",
  "slotmap",
  "tempfile",
@@ -958,22 +958,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "ignore"
-version = "0.4.28"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2adf14691c72bcfc1058740436a35bdd3ae9c07d1a941ef00b749e9ea16aefa7"
-dependencies = [
- "crossbeam-deque",
- "globset",
- "log",
- "memchr",
- "regex-automata",
- "same-file",
- "walkdir",
- "winapi-util",
-]
-
-[[package]]
 name = "imara-diff"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -993,15 +977,6 @@ dependencies = [
  "hashbrown 0.17.1",
  "serde",
  "serde_core",
-]
-
-[[package]]
-name = "indoc"
-version = "2.0.7"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "79cf5c93f93228cf8efb3ba362535fb11199ac548a09ce117c9b1adc3030d706"
-dependencies = [
- "rustversion",
 ]
 
 [[package]]

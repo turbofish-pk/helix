@@ -196,8 +196,8 @@ pub fn raw_regex_prompt(
 }
 
 /// We want to exclude files that the editor can't handle yet
-fn get_excluded_types() -> ignore::types::Types {
-    use ignore::types::TypesBuilder;
+fn get_excluded_types() -> helix_ext::ignore::types::Types {
+    use helix_ext::ignore::types::TypesBuilder;
     let mut type_builder = TypesBuilder::new();
     type_builder
         .add(
@@ -219,7 +219,7 @@ pub struct FilePickerData {
 type FilePicker = Picker<PathBuf, FilePickerData>;
 
 pub fn file_picker(editor: &Editor, root: &PathBuf) -> FilePicker {
-    use ignore::WalkBuilder;
+    use helix_ext::ignore::WalkBuilder;
     use std::time::Instant;
 
     let config = editor.config();
@@ -365,7 +365,7 @@ pub fn file_explorer(root: PathBuf, editor: &Editor) -> Result<FileExplorer, std
 }
 
 fn directory_content(root: &Path, editor: &Editor) -> Vec<(PathBuf, bool)> {
-    use ignore::WalkBuilder;
+    use helix_ext::ignore::WalkBuilder;
 
     let config = editor.config();
 
@@ -613,11 +613,11 @@ pub mod completers {
         filter_fn: F,
     ) -> Vec<Completion>
     where
-        F: Fn(&ignore::DirEntry) -> FileMatch,
+        F: Fn(&helix_ext::ignore::DirEntry) -> FileMatch,
     {
         // Rust's filename handling is really annoying.
 
-        use ignore::WalkBuilder;
+        use helix_ext::ignore::WalkBuilder;
         use std::path::Path;
 
         let is_tilde = input == "~";

@@ -28,3 +28,54 @@ uluru = { version = "3.0.0" }
 unicode-bom = { version = "2.0.3" }
 unicode-normalization = { version = "0.1.19", default-features = false }
 zlib-rs = { version = "0.6.2" }
+
+
+# ///////////////// crate ignore
+
+[dependencies.crossbeam-deque]
+version = "0.8.3"
+
+[dependencies.globset]
+version = "0.4.18"
+
+[dependencies.log]
+version = "0.4.20"
+
+[dependencies.memchr]
+version = "2.6.3"
+
+[dependencies.regex-automata]
+version = "0.4.0"
+features = [
+    "std",
+    "perf",
+    "syntax",
+    "meta",
+    "nfa",
+    "hybrid",
+    "dfa-onepass",
+]
+default-features = false
+
+[dependencies.same-file]
+version = "1.0.6"
+
+
+# ////// termina
+
+
+[dependencies.futures-core]
+version = "0.3"
+
+[dependencies.rustix]
+version = "1"
+features = [
+    "std",
+    "stdio",
+    "termios",
+    "event",
+]
+default-features = false
+
+[dependencies.signal-hook]
+version = "0.3"

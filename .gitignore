@@ -7,3 +7,5 @@ runtime/grammars
 vendor
 .idea
 Cargo.lock
+dump.txt
+cargo_tree.txt
