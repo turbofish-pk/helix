@@ -16,7 +16,6 @@ use crate::{
 };
 use helix_event::dispatch;
 use helix_loader::workspace_trust::{ImplicitTrustLevel, TrustQuery, WorkspaceTrust};
-use helix_vcs::DiffProviderRegistry;
 
 use futures_util::StreamExt;
 use futures_util::stream::select_all::SelectAll;
@@ -102,8 +101,6 @@ impl Default for GutterConfig {
                 GutterType::Diagnostics,
                 GutterType::Spacer,
                 GutterType::LineNumbers,
-                GutterType::Spacer,
-                GutterType::Diff,
             ],
             line_numbers: GutterLineNumbersConfig::default(),
         }
@@ -775,9 +772,6 @@ pub enum StatusLineElement {
     /// A single space
     Spacer,
 
-    /// Current version control information
-    VersionControl,
-
     /// Indicator for selected register
     Register,
 
@@ -888,8 +882,6 @@ pub enum GutterType {
     LineNumbers,
     /// Show one blank space
     Spacer,
-    /// Highlight local changes
-    Diff,
     /// Indicator for when code actions are available
     CodeActionHint,
 }
@@ -902,7 +894,6 @@ impl std::str::FromStr for GutterType {
             "diagnostics" => Ok(Self::Diagnostics),
             "spacer" => Ok(Self::Spacer),
             "line-numbers" => Ok(Self::LineNumbers),
-            "diff" => Ok(Self::Diff),
             "code-action-hint" => Ok(Self::CodeActionHint),
             _ => anyhow::bail!(
                 "Gutter type can only be `diagnostics`, `spacer`, `line-numbers` or `diff`."
@@ -1259,7 +1250,6 @@ pub struct Editor {
     pub macro_replaying: Vec<char>,
     pub language_servers: helix_lsp::Registry,
     pub diagnostics: Diagnostics,
-    pub diff_providers: DiffProviderRegistry,
 
     pub breakpoints: HashMap<PathBuf, Vec<Breakpoint>>,
 
@@ -1407,7 +1397,7 @@ impl Editor {
             theme: theme_loader.default(),
             language_servers,
             diagnostics: Diagnostics::new(),
-            diff_providers: DiffProviderRegistry::default(),
+
             breakpoints: HashMap::new(),
             syn_loader,
             theme_loader,
@@ -2082,11 +2072,6 @@ impl Editor {
             let diagnostics =
                 Editor::doc_diagnostics(&self.language_servers, &self.diagnostics, &doc);
             doc.replace_diagnostics(diagnostics, &[], None);
-
-            if let Some(diff_base) = self.diff_providers.get_diff_base(&path) {
-                doc.set_diff_base(diff_base.as_slice());
-            }
-            doc.set_version_control_head(self.diff_providers.get_current_head_name(&path));
 
             let id = self.new_document(doc);
             self.launch_language_servers(id);

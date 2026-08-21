@@ -16,7 +16,7 @@ use helix_core::text_annotations::{InlineAnnotation, Overlay};
 use helix_event::TaskController;
 use helix_lsp::util::lsp_pos_to_pos;
 use helix_stdx::faccess::{copy_metadata, readonly};
-use helix_vcs::{DiffHandle, DiffProviderRegistry};
+
 use once_cell::sync::OnceCell;
 use thiserror;
 
@@ -207,9 +207,6 @@ pub struct Document {
     pub(crate) diagnostics: Vec<Diagnostic>,
     pub(crate) language_servers: HashMap<LanguageServerName, Arc<Client>>,
 
-    diff_handle: Option<DiffHandle>,
-    version_control_head: Option<Arc<ArcSwap<Box<str>>>>,
-
     // when document was used for most-recent-used buffer picker
     pub focused_at: std::time::Instant,
 
@@ -365,8 +362,6 @@ impl fmt::Debug for Document {
             .field("modified_since_accessed", &self.modified_since_accessed)
             .field("diagnostics", &self.diagnostics)
             .field("language_servers", &self.language_servers)
-            .field("diff_handle", &self.diff_handle)
-            .field("version_control_head", &self.version_control_head.is_some())
             .field("focused_at", &self.focused_at)
             .field("readonly", &self.readonly)
             .field("previous_diagnostic_ids", &self.previous_diagnostic_ids)
@@ -383,32 +378,6 @@ impl fmt::Debug for Document {
             .finish_non_exhaustive()
     }
 }
-// impl fmt::Debug for Document {
-//     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-//         f.debug_struct("Document")
-//             .field("id", &self.id)
-//             .field("text", &self.text)
-//             .field("selections", &self.selections)
-//             .field("inlay_hints_oudated", &self.inlay_hints_oudated)
-//             .field("text_annotations", &self.inlay_hints)
-//             .field("view_data", &self.view_data)
-//             .field("path", &self.path)
-//             .field("encoding", &self.encoding)
-//             .field("restore_cursor", &self.restore_cursor)
-//             .field("syntax", &self.syntax)
-//             .field("language", &self.language)
-//             .field("changes", &self.changes)
-//             .field("old_state", &self.old_state)
-//             // .field("history", &self.history)
-//             .field("last_saved_time", &self.last_saved_time)
-//             .field("last_saved_revision", &self.last_saved_revision)
-//             .field("version", &self.version)
-//             .field("modified_since_accessed", &self.modified_since_accessed)
-//             .field("diagnostics", &self.diagnostics)
-//             // .field("language_server", &self.language_server)
-//             .finish()
-//     }
-// }
 
 impl fmt::Debug for DocumentInlayHintsId {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -497,21 +466,24 @@ impl Encoder {
 
 // Apply BOM if encoding permit it, return the number of bytes written at the start of buf
 fn apply_bom(encoding: &'static encoding::Encoding, buf: &mut [u8; BUF_SIZE]) -> usize {
-    if encoding == encoding::UTF_8 {
-        buf[0] = 0xef;
-        buf[1] = 0xbb;
-        buf[2] = 0xbf;
-        3
-    } else if encoding == encoding::UTF_16BE {
-        buf[0] = 0xfe;
-        buf[1] = 0xff;
-        2
-    } else if encoding == encoding::UTF_16LE {
-        buf[0] = 0xff;
-        buf[1] = 0xfe;
-        2
-    } else {
-        0
+    match encoding {
+        UTF_8 => {
+            buf[0] = 0xef;
+            buf[1] = 0xbb;
+            buf[2] = 0xbf;
+            3
+        }
+        UTF_16BE => {
+            buf[0] = 0xfe;
+            buf[1] = 0xff;
+            2
+        }
+        UTF_16LE => {
+            buf[0] = 0xff;
+            buf[1] = 0xfe;
+            2
+        }
+        _ => 0,
     }
 }
 
@@ -816,9 +788,7 @@ impl Document {
             last_saved_revision: 0,
             modified_since_accessed: false,
             language_servers: HashMap::new(),
-            diff_handle: None,
             config,
-            version_control_head: None,
             focused_at: std::time::Instant::now(),
             readonly: false,
             jump_labels: HashMap::new(),
@@ -1338,12 +1308,7 @@ impl Document {
     }
 
     /// Reload the document from its path.
-    pub fn reload(
-        &mut self,
-        view: &mut View,
-        provider_registry: &DiffProviderRegistry,
-        _trust_full: bool,
-    ) -> Result<(), Error> {
+    pub fn reload(&mut self, view: &mut View) -> Result<(), Error> {
         let encoding = self.encoding;
         let path = match self.path() {
             None => return Ok(()),
@@ -1372,19 +1337,6 @@ impl Document {
         self.pickup_last_saved_time();
         self.detect_indent_and_line_ending();
 
-        // NOTE(pk): replaced git logic
-        if let Some(diff_base) = match helix_vcs::git::get_diff_base(&path) {
-            Ok(res) => Some(res),
-            Err(err) => {
-                log::debug!("{err:#?}");
-                log::debug!("failed to open diff base for {}", path.display());
-                None
-            }
-        } {
-            self.set_diff_base(diff_base.as_slice())
-        }
-
-        self.version_control_head = provider_registry.get_current_head_name(&path);
         Ok(())
     }
 
@@ -1590,12 +1542,6 @@ impl Document {
                 log::error!("TS parser failed, disabling TS for the current buffer: {err}");
                 self.syntax = None;
             }
-        }
-
-        // // TODO: all of that should likely just be hooks
-        // // start computing the diff in parallel
-        if let Some(diff_handle) = &self.diff_handle {
-            let _ = diff_handle.update_document(self.text.clone(), false);
         }
 
         // map diagnostics over changes too
@@ -2049,34 +1995,6 @@ impl Document {
     pub fn servers_to_load(&self) -> bool {
         self.language_config()
             .is_some_and(|lang| !lang.language_servers.is_empty())
-    }
-
-    pub fn diff_handle(&self) -> Option<&DiffHandle> {
-        self.diff_handle.as_ref()
-    }
-
-    /// Intialize/updates the differ for this document with a new base.
-    pub fn set_diff_base(&mut self, diff_base: &[u8]) {
-        if let Ok((diff_base, ..)) = from_reader(&mut &diff_base[..], Some(self.encoding)) {
-            if let Some(differ) = &self.diff_handle {
-                let _ = differ.update_diff_base(diff_base);
-                return;
-            }
-            self.diff_handle = Some(DiffHandle::new(diff_base, self.text.clone()));
-        } else {
-            self.diff_handle = None;
-        }
-    }
-
-    pub fn version_control_head(&self) -> Option<Arc<Box<str>>> {
-        self.version_control_head.as_ref().map(|a| a.load_full())
-    }
-
-    pub fn set_version_control_head(
-        &mut self,
-        version_control_head: Option<Arc<ArcSwap<Box<str>>>>,
-    ) {
-        self.version_control_head = version_control_head;
     }
 
     #[inline]

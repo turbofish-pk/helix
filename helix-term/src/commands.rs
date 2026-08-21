@@ -9,8 +9,7 @@ use helix_stdx::{
     path::{self, find_paths},
     rope::{self, RopeSliceExt},
 };
-// use helix_vcs::{FileChange, Hunk};
-use helix_vcs::Hunk;
+
 pub use lsp::*;
 pub use syntax::*;
 use tui::{
@@ -442,10 +441,7 @@ impl MappableCommand {
         goto_last_diag, "Goto last diagnostic",
         goto_next_diag, "Goto next diagnostic",
         goto_prev_diag, "Goto previous diagnostic",
-        goto_next_change, "Goto next change",
-        goto_prev_change, "Goto previous change",
-        goto_first_change, "Goto first change",
-        goto_last_change, "Goto last change",
+
         goto_line_start, "Goto line start",
         goto_line_end, "Goto line end",
         goto_column, "Goto column",
@@ -4165,103 +4161,6 @@ fn goto_prev_diag(cx: &mut Context) {
     cx.editor.apply_motion(motion);
 }
 
-fn goto_first_change(cx: &mut Context) {
-    goto_first_change_impl(cx, false);
-}
-
-fn goto_last_change(cx: &mut Context) {
-    goto_first_change_impl(cx, true);
-}
-
-fn goto_first_change_impl(cx: &mut Context, reverse: bool) {
-    let editor = &mut *cx.editor;
-    let (view, doc) = current!(editor);
-    if let Some(handle) = doc.diff_handle() {
-        let hunk = {
-            let diff = handle.load();
-            let idx = if reverse {
-                diff.len().saturating_sub(1)
-            } else {
-                0
-            };
-            diff.nth_hunk(idx)
-        };
-        if hunk != Hunk::NONE {
-            let range = hunk_range(&hunk, doc.text().slice(..));
-            push_jump(view, doc);
-            doc.set_selection(view.id, Selection::single(range.anchor, range.head));
-        }
-    }
-}
-
-fn goto_next_change(cx: &mut Context) {
-    goto_next_change_impl(cx, Direction::Forward);
-}
-
-fn goto_prev_change(cx: &mut Context) {
-    goto_next_change_impl(cx, Direction::Backward);
-}
-
-fn goto_next_change_impl(cx: &mut Context, direction: Direction) {
-    let count = u32::try_from(cx.count()).unwrap() - 1;
-    let motion = move |editor: &mut Editor| {
-        let (view, doc) = current!(editor);
-        let doc_text = doc.text().slice(..);
-        let Some(diff_handle) = doc.diff_handle() else {
-            editor.set_status("Diff is not available in current buffer");
-            return;
-        };
-
-        let selection = doc.selection(view.id).clone().transform(|range| {
-            let cursor_line = u32::try_from(range.cursor_line(doc_text)).unwrap();
-
-            let diff = diff_handle.load();
-            let hunk_idx = match direction {
-                Direction::Forward => diff
-                    .next_hunk(cursor_line)
-                    .map(|idx| (idx + count).min(diff.len() - 1)),
-                Direction::Backward => diff
-                    .prev_hunk(cursor_line)
-                    .map(|idx| idx.saturating_sub(count)),
-            };
-            let Some(hunk_idx) = hunk_idx else {
-                return range;
-            };
-            let hunk = diff.nth_hunk(hunk_idx);
-            let new_range = hunk_range(&hunk, doc_text);
-            if editor.mode == Mode::Select {
-                let head = if new_range.head < range.anchor {
-                    new_range.anchor
-                } else {
-                    new_range.head
-                };
-
-                Range::new(range.anchor, head)
-            } else {
-                new_range.with_direction(direction)
-            }
-        });
-
-        push_jump(view, doc);
-        doc.set_selection(view.id, selection);
-    };
-    cx.editor.apply_motion(motion);
-}
-
-/// Returns the [Range] for a [Hunk] in the given text.
-/// Additions and modifications cover the added and modified ranges.
-/// Deletions are represented as the point at the start of the deletion hunk.
-fn hunk_range(hunk: &Hunk, text: RopeSlice) -> Range {
-    let anchor = text.line_to_char(hunk.after.start as usize);
-    let head = if hunk.after.is_empty() {
-        anchor + 1
-    } else {
-        text.line_to_char(hunk.after.end as usize)
-    };
-
-    Range::new(anchor, head)
-}
-
 pub mod insert {
     use crate::{commands::continued_line_comment_token, events::PostInsertChar, key};
 
@@ -6125,25 +6024,6 @@ fn select_textobject(cx: &mut Context, objtype: textobject::TextObject) {
                     )
                 };
 
-                if ch == 'g' && doc.diff_handle().is_none() {
-                    editor.set_status("Diff is not available in current buffer");
-                    return;
-                }
-
-                let textobject_change = |range: Range| -> Range {
-                    let diff_handle = doc.diff_handle().unwrap();
-                    let diff = diff_handle.load();
-                    let line = range.cursor_line(text);
-                    let Some(hunk_idx) = diff.hunk_at(u32::try_from(line).unwrap(), false) else {
-                        return range;
-                    };
-                    let hunk = diff.nth_hunk(hunk_idx).after;
-
-                    let start = text.line_to_char(hunk.start as usize);
-                    let end = text.line_to_char(hunk.end as usize);
-                    Range::new(start, end).with_direction(range.direction())
-                };
-
                 let selection = doc.selection(view.id).clone().transform(|range| {
                     match ch {
                         'w' => textobject::textobject_word(text, range, objtype, count, false),
@@ -6163,7 +6043,6 @@ fn select_textobject(cx: &mut Context, objtype: textobject::TextObject) {
                             objtype,
                             count,
                         ),
-                        'g' => textobject_change(range),
                         // TODO: cancel new ranges if inconsistent surround matches across lines
                         ch if !ch.is_ascii_alphanumeric() => textobject::textobject_pair_surround(
                             doc.syntax(),

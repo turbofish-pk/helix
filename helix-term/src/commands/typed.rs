@@ -1594,12 +1594,11 @@ fn reload(cx: &mut compositor::Context, _args: &Args, event: PromptEvent) -> any
     }
 
     let scrolloff = cx.editor.config().scrolloff;
-    let trust_full = doc_trust_full(cx.editor);
+
     let (view, doc) = current!(cx.editor);
-    doc.reload(view, &cx.editor.diff_providers, trust_full)
-        .map(|()| {
-            view.ensure_cursor_in_view(doc, scrolloff);
-        })?;
+    doc.reload(view).map(|()| {
+        view.ensure_cursor_in_view(doc, scrolloff);
+    })?;
     if let Some(path) = doc.path().map(ToOwned::to_owned) {
         cx.editor
             .language_servers
@@ -1645,16 +1644,7 @@ fn reload_all(
         // Ensure that the view is synced with the document's history.
         view.sync_changes(doc);
 
-        // Per-document trust: each doc's workspace may differ.
-        let trust_full = cx
-            .editor
-            .workspace_trust
-            .query(
-                doc.workspace_root(),
-                helix_loader::workspace_trust::TrustQuery::Git,
-            )
-            .is_trusted();
-        if let Err(error) = doc.reload(view, &cx.editor.diff_providers, trust_full) {
+        if let Err(error) = doc.reload(view) {
             cx.editor.set_error(format!("{error}"));
             continue;
         }
@@ -2647,58 +2637,6 @@ fn run_shell_command(
     };
     cx.jobs.callback(callback);
 
-    Ok(())
-}
-
-fn reset_diff_change(
-    cx: &mut compositor::Context,
-    _args: &Args,
-    event: PromptEvent,
-) -> anyhow::Result<()> {
-    if event != PromptEvent::Validate {
-        return Ok(());
-    }
-
-    let editor = &mut *cx.editor;
-    let scrolloff = editor.config().scrolloff;
-
-    let (view, doc) = current!(editor);
-    let Some(handle) = doc.diff_handle() else {
-        bail!("Diff is not available in the current buffer")
-    };
-
-    let diff = handle.load();
-    let doc_text = doc.text().slice(..);
-    let diff_base = diff.diff_base();
-    let mut changes = 0;
-
-    let transaction = Transaction::change(
-        doc.text(),
-        diff.hunks_intersecting_line_ranges(doc.selection(view.id).line_ranges(doc_text))
-            .map(|hunk| {
-                changes += 1;
-                let start = diff_base.line_to_char(hunk.before.start as usize);
-                let end = diff_base.line_to_char(hunk.before.end as usize);
-                let text: Tendril = diff_base.slice(start..end).chunks().collect();
-                (
-                    doc_text.line_to_char(hunk.after.start as usize),
-                    doc_text.line_to_char(hunk.after.end as usize),
-                    (!text.is_empty()).then_some(text),
-                )
-            }),
-    );
-    if changes == 0 {
-        bail!("There are no changes under any selection");
-    }
-
-    drop(diff); // make borrow check happy
-    doc.apply(&transaction, view.id);
-    doc.append_changes_to_history(view);
-    view.ensure_cursor_in_view(doc, scrolloff);
-    cx.editor.set_status(format!(
-        "Reset {changes} change{}",
-        if changes == 1 { "" } else { "s" }
-    ));
     Ok(())
 }
 
@@ -3904,17 +3842,6 @@ pub const TYPABLE_COMMAND_LIST: &[TypableCommand] = &[
         signature: SHELL_SIGNATURE,
     },
     TypableCommand {
-        name: "reset-diff-change",
-        aliases: &["diffget", "diffg"],
-        doc: "Reset the diff change at the cursor position.",
-        fun: reset_diff_change,
-        completer: CommandCompleter::none(),
-        signature: Signature {
-            positionals: (0, Some(0)),
-            ..Signature::DEFAULT
-        },
-    },
-    TypableCommand {
         name: "clear-register",
         aliases: &[],
         doc: "Clear given register. If no argument is provided, clear all registers.",
@@ -4008,39 +3935,6 @@ pub const TYPABLE_COMMAND_LIST: &[TypableCommand] = &[
         aliases: &[],
         doc: "Does nothing.",
         fun: noop,
-        completer: CommandCompleter::none(),
-        signature: Signature {
-            positionals: (0, None),
-            ..Signature::DEFAULT
-        },
-    },
-    TypableCommand {
-        name: "workspace-trust",
-        aliases: &[],
-        doc: "Allow language servers and local config for the current workspace.",
-        fun: trust_workspace,
-        completer: CommandCompleter::none(),
-        signature: Signature {
-            positionals: (0, None),
-            ..Signature::DEFAULT
-        },
-    },
-    TypableCommand {
-        name: "workspace-untrust",
-        aliases: &[],
-        doc: "Revoke the current workspace's trust grant or exclusion.",
-        fun: untrust_workspace,
-        completer: CommandCompleter::none(),
-        signature: Signature {
-            positionals: (0, None),
-            ..Signature::DEFAULT
-        },
-    },
-    TypableCommand {
-        name: "workspace-exclude",
-        aliases: &[],
-        doc: "Mark the current workspace as never-prompt. Never prompts for trust again.",
-        fun: exclude_workspace,
         completer: CommandCompleter::none(),
         signature: Signature {
             positionals: (0, None),
@@ -4475,72 +4369,4 @@ fn complete_expansion_kind(content: &str, offset: usize) -> Vec<ui::prompt::Comp
     .into_iter()
     .map(|(name, _)| (offset.., (*name).into()))
     .collect()
-}
-
-fn current_workspace(cx: &compositor::Context) -> std::path::PathBuf {
-    let (_, doc) = current_ref!(cx.editor);
-    doc.workspace_root().to_path_buf()
-}
-
-/// Whether the currently focused document's workspace is trusted for git operations (gix
-/// `Trust::Full`).
-fn doc_trust_full(editor: &helix_view::Editor) -> bool {
-    let (_, doc) = current_ref!(editor);
-    editor
-        .workspace_trust
-        .query(
-            doc.workspace_root(),
-            helix_loader::workspace_trust::TrustQuery::Git,
-        )
-        .is_trusted()
-}
-
-fn trust_workspace(
-    cx: &mut compositor::Context,
-    args: &Args<'_>,
-    event: PromptEvent,
-) -> anyhow::Result<()> {
-    if event != PromptEvent::Validate {
-        return Ok(());
-    }
-
-    let workspace = current_workspace(cx);
-    cx.editor.workspace_trust.trust(&workspace);
-
-    cx.editor.config_events.0.send(ConfigEvent::Refresh)?;
-    // Restart any LSPs that didn't start because trust was missing.
-    lsp_restart(cx, args, event)
-}
-
-fn untrust_workspace(
-    cx: &mut compositor::Context,
-    _args: &Args<'_>,
-    event: PromptEvent,
-) -> anyhow::Result<()> {
-    if event != PromptEvent::Validate {
-        return Ok(());
-    }
-
-    let workspace = current_workspace(cx);
-    cx.editor.workspace_trust.untrust(&workspace);
-    // Drop any workspace overrides that were merged into the live editor config while trust was
-    // granted. Running LSPs are not stopped here (use `:lsp-stop` for that); this only handles
-    // in-memory config.
-    cx.editor.config_events.0.send(ConfigEvent::Refresh)?;
-    Ok(())
-}
-
-fn exclude_workspace(
-    cx: &mut compositor::Context,
-    _args: &Args<'_>,
-    event: PromptEvent,
-) -> anyhow::Result<()> {
-    if event != PromptEvent::Validate {
-        return Ok(());
-    }
-
-    let workspace = current_workspace(cx);
-    cx.editor.workspace_trust.exclude(&workspace);
-    cx.editor.config_events.0.send(ConfigEvent::Refresh)?;
-    Ok(())
 }

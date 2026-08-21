@@ -155,7 +155,6 @@ where
         helix_view::editor::StatusLineElement::TotalLineNumbers => render_total_line_numbers,
         helix_view::editor::StatusLineElement::Separator => render_separator,
         helix_view::editor::StatusLineElement::Spacer => render_spacer,
-        helix_view::editor::StatusLineElement::VersionControl => render_version_control,
         helix_view::editor::StatusLineElement::Register => render_register,
         helix_view::editor::StatusLineElement::CurrentWorkingDirectory => render_cwd,
         helix_view::editor::StatusLineElement::CodeActionHint => render_code_action_hint,
@@ -518,19 +517,6 @@ where
     F: Fn(&mut RenderContext<'a>, Span<'a>) + Copy,
 {
     write(context, " ".into());
-}
-
-fn render_version_control<'a, F>(context: &mut RenderContext<'a>, write: F)
-where
-    F: Fn(&mut RenderContext<'a>, Span<'a>) + Copy,
-{
-    let head = context
-        .doc
-        .version_control_head()
-        .unwrap_or_default()
-        .to_string();
-
-    write(context, head.into());
 }
 
 fn render_register<'a, F>(context: &mut RenderContext<'a>, write: F)

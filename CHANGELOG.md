@@ -15,10 +15,7 @@ Breaking changes:
 - The parsing of the command line has been rewritten and now supports flags and expansions
   ([#12527](https://github.com/helix-editor/helix/pull/12527),
   [#13018](https://github.com/helix-editor/helix/pull/13018),
-  [9574e55](https://github.com/helix-editor/helix/commit/9574e55),
-  [2d4c2a1](https://github.com/helix-editor/helix/commit/2d4c2a1),
-  [#13192](https://github.com/helix-editor/helix/pull/13192),
-  [67f1fe2](https://github.com/helix-editor/helix/commit/67f1fe2),
+
   [#13466](https://github.com/helix-editor/helix/pull/13466),
   [#13467](https://github.com/helix-editor/helix/pull/13467),
   [#13840](https://github.com/helix-editor/helix/pull/13840))
@@ -31,9 +28,7 @@ Features:
 - Add a picker which explores directories
   ([#11285](https://github.com/helix-editor/helix/pull/11285),
   [d4aed40](https://github.com/helix-editor/helix/commit/d4aed40))
-- Allow cycling through multiple LSP Hover responses with `A-n`/`A-p`
-  ([#10122](https://github.com/helix-editor/helix/pull/10122),
-  [2367b20](https://github.com/helix-editor/helix/commit/2367b20))
+
 - Add support for incomplete LSP completions
   ([5c1f3f8](https://github.com/helix-editor/helix/commit/5c1f3f8))
 - Add support for EditorConfig ([#13056](https://github.com/helix-editor/helix/pull/13056),

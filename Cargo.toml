@@ -9,7 +9,6 @@ members = [
   "helix-lsp",
   "helix-event",
   "helix-loader",
-  "helix-vcs",
   "helix-parsec",
   "helix-stdx",
   "xtask", "helix-ext",  # NOTE(pk): temporary deactivation
