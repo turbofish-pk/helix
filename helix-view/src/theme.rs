@@ -146,7 +146,7 @@ impl Loader {
     /// However, it is not recommended that users do this as it will make tracing
     /// errors more difficult.
     fn load_theme(&self, name: &str, visited_paths: &mut HashSet<PathBuf>) -> Result<Value> {
-        let path = self.path(name, visited_paths)?;
+        let path = self.path(name, visited_paths)?; // absolute path
 
         let theme_toml = self.load_toml(path)?;
 
@@ -256,12 +256,10 @@ impl Loader {
     }
 
     #[must_use]
-    pub fn default_theme(&self, true_color: bool) -> Theme {
-        if true_color {
+    pub fn default_theme(&self) -> Theme {
+
             self.default()
-        } else {
-            self.base16_default()
-        }
+
     }
 
     /// Returns the default theme

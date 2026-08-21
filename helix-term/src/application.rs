@@ -79,7 +79,7 @@ impl Application {
             .context("failed to create terminal backend")?;
 
         let theme_mode = backend.get_theme_mode();
-        let mut terminal = Terminal::new(backend)?;
+        let terminal = Terminal::new(backend)?;
         let area = terminal.size();
         let mut compositor = Compositor::new(area);
         let config = Arc::new(ArcSwap::from_pointee(config));
@@ -94,7 +94,7 @@ impl Application {
             handlers,
             workspace_trust,
         );
-        Self::load_configured_theme(&mut editor, &config.load(), &mut terminal, theme_mode);
+        Self::load_configured_theme(&mut editor, &config.load(), theme_mode);
 
         let keys = Box::new(Map::new(Arc::clone(&config), |config: &Config| {
             &config.keys
@@ -374,12 +374,7 @@ impl Application {
             // the sake of locals highlighting.
             let lang_loader = helix_core::config::user_lang_loader(&self.editor.workspace_trust)?;
             self.editor.syn_loader.store(Arc::new(lang_loader));
-            Self::load_configured_theme(
-                &mut self.editor,
-                &default_config,
-                &mut self.terminal,
-                self.theme_mode,
-            );
+            Self::load_configured_theme(&mut self.editor, &default_config, self.theme_mode);
 
             // Re-parse any open documents with the new language config.
             let lang_loader = self.editor.syn_loader.load();
@@ -412,41 +407,23 @@ impl Application {
     }
 
     /// Load the theme set in configuration
-    fn load_configured_theme(
-        editor: &mut Editor,
-        config: &Config,
-        terminal: &mut Terminal,
-        mode: Option<theme::Mode>,
-    ) {
-        let true_color = terminal.backend().supports_true_color()
-            || config.editor.true_color
-            || crate::true_color();
+    fn load_configured_theme(editor: &mut Editor, config: &Config, mode: Option<theme::Mode>) {
+
         let theme = config
-            .theme
-            .as_ref()
-            .and_then(|theme_config| {
-                let theme = theme_config.choose(mode);
-                editor
-                    .theme_loader
-                    .load(theme)
-                    .map_err(|e| {
-                        log::warn!("failed to load theme `{theme}` - {e}");
-                        e
-                    })
-                    .ok()
-                    .filter(|theme| {
-                        let colors_ok = true_color || theme.is_16_color();
-                        if !colors_ok {
-                            log::warn!(
-                                "loaded theme `{}` but cannot use it because true color \
-                                support is not enabled",
-                                theme.name()
-                            );
-                        }
-                        colors_ok
-                    })
-            })
-            .unwrap_or_else(|| editor.theme_loader.default_theme(true_color));
+          .theme
+          .as_ref()
+          .and_then(|theme_config| {
+              let theme = theme_config.choose(mode);
+              editor
+                .theme_loader
+                .load(theme)
+                .map_err(|e| {
+                    log::warn!("failed to load theme `{theme}` - {e}");
+                    e
+                })
+                .ok()
+          })
+          .unwrap_or_else(|| editor.theme_loader.default());
         let _ = editor.set_theme(theme);
     }
 
@@ -661,12 +638,7 @@ impl Application {
                         .is_some_and(helix_view::theme::Config::is_adaptive)
                 {
                     self.theme_mode = Some(mode);
-                    Self::load_configured_theme(
-                        &mut self.editor,
-                        &config,
-                        &mut self.terminal,
-                        self.theme_mode,
-                    );
+                    Self::load_configured_theme(&mut self.editor, &config, self.theme_mode);
                     true
                 } else {
                     false

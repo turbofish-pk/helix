@@ -26,23 +26,6 @@ mod handlers;
 use helix_ext::ignore::DirEntry;
 use helix_stdx::Url;
 
-fn true_color() -> bool {
-    if var_os("COLORTERM").is_some_and(|v| v == "truecolor" || v == "24bit")
-        || var_os("WSL_DISTRO_NAME").is_some()
-    {
-        return true;
-    }
-
-    match termini::TermInfo::from_env() {
-        Ok(t) => {
-            t.extended_cap("RGB").is_some()
-                || t.extended_cap("Tc").is_some()
-                || (t.extended_cap("setrgbf").is_some() && t.extended_cap("setrgbb").is_some())
-        }
-        Err(_) => false,
-    }
-}
-
 /// Heuristic "is this a binary (non-text) file?" check over a leading chunk of a
 /// file. Replaces the `content_inspector` crate — we only need the binary/text
 /// verdict, not its encoding classification.

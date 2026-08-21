@@ -64,7 +64,6 @@ pub(crate) mod termina {
     struct Capabilities {
         kitty_keyboard: KittyKeyboardSupport,
         synchronized_output: bool,
-        true_color: bool,
         extended_underlines: bool,
         /// OSC11 / OSC111 - change the terminal's background color.
         dynamic_background_color: bool,
@@ -190,8 +189,6 @@ pub(crate) mod termina {
                             value: dcs::DcsResponse::GraphicRendition(sgrs),
                             ..
                         }) => {
-                            capabilities.true_color =
-                                sgrs.contains(&csi::Sgr::Background(TEST_COLOR.into()));
                             capabilities.extended_underlines =
                                 sgrs.contains(&csi::Sgr::UnderlineColor(TEST_COLOR.into()));
                         }
@@ -635,9 +632,7 @@ pub(crate) mod termina {
             self.terminal.flush()
         }
 
-        fn supports_true_color(&self) -> bool {
-            self.capabilities.true_color
-        }
+
 
         fn get_theme_mode(&self) -> Option<theme::Mode> {
             self.capabilities.theme_mode
@@ -781,7 +776,7 @@ pub trait Backend {
     fn size(&self) -> Result<Rect, io::Error>;
     /// Flushes the terminal buffer
     fn flush(&mut self) -> Result<(), io::Error>;
-    fn supports_true_color(&self) -> bool;
+
     fn get_theme_mode(&self) -> Option<helix_view::theme::Mode>;
     fn set_background_color(&mut self, color: Option<Color>) -> io::Result<()>;
 }
