@@ -1,12 +1,12 @@
 //! Provides interface for controlling the terminal
 
 use crate::{buffer::Cell, terminal::Config};
-use ::termina::escape::{csi, osc};
-use ::termina::{OneBased, Terminal};
-use std::io;
-use std::io::Write;
 
-use helix_view::graphics::UnderlineStyle;
+
+use std::io;
+
+
+
 use helix_view::{
     graphics::{CursorKind, Rect},
     theme::Color,

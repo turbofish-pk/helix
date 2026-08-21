@@ -15,8 +15,6 @@ pub mod keymap;
 pub mod logging;
 pub mod ui;
 
-use std::env::var_os;
-
 use std::path::Path;
 use std::process::Stdio;
 
@@ -70,8 +68,7 @@ fn filter_picker_entry(entry: &DirEntry, root: &Path, dedup_symlinks: bool) -> b
         return entry
             .path()
             .canonicalize()
-            .ok()
-            .is_some_and(|path| !path.starts_with(root));
+            .is_ok_and(|path| !path.starts_with(root));
     }
 
     true
