@@ -1,19 +1,22 @@
 //! Provides interface for controlling the terminal
 
-use std::io;
-
 use crate::{buffer::Cell, terminal::Config};
+use ::termina::escape::{csi, osc};
+use ::termina::{OneBased, Terminal};
+use std::io;
+use std::io::Write;
 
+use helix_view::graphics::UnderlineStyle;
 use helix_view::{
     graphics::{CursorKind, Rect},
     theme::Color,
 };
+
 #[cfg(feature = "termina")]
 pub(crate) mod termina {
     use std::io::{self, Write as _};
 
     use helix_view::{
-        editor::KittyKeyboardProtocolConfig,
         graphics::{CursorKind, Rect, UnderlineStyle},
         theme::{self, Color, Modifier},
     };
@@ -62,7 +65,6 @@ pub(crate) mod termina {
     #[derive(Debug, Default, Clone, Copy)]
     #[allow(clippy::struct_excessive_bools)]
     struct Capabilities {
-        kitty_keyboard: KittyKeyboardSupport,
         synchronized_output: bool,
         extended_underlines: bool,
         /// OSC11 / OSC111 - change the terminal's background color.
@@ -70,19 +72,6 @@ pub(crate) mod termina {
         theme_mode: Option<theme::Mode>,
     }
 
-    #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
-    enum KittyKeyboardSupport {
-        /// The terminal doesn't support the protocol.
-        #[default]
-        None,
-        /// The terminal supports the protocol but we haven't checked yet whether it has full or
-        /// partial support for the flags we require.
-        Some,
-        /// The terminal only supports some of the flags we require.
-        Partial,
-        /// The terminal supports all flags require.
-        Full,
-    }
 
     #[derive(Debug)]
     pub struct TerminaBackend {
@@ -114,15 +103,6 @@ pub(crate) mod termina {
 
             // HACK: emitting OSC11 / OSC111 seems to break SGR and cause flickering in tmux.
             capabilities.dynamic_background_color = std::env::var_os("TMUX").is_none();
-
-            capabilities.kitty_keyboard = match config.kitty_keyboard_protocol {
-                KittyKeyboardProtocolConfig::Disabled => KittyKeyboardSupport::None,
-                KittyKeyboardProtocolConfig::Enabled => KittyKeyboardSupport::Full,
-                KittyKeyboardProtocolConfig::Auto => {
-                    write!(terminal, "{}", Csi::Keyboard(csi::Keyboard::QueryFlags))?;
-                    KittyKeyboardSupport::None
-                }
-            };
 
             // Many terminal extensions can be detected by querying the terminal for the state of the
             // extension and then sending a request for the primary device attributes (which is
@@ -164,9 +144,6 @@ pub(crate) mod termina {
             if terminal.poll(device_attributes, Some(poll_duration))? {
                 while terminal.poll(Event::is_escape, Some(Duration::ZERO))? {
                     match terminal.read(Event::is_escape)? {
-                        Event::Csi(Csi::Keyboard(csi::Keyboard::ReportFlags(_))) => {
-                            capabilities.kitty_keyboard = KittyKeyboardSupport::Some;
-                        }
                         Event::Csi(Csi::Mode(csi::Mode::ReportDecPrivateMode {
                             mode:
                                 csi::DecPrivateMode::Code(csi::DecPrivateModeCode::SynchronizedOutput),
@@ -325,55 +302,11 @@ pub(crate) mod termina {
                 csi::KittyKeyboardFlags::DISAMBIGUATE_ESCAPE_CODES
                     .union(csi::KittyKeyboardFlags::REPORT_ALTERNATE_KEYS);
 
-            match self.capabilities.kitty_keyboard {
-                KittyKeyboardSupport::None | KittyKeyboardSupport::Partial => (),
-                KittyKeyboardSupport::Full => {
-                    write!(
-                        self.terminal,
-                        "{}",
-                        Csi::Keyboard(csi::Keyboard::PushFlags(KEYBOARD_FLAGS))
-                    )?;
-                }
-                KittyKeyboardSupport::Some => {
-                    write!(
-                        self.terminal,
-                        "{}{}",
-                        // Enable the flags we need.
-                        Csi::Keyboard(csi::Keyboard::PushFlags(KEYBOARD_FLAGS)),
-                        // Then request the current flags. We need to check if the terminal enabled
-                        // all of the flags we require.
-                        Csi::Keyboard(csi::Keyboard::QueryFlags),
-                    )?;
-                    self.terminal.flush()?;
-
-                    let event = self.terminal.read(|event| {
-                        matches!(
-                            event,
-                            Event::Csi(Csi::Keyboard(csi::Keyboard::ReportFlags(_)))
-                        )
-                    })?;
-                    let Event::Csi(Csi::Keyboard(csi::Keyboard::ReportFlags(flags))) = event else {
-                        unreachable!();
-                    };
-                    if flags == KEYBOARD_FLAGS {
-                        log::debug!(
-                            "The terminal fully supports the requested keyboard enhancement flags"
-                        );
-                        self.capabilities.kitty_keyboard = KittyKeyboardSupport::Full;
-                    } else {
-                        log::info!(
-                            "Turning off enhanced keyboard support because the terminal enabled different flags. Requested {KEYBOARD_FLAGS:?} but got {flags:?}"
-                        );
-                        write!(
-                            self.terminal,
-                            "{}",
-                            Csi::Keyboard(csi::Keyboard::PopFlags(1))
-                        )?;
-                        self.terminal.flush()?;
-                        self.capabilities.kitty_keyboard = KittyKeyboardSupport::Partial;
-                    }
-                }
-            }
+            write!(
+                self.terminal,
+                "{}",
+                Csi::Keyboard(csi::Keyboard::PushFlags(KEYBOARD_FLAGS))
+            )?;
 
             if self.capabilities.theme_mode.is_some() {
                 // Enable mode 2031 theme mode notifications:
@@ -384,13 +317,11 @@ pub(crate) mod termina {
         }
 
         fn disable_extensions(&mut self) -> io::Result<()> {
-            if self.capabilities.kitty_keyboard == KittyKeyboardSupport::Full {
-                write!(
-                    self.terminal,
-                    "{}",
-                    Csi::Keyboard(csi::Keyboard::PopFlags(1))
-                )?;
-            }
+            write!(
+                self.terminal,
+                "{}",
+                Csi::Keyboard(csi::Keyboard::PopFlags(1))
+            )?;
 
             if self.capabilities.theme_mode.is_some() {
                 // Mode 2031 theme notifications.
@@ -631,8 +562,6 @@ pub(crate) mod termina {
         fn flush(&mut self) -> io::Result<()> {
             self.terminal.flush()
         }
-
-
 
         fn get_theme_mode(&self) -> Option<theme::Mode> {
             self.capabilities.theme_mode
