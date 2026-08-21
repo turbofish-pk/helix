@@ -24,84 +24,84 @@ bitflags! {
 }
 
 mod imp {
-    use super::{AccessMode, Path, io};
+  use super::{AccessMode, Path, io};
 
-    use rustix::fs::Access;
-    use std::os::unix::fs::{MetadataExt, PermissionsExt};
+  use rustix::fs::Access;
+  use std::os::unix::fs::{MetadataExt, PermissionsExt};
 
-    pub fn access(p: &Path, mode: AccessMode) -> io::Result<()> {
-        // If helix has ambient CAP_DAC_OVERRIDE, everything is accessible regardless of mode bits
-        use rustix::thread::{CapabilitySet, capability_is_in_ambient_set};
-        if capability_is_in_ambient_set(CapabilitySet::DAC_OVERRIDE).unwrap_or(false) {
-            return Ok(());
-        }
-
-        let mut imode = Access::empty();
-
-        if mode.contains(AccessMode::EXISTS) {
-            imode |= Access::EXISTS;
-        }
-
-        if mode.contains(AccessMode::READ) {
-            imode |= Access::READ_OK;
-        }
-
-        if mode.contains(AccessMode::WRITE) {
-            imode |= Access::WRITE_OK;
-        }
-
-        if mode.contains(AccessMode::EXECUTE) {
-            imode |= Access::EXEC_OK;
-        }
-
-        rustix::fs::access(p, imode)?;
-        Ok(())
+  pub fn access(p: &Path, mode: AccessMode) -> io::Result<()> {
+    // If helix has ambient CAP_DAC_OVERRIDE, everything is accessible regardless of mode bits
+    use rustix::thread::{CapabilitySet, capability_is_in_ambient_set};
+    if capability_is_in_ambient_set(CapabilitySet::DAC_OVERRIDE).unwrap_or(false) {
+      return Ok(());
     }
 
-    fn chown(p: &Path, uid: Option<u32>, gid: Option<u32>) -> io::Result<()> {
-        let uid = uid.map(rustix::fs::Uid::from_raw);
-        let gid = gid.map(rustix::fs::Gid::from_raw);
-        rustix::fs::chown(p, uid, gid)?;
-        Ok(())
+    let mut imode = Access::empty();
+
+    if mode.contains(AccessMode::EXISTS) {
+      imode |= Access::EXISTS;
     }
 
-    pub fn copy_metadata(from: &Path, to: &Path) -> io::Result<()> {
-        let from_meta = std::fs::metadata(from)?;
-        let to_meta = std::fs::metadata(to)?;
-        let from_gid = from_meta.gid();
-        let to_gid = to_meta.gid();
-
-        let mut perms = from_meta.permissions();
-        perms.set_mode(perms.mode() & 0o0777);
-        if from_gid != to_gid && chown(to, None, Some(from_gid)).is_err() {
-            let new_perms = (perms.mode() & 0o0707) | ((perms.mode() & 0o07) << 3);
-            perms.set_mode(new_perms);
-        }
-
-        std::fs::set_permissions(to, perms)?;
-
-        Ok(())
+    if mode.contains(AccessMode::READ) {
+      imode |= Access::READ_OK;
     }
 
-    pub fn hardlink_count(p: &Path) -> std::io::Result<u64> {
-        let metadata = p.metadata()?;
-        Ok(metadata.nlink())
+    if mode.contains(AccessMode::WRITE) {
+      imode |= Access::WRITE_OK;
     }
+
+    if mode.contains(AccessMode::EXECUTE) {
+      imode |= Access::EXEC_OK;
+    }
+
+    rustix::fs::access(p, imode)?;
+    Ok(())
+  }
+
+  fn chown(p: &Path, uid: Option<u32>, gid: Option<u32>) -> io::Result<()> {
+    let uid = uid.map(rustix::fs::Uid::from_raw);
+    let gid = gid.map(rustix::fs::Gid::from_raw);
+    rustix::fs::chown(p, uid, gid)?;
+    Ok(())
+  }
+
+  pub fn copy_metadata(from: &Path, to: &Path) -> io::Result<()> {
+    let from_meta = std::fs::metadata(from)?;
+    let to_meta = std::fs::metadata(to)?;
+    let from_gid = from_meta.gid();
+    let to_gid = to_meta.gid();
+
+    let mut perms = from_meta.permissions();
+    perms.set_mode(perms.mode() & 0o0777);
+    if from_gid != to_gid && chown(to, None, Some(from_gid)).is_err() {
+      let new_perms = (perms.mode() & 0o0707) | ((perms.mode() & 0o07) << 3);
+      perms.set_mode(new_perms);
+    }
+
+    std::fs::set_permissions(to, perms)?;
+
+    Ok(())
+  }
+
+  pub fn hardlink_count(p: &Path) -> std::io::Result<u64> {
+    let metadata = p.metadata()?;
+    Ok(metadata.nlink())
+  }
 }
 
 #[must_use]
 pub fn readonly(p: &Path) -> bool {
-    match imp::access(p, AccessMode::WRITE) {
-        Ok(()) => false,
-        Err(err) if err.kind() == std::io::ErrorKind::NotFound => false,
-        Err(_) => true,
-    }
+  match imp::access(p, AccessMode::WRITE) {
+    Ok(()) => false,
+    Err(err) if err.kind() == std::io::ErrorKind::NotFound => false,
+    Err(_) => true,
+  }
 }
 
 pub fn copy_metadata(from: &Path, to: &Path) -> io::Result<()> {
-    imp::copy_metadata(from, to)
+  imp::copy_metadata(from, to)
 }
 
 pub fn hardlink_count(p: &Path) -> io::Result<u64> {
-    imp::hardlink_count(p)
+  imp::hardlink_count(p)
 }

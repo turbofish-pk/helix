@@ -16,27 +16,27 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 /// (`unreserved` / `sub-delims` / `:` / `@`) plus `/` as the separator
 /// unescaped; everything else (and every non-ASCII byte) is encoded.
 const PATH: &AsciiSet = &NON_ALPHANUMERIC
-    // unreserved: ALPHA / DIGIT (already kept) / "-" / "." / "_" / "~"
-    .remove(b'-')
-    .remove(b'.')
-    .remove(b'_')
-    .remove(b'~')
-    // sub-delims
-    .remove(b'!')
-    .remove(b'$')
-    .remove(b'&')
-    .remove(b'\'')
-    .remove(b'(')
-    .remove(b')')
-    .remove(b'*')
-    .remove(b'+')
-    .remove(b',')
-    .remove(b';')
-    .remove(b'=')
-    // pchar extras and the path separator
-    .remove(b':')
-    .remove(b'@')
-    .remove(b'/');
+  // unreserved: ALPHA / DIGIT (already kept) / "-" / "." / "_" / "~"
+  .remove(b'-')
+  .remove(b'.')
+  .remove(b'_')
+  .remove(b'~')
+  // sub-delims
+  .remove(b'!')
+  .remove(b'$')
+  .remove(b'&')
+  .remove(b'\'')
+  .remove(b'(')
+  .remove(b')')
+  .remove(b'*')
+  .remove(b'+')
+  .remove(b',')
+  .remove(b';')
+  .remove(b'=')
+  // pchar extras and the path separator
+  .remove(b':')
+  .remove(b'@')
+  .remove(b'/');
 
 /// An RFC3986 URI.
 ///
@@ -49,232 +49,232 @@ pub struct Url(String);
 pub struct ParseError;
 
 impl fmt::Display for ParseError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str("invalid URI: relative URL without a base")
-    }
+  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    f.write_str("invalid URI: relative URL without a base")
+  }
 }
 
 impl std::error::Error for ParseError {}
 
 impl Url {
-    #[allow(clippy::missing_errors_doc)]
-    pub fn parse(input: &str) -> Result<Url, ParseError> {
-        let colon = input.find(':').ok_or(ParseError)?;
-        let scheme = &input[..colon];
-        let mut bytes = scheme.bytes();
-        let valid = bytes.next().is_some_and(|b| b.is_ascii_alphabetic())
-            && bytes.all(|b| b.is_ascii_alphanumeric() || matches!(b, b'+' | b'-' | b'.'));
-        if valid {
-            Ok(Url(input.to_string()))
-        } else {
-            Err(ParseError)
-        }
+  #[allow(clippy::missing_errors_doc)]
+  pub fn parse(input: &str) -> Result<Url, ParseError> {
+    let colon = input.find(':').ok_or(ParseError)?;
+    let scheme = &input[..colon];
+    let mut bytes = scheme.bytes();
+    let valid = bytes.next().is_some_and(|b| b.is_ascii_alphabetic())
+      && bytes.all(|b| b.is_ascii_alphanumeric() || matches!(b, b'+' | b'-' | b'.'));
+    if valid {
+      Ok(Url(input.to_string()))
+    } else {
+      Err(ParseError)
     }
+  }
 
-    /// The full URI as a string slice.
-    #[must_use]
-    pub fn as_str(&self) -> &str {
-        &self.0
+  /// The full URI as a string slice.
+  #[must_use]
+  pub fn as_str(&self) -> &str {
+    &self.0
+  }
+
+  #[must_use]
+  pub fn scheme(&self) -> &str {
+    match self.0.find(':') {
+      Some(i) => &self.0[..i],
+      None => "",
     }
+  }
 
-    #[must_use]
-    pub fn scheme(&self) -> &str {
-        match self.0.find(':') {
-            Some(i) => &self.0[..i],
-            None => "",
-        }
+  #[must_use]
+  pub fn path(&self) -> &str {
+    let after_scheme = match self.0.find(':') {
+      Some(i) => &self.0[i + 1..],
+      None => self.0.as_str(),
+    };
+    // Skip an `//authority` component if present.
+    let after_authority = match after_scheme.strip_prefix("//") {
+      Some(rest) => match rest.find('/') {
+        Some(i) => &rest[i..],
+        None => "",
+      },
+      None => after_scheme,
+    };
+    let end = after_authority
+      .find(['?', '#'])
+      .unwrap_or(after_authority.len());
+    &after_authority[..end]
+  }
+
+  #[allow(clippy::result_unit_err)]
+  #[allow(clippy::missing_errors_doc)]
+  pub fn from_file_path<P: AsRef<Path>>(path: P) -> Result<Url, ()> {
+    let path = path.as_ref();
+    if !path.is_absolute() {
+      return Err(());
     }
+    let mut serialization = String::from("file://");
+    serialize_path(&mut serialization, path)?;
+    Ok(Url(serialization))
+  }
 
-    #[must_use]
-    pub fn path(&self) -> &str {
-        let after_scheme = match self.0.find(':') {
-            Some(i) => &self.0[i + 1..],
-            None => self.0.as_str(),
-        };
-        // Skip an `//authority` component if present.
-        let after_authority = match after_scheme.strip_prefix("//") {
-            Some(rest) => match rest.find('/') {
-                Some(i) => &rest[i..],
-                None => "",
-            },
-            None => after_scheme,
-        };
-        let end = after_authority
-            .find(['?', '#'])
-            .unwrap_or(after_authority.len());
-        &after_authority[..end]
+  #[allow(clippy::result_unit_err)]
+  #[allow(clippy::missing_errors_doc)]
+  pub fn from_directory_path<P: AsRef<Path>>(path: P) -> Result<Url, ()> {
+    let mut url = Url::from_file_path(path)?;
+    if !url.0.ends_with('/') {
+      url.0.push('/');
     }
+    Ok(url)
+  }
 
-    #[allow(clippy::result_unit_err)]
-    #[allow(clippy::missing_errors_doc)]
-    pub fn from_file_path<P: AsRef<Path>>(path: P) -> Result<Url, ()> {
-        let path = path.as_ref();
-        if !path.is_absolute() {
-            return Err(());
-        }
-        let mut serialization = String::from("file://");
-        serialize_path(&mut serialization, path)?;
-        Ok(Url(serialization))
+  /// Convert a `file://` URI back to a filesystem path.
+  #[allow(clippy::result_unit_err)]
+  #[allow(clippy::missing_errors_doc)]
+  pub fn to_file_path(&self) -> Result<PathBuf, ()> {
+    if self.scheme() != "file" {
+      return Err(());
     }
+    let rest = self.0["file:".len()..].strip_prefix("//").ok_or(())?;
+    let (authority, path) = match rest.find('/') {
+      Some(i) => (&rest[..i], &rest[i..]),
+      None => (rest, ""),
+    };
+    let local_host = authority.is_empty() || authority.eq_ignore_ascii_case("localhost");
 
-    #[allow(clippy::result_unit_err)]
-    #[allow(clippy::missing_errors_doc)]
-    pub fn from_directory_path<P: AsRef<Path>>(path: P) -> Result<Url, ()> {
-        let mut url = Url::from_file_path(path)?;
-        if !url.0.ends_with('/') {
-            url.0.push('/');
-        }
-        Ok(url)
+    {
+      use std::ffi::OsStr;
+      use std::os::unix::ffi::OsStrExt;
+      if !local_host {
+        return Err(());
+      }
+      let bytes = percent_decode(path.as_bytes()).collect::<Vec<u8>>();
+      if bytes.is_empty() {
+        return Err(());
+      }
+      Ok(PathBuf::from(OsStr::from_bytes(&bytes)))
     }
-
-    /// Convert a `file://` URI back to a filesystem path.
-    #[allow(clippy::result_unit_err)]
-    #[allow(clippy::missing_errors_doc)]
-    pub fn to_file_path(&self) -> Result<PathBuf, ()> {
-        if self.scheme() != "file" {
-            return Err(());
-        }
-        let rest = self.0["file:".len()..].strip_prefix("//").ok_or(())?;
-        let (authority, path) = match rest.find('/') {
-            Some(i) => (&rest[..i], &rest[i..]),
-            None => (rest, ""),
-        };
-        let local_host = authority.is_empty() || authority.eq_ignore_ascii_case("localhost");
-
-        {
-            use std::ffi::OsStr;
-            use std::os::unix::ffi::OsStrExt;
-            if !local_host {
-                return Err(());
-            }
-            let bytes = percent_decode(path.as_bytes()).collect::<Vec<u8>>();
-            if bytes.is_empty() {
-                return Err(());
-            }
-            Ok(PathBuf::from(OsStr::from_bytes(&bytes)))
-        }
-    }
+  }
 }
 
 #[allow(clippy::missing_errors_doc)]
 #[allow(clippy::unnecessary_wraps)]
 fn serialize_path(out: &mut String, path: &Path) -> Result<(), ()> {
-    use std::os::unix::ffi::OsStrExt;
-    // The path is absolute, so it begins with `/`; percent-encode it while
-    // preserving the `/` separators (they are excluded from `PATH`).
-    out.extend(percent_encode(path.as_os_str().as_bytes(), PATH));
-    Ok(())
+  use std::os::unix::ffi::OsStrExt;
+  // The path is absolute, so it begins with `/`; percent-encode it while
+  // preserving the `/` separators (they are excluded from `PATH`).
+  out.extend(percent_encode(path.as_os_str().as_bytes(), PATH));
+  Ok(())
 }
 
 impl FromStr for Url {
-    type Err = ParseError;
+  type Err = ParseError;
 
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Url::parse(s)
-    }
+  fn from_str(s: &str) -> Result<Self, Self::Err> {
+    Url::parse(s)
+  }
 }
 
 impl fmt::Display for Url {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(&self.0)
-    }
+  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    f.write_str(&self.0)
+  }
 }
 
 impl fmt::Debug for Url {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(&self.0)
-    }
+  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    f.write_str(&self.0)
+  }
 }
 
 impl AsRef<str> for Url {
-    fn as_ref(&self) -> &str {
-        &self.0
-    }
+  fn as_ref(&self) -> &str {
+    &self.0
+  }
 }
 
 impl Serialize for Url {
-    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        serializer.serialize_str(&self.0)
-    }
+  fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+    serializer.serialize_str(&self.0)
+  }
 }
 
 impl<'de> Deserialize<'de> for Url {
-    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        // Store the URI as-is. Path conversion is lazy.
-        Ok(Url(String::deserialize(deserializer)?))
-    }
+  fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+    // Store the URI as-is. Path conversion is lazy.
+    Ok(Url(String::deserialize(deserializer)?))
+  }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+  use super::*;
 
-    #[test]
-    fn scheme_and_path() {
-        let url = Url::parse("file:///home/user/main.rs").unwrap();
-        assert_eq!(url.scheme(), "file");
-        assert_eq!(url.path(), "/home/user/main.rs");
+  #[test]
+  fn scheme_and_path() {
+    let url = Url::parse("file:///home/user/main.rs").unwrap();
+    assert_eq!(url.scheme(), "file");
+    assert_eq!(url.path(), "/home/user/main.rs");
 
-        let url = Url::parse("csharp:/metadata/foo/Baz.cs").unwrap();
-        assert_eq!(url.scheme(), "csharp");
-        assert_eq!(url.path(), "/metadata/foo/Baz.cs");
+    let url = Url::parse("csharp:/metadata/foo/Baz.cs").unwrap();
+    assert_eq!(url.scheme(), "csharp");
+    assert_eq!(url.path(), "/metadata/foo/Baz.cs");
 
-        // authority present
-        let url = Url::parse("file://host/path?q#frag").unwrap();
-        assert_eq!(url.path(), "/path");
+    // authority present
+    let url = Url::parse("file://host/path?q#frag").unwrap();
+    assert_eq!(url.path(), "/path");
+  }
+
+  #[test]
+  fn parse_rejects_relative() {
+    assert!(Url::parse("src/main.rs").is_err());
+    assert!(Url::parse("just text").is_err());
+    assert!(Url::parse("https://example.com").is_ok());
+  }
+
+  #[test]
+  fn file_path_round_trip() {
+    for path in [
+      "/home/user/main.rs",
+      "/tmp/a b.txt",           // space
+      "/tmp/[test]/x.ts",       // brackets (Deno RFC3986 fix)
+      "/tmp/c#/Program.cs",     // '#'
+      "/home/üser/café.txt",    // non-ASCII
+      "/weird/100%/qu?ery&x=1", // '%', '?', '&'
+    ] {
+      let url = Url::from_file_path(path).unwrap();
+      assert_eq!(url.to_file_path().unwrap(), PathBuf::from(path), "{url}");
     }
+  }
 
-    #[test]
-    fn parse_rejects_relative() {
-        assert!(Url::parse("src/main.rs").is_err());
-        assert!(Url::parse("just text").is_err());
-        assert!(Url::parse("https://example.com").is_ok());
-    }
+  #[test]
+  fn rfc3986_encoding() {
+    let url = Url::from_file_path("/tmp/[test]/a b.ts").unwrap();
+    // brackets and space are percent-encoded; '/' and unreserved are not
+    assert_eq!(url.as_str(), "file:///tmp/%5Btest%5D/a%20b.ts");
+  }
 
-    #[test]
-    fn file_path_round_trip() {
-        for path in [
-            "/home/user/main.rs",
-            "/tmp/a b.txt",           // space
-            "/tmp/[test]/x.ts",       // brackets (Deno RFC3986 fix)
-            "/tmp/c#/Program.cs",     // '#'
-            "/home/üser/café.txt",    // non-ASCII
-            "/weird/100%/qu?ery&x=1", // '%', '?', '&'
-        ] {
-            let url = Url::from_file_path(path).unwrap();
-            assert_eq!(url.to_file_path().unwrap(), PathBuf::from(path), "{url}");
-        }
-    }
+  #[test]
+  fn directory_path_has_trailing_slash() {
+    let url = Url::from_directory_path("/home/user").unwrap();
+    assert_eq!(url.as_str(), "file:///home/user/");
+  }
 
-    #[test]
-    fn rfc3986_encoding() {
-        let url = Url::from_file_path("/tmp/[test]/a b.ts").unwrap();
-        // brackets and space are percent-encoded; '/' and unreserved are not
-        assert_eq!(url.as_str(), "file:///tmp/%5Btest%5D/a%20b.ts");
-    }
+  #[test]
+  fn from_file_path_rejects_relative() {
+    assert!(Url::from_file_path("relative/path").is_err());
+  }
 
-    #[test]
-    fn directory_path_has_trailing_slash() {
-        let url = Url::from_directory_path("/home/user").unwrap();
-        assert_eq!(url.as_str(), "file:///home/user/");
-    }
+  #[test]
+  fn non_file_scheme_has_no_path() {
+    assert!(Url::parse("untitled:foo").unwrap().to_file_path().is_err());
+  }
 
-    #[test]
-    fn from_file_path_rejects_relative() {
-        assert!(Url::from_file_path("relative/path").is_err());
-    }
-
-    #[test]
-    fn non_file_scheme_has_no_path() {
-        assert!(Url::parse("untitled:foo").unwrap().to_file_path().is_err());
-    }
-
-    #[test]
-    fn serde_is_opaque() {
-        let url = Url::parse("file:///a/b.rs").unwrap();
-        let json = serde_json::to_string(&url).unwrap();
-        assert_eq!(json, "\"file:///a/b.rs\"");
-        let back: Url = serde_json::from_str(&json).unwrap();
-        assert_eq!(url, back);
-    }
+  #[test]
+  fn serde_is_opaque() {
+    let url = Url::parse("file:///a/b.rs").unwrap();
+    let json = serde_json::to_string(&url).unwrap();
+    assert_eq!(json, "\"file:///a/b.rs\"");
+    let back: Url = serde_json::from_str(&json).unwrap();
+    assert_eq!(url, back);
+  }
 }

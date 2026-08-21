@@ -35,7 +35,7 @@ use anyhow::Result;
 pub use cancel::{TaskController, TaskHandle, cancelable_future};
 pub use debounce::{AsyncHook, send_blocking};
 pub use redraw::{
-    RenderLockGuard, RequestRedrawOnDrop, lock_frame, redraw_requested, request_redraw, start_frame,
+  RenderLockGuard, RequestRedrawOnDrop, lock_frame, redraw_requested, request_redraw, start_frame,
 };
 pub use registry::Event;
 
@@ -52,7 +52,7 @@ pub mod status;
 mod test;
 
 pub fn register_event<E: Event + 'static>() {
-    registry::with_mut(registry::Registry::register_event::<E>);
+  registry::with_mut(registry::Registry::register_event::<E>);
 }
 
 /// Registers a hook that will be called when an event of type `E` is dispatched.
@@ -68,21 +68,21 @@ pub fn register_event<E: Event + 'static>() {
 /// express that kind of constraint for a generic type with the Rust type system
 /// as of this writing.
 pub unsafe fn register_hook_raw<E: Event>(
-    hook: impl Fn(&mut E) -> Result<()> + 'static + Send + Sync,
+  hook: impl Fn(&mut E) -> Result<()> + 'static + Send + Sync,
 ) {
-    registry::with_mut(|registry| unsafe { registry.register_hook(hook) });
+  registry::with_mut(|registry| unsafe { registry.register_hook(hook) });
 }
 
 /// Register a hook solely by event name
 pub fn register_dynamic_hook(
-    hook: impl Fn() -> Result<()> + 'static + Send + Sync,
-    id: &str,
+  hook: impl Fn() -> Result<()> + 'static + Send + Sync,
+  id: &str,
 ) -> Result<()> {
-    registry::with_mut(|reg| reg.register_dynamic_hook(hook, id))
+  registry::with_mut(|reg| reg.register_dynamic_hook(hook, id))
 }
 
 pub fn dispatch(e: impl Event) {
-    registry::with(|registry| registry.dispatch(e));
+  registry::with(|registry| registry.dispatch(e));
 }
 
 /// Macro to declare events

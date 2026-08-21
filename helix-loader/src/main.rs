@@ -7,5 +7,5 @@ use helix_loader::grammar::fetch_grammars;
 const STRICT: bool = true;
 
 fn main() -> Result<()> {
-    fetch_grammars(STRICT)
+  fetch_grammars(STRICT)
 }

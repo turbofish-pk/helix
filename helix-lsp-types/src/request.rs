@@ -2,238 +2,237 @@
 use crate::{InlineCompletionParams, InlineCompletionResponse};
 
 use super::{
-    ApplyWorkspaceEditParams, ApplyWorkspaceEditResponse, CallHierarchyIncomingCall,
-    CallHierarchyIncomingCallsParams, CallHierarchyItem, CallHierarchyOutgoingCall,
-    CallHierarchyOutgoingCallsParams, CallHierarchyPrepareParams, CodeAction, CodeActionParams,
-    CodeActionResponse, CodeLens, CodeLensParams, ColorInformation, ColorPresentation,
-    ColorPresentationParams, CompletionItem, CompletionParams, CompletionResponse,
-    ConfigurationParams, CreateFilesParams, Debug, DeleteFilesParams, DocumentColorParams,
-    DocumentDiagnosticParams, DocumentDiagnosticReportResult, DocumentFormattingParams,
-    DocumentHighlight, DocumentHighlightParams, DocumentLink, DocumentLinkParams,
-    DocumentOnTypeFormattingParams, DocumentRangeFormattingParams, DocumentSymbolParams,
-    DocumentSymbolResponse, ExecuteCommandParams, FoldingRange, FoldingRangeParams,
-    GotoDefinitionParams, GotoDefinitionResponse, Hover, HoverParams, InitializeParams,
-    InitializeResult, InlayHint, InlayHintParams, InlineValue, InlineValueParams,
-    LinkedEditingRangeParams, LinkedEditingRanges, Location, MessageActionItem, Moniker,
-    MonikerParams, PrepareRenameResponse, ReferenceParams, RegistrationParams, RenameFilesParams,
-    RenameParams, SelectionRange, SelectionRangeParams, SemanticTokensDeltaParams,
-    SemanticTokensFullDeltaResult, SemanticTokensParams, SemanticTokensRangeParams,
-    SemanticTokensRangeResult, SemanticTokensResult, ShowDocumentParams, ShowDocumentResult,
-    ShowMessageRequestParams, SignatureHelp, SignatureHelpParams, TextDocumentPositionParams,
-    TextEdit, TypeHierarchyItem, TypeHierarchyPrepareParams, TypeHierarchySubtypesParams,
-    TypeHierarchySupertypesParams, UnregistrationParams, Value, WillSaveTextDocumentParams,
-    WorkDoneProgressCreateParams, WorkspaceDiagnosticParams, WorkspaceDiagnosticReportResult,
-    WorkspaceEdit, WorkspaceFolder, WorkspaceSymbol, WorkspaceSymbolParams,
-    WorkspaceSymbolResponse,
+  ApplyWorkspaceEditParams, ApplyWorkspaceEditResponse, CallHierarchyIncomingCall,
+  CallHierarchyIncomingCallsParams, CallHierarchyItem, CallHierarchyOutgoingCall,
+  CallHierarchyOutgoingCallsParams, CallHierarchyPrepareParams, CodeAction, CodeActionParams,
+  CodeActionResponse, CodeLens, CodeLensParams, ColorInformation, ColorPresentation,
+  ColorPresentationParams, CompletionItem, CompletionParams, CompletionResponse,
+  ConfigurationParams, CreateFilesParams, Debug, DeleteFilesParams, DocumentColorParams,
+  DocumentDiagnosticParams, DocumentDiagnosticReportResult, DocumentFormattingParams,
+  DocumentHighlight, DocumentHighlightParams, DocumentLink, DocumentLinkParams,
+  DocumentOnTypeFormattingParams, DocumentRangeFormattingParams, DocumentSymbolParams,
+  DocumentSymbolResponse, ExecuteCommandParams, FoldingRange, FoldingRangeParams,
+  GotoDefinitionParams, GotoDefinitionResponse, Hover, HoverParams, InitializeParams,
+  InitializeResult, InlayHint, InlayHintParams, InlineValue, InlineValueParams,
+  LinkedEditingRangeParams, LinkedEditingRanges, Location, MessageActionItem, Moniker,
+  MonikerParams, PrepareRenameResponse, ReferenceParams, RegistrationParams, RenameFilesParams,
+  RenameParams, SelectionRange, SelectionRangeParams, SemanticTokensDeltaParams,
+  SemanticTokensFullDeltaResult, SemanticTokensParams, SemanticTokensRangeParams,
+  SemanticTokensRangeResult, SemanticTokensResult, ShowDocumentParams, ShowDocumentResult,
+  ShowMessageRequestParams, SignatureHelp, SignatureHelpParams, TextDocumentPositionParams,
+  TextEdit, TypeHierarchyItem, TypeHierarchyPrepareParams, TypeHierarchySubtypesParams,
+  TypeHierarchySupertypesParams, UnregistrationParams, Value, WillSaveTextDocumentParams,
+  WorkDoneProgressCreateParams, WorkspaceDiagnosticParams, WorkspaceDiagnosticReportResult,
+  WorkspaceEdit, WorkspaceFolder, WorkspaceSymbol, WorkspaceSymbolParams, WorkspaceSymbolResponse,
 };
 
 use serde::{de::DeserializeOwned, Serialize};
 
 pub trait Request {
-    type Params: DeserializeOwned + Serialize + Send + Sync + 'static;
-    type Result: DeserializeOwned + Serialize + Send + Sync + 'static;
-    const METHOD: &'static str;
+  type Params: DeserializeOwned + Serialize + Send + Sync + 'static;
+  type Result: DeserializeOwned + Serialize + Send + Sync + 'static;
+  const METHOD: &'static str;
 }
 
 #[macro_export]
 macro_rules! lsp_request {
-    ("initialize") => {
-        $crate::request::Initialize
-    };
-    ("shutdown") => {
-        $crate::request::Shutdown
-    };
+  ("initialize") => {
+    $crate::request::Initialize
+  };
+  ("shutdown") => {
+    $crate::request::Shutdown
+  };
 
-    ("window/showMessageRequest") => {
-        $crate::request::ShowMessageRequest
-    };
+  ("window/showMessageRequest") => {
+    $crate::request::ShowMessageRequest
+  };
 
-    ("client/registerCapability") => {
-        $crate::request::RegisterCapability
-    };
-    ("client/unregisterCapability") => {
-        $crate::request::UnregisterCapability
-    };
+  ("client/registerCapability") => {
+    $crate::request::RegisterCapability
+  };
+  ("client/unregisterCapability") => {
+    $crate::request::UnregisterCapability
+  };
 
-    ("workspace/symbol") => {
-        $crate::request::WorkspaceSymbolRequest
-    };
-    ("workspaceSymbol/resolve") => {
-        $crate::request::WorkspaceSymbolResolve
-    };
-    ("workspace/executeCommand") => {
-        $crate::request::ExecuteCommand
-    };
+  ("workspace/symbol") => {
+    $crate::request::WorkspaceSymbolRequest
+  };
+  ("workspaceSymbol/resolve") => {
+    $crate::request::WorkspaceSymbolResolve
+  };
+  ("workspace/executeCommand") => {
+    $crate::request::ExecuteCommand
+  };
 
-    ("textDocument/willSaveWaitUntil") => {
-        $crate::request::WillSaveWaitUntil
-    };
+  ("textDocument/willSaveWaitUntil") => {
+    $crate::request::WillSaveWaitUntil
+  };
 
-    ("textDocument/completion") => {
-        $crate::request::Completion
-    };
-    ("completionItem/resolve") => {
-        $crate::request::ResolveCompletionItem
-    };
-    ("textDocument/hover") => {
-        $crate::request::HoverRequest
-    };
-    ("textDocument/signatureHelp") => {
-        $crate::request::SignatureHelpRequest
-    };
-    ("textDocument/declaration") => {
-        $crate::request::GotoDeclaration
-    };
-    ("textDocument/definition") => {
-        $crate::request::GotoDefinition
-    };
-    ("textDocument/references") => {
-        $crate::request::References
-    };
-    ("textDocument/documentHighlight") => {
-        $crate::request::DocumentHighlightRequest
-    };
-    ("textDocument/documentSymbol") => {
-        $crate::request::DocumentSymbolRequest
-    };
-    ("textDocument/codeAction") => {
-        $crate::request::CodeActionRequest
-    };
-    ("textDocument/codeLens") => {
-        $crate::request::CodeLensRequest
-    };
-    ("codeLens/resolve") => {
-        $crate::request::CodeLensResolve
-    };
-    ("textDocument/documentLink") => {
-        $crate::request::DocumentLinkRequest
-    };
-    ("documentLink/resolve") => {
-        $crate::request::DocumentLinkResolve
-    };
-    ("workspace/applyEdit") => {
-        $crate::request::ApplyWorkspaceEdit
-    };
-    ("textDocument/rangeFormatting") => {
-        $crate::request::RangeFormatting
-    };
-    ("textDocument/onTypeFormatting") => {
-        $crate::request::OnTypeFormatting
-    };
-    ("textDocument/formatting") => {
-        $crate::request::Formatting
-    };
-    ("textDocument/rename") => {
-        $crate::request::Rename
-    };
-    ("textDocument/documentColor") => {
-        $crate::request::DocumentColor
-    };
-    ("textDocument/colorPresentation") => {
-        $crate::request::ColorPresentationRequest
-    };
-    ("textDocument/foldingRange") => {
-        $crate::request::FoldingRangeRequest
-    };
-    ("textDocument/prepareRename") => {
-        $crate::request::PrepareRenameRequest
-    };
-    ("textDocument/implementation") => {
-        $crate::request::GotoImplementation
-    };
-    ("textDocument/typeDefinition") => {
-        $crate::request::GotoTypeDefinition
-    };
-    ("textDocument/selectionRange") => {
-        $crate::request::SelectionRangeRequest
-    };
-    ("workspace/workspaceFolders") => {
-        $crate::request::WorkspaceFoldersRequest
-    };
-    ("workspace/configuration") => {
-        $crate::request::WorkspaceConfiguration
-    };
-    ("window/workDoneProgress/create") => {
-        $crate::request::WorkDoneProgressCreate
-    };
-    ("callHierarchy/incomingCalls") => {
-        $crate::request::CallHierarchyIncomingCalls
-    };
-    ("callHierarchy/outgoingCalls") => {
-        $crate::request::CallHierarchyOutgoingCalls
-    };
-    ("textDocument/moniker") => {
-        $crate::request::MonikerRequest
-    };
-    ("textDocument/linkedEditingRange") => {
-        $crate::request::LinkedEditingRange
-    };
-    ("textDocument/prepareCallHierarchy") => {
-        $crate::request::CallHierarchyPrepare
-    };
-    ("textDocument/prepareTypeHierarchy") => {
-        $crate::request::TypeHierarchyPrepare
-    };
-    ("textDocument/semanticTokens/full") => {
-        $crate::request::SemanticTokensFullRequest
-    };
-    ("textDocument/semanticTokens/full/delta") => {
-        $crate::request::SemanticTokensFullDeltaRequest
-    };
-    ("textDocument/semanticTokens/range") => {
-        $crate::request::SemanticTokensRangeRequest
-    };
-    ("textDocument/inlayHint") => {
-        $crate::request::InlayHintRequest
-    };
-    ("textDocument/inlineValue") => {
-        $crate::request::InlineValueRequest
-    };
-    ("textDocument/diagnostic") => {
-        $crate::request::DocumentDiagnosticRequest
-    };
-    ("workspace/diagnostic") => {
-        $crate::request::WorkspaceDiagnosticRequest
-    };
-    ("workspace/diagnostic/refresh") => {
-        $crate::request::WorkspaceDiagnosticRefresh
-    };
-    ("typeHierarchy/supertypes") => {
-        $crate::request::TypeHierarchySupertypes
-    };
-    ("typeHierarchy/subtypes") => {
-        $crate::request::TypeHierarchySubtypes
-    };
-    ("workspace/willCreateFiles") => {
-        $crate::request::WillCreateFiles
-    };
-    ("workspace/willRenameFiles") => {
-        $crate::request::WillRenameFiles
-    };
-    ("workspace/willDeleteFiles") => {
-        $crate::request::WillDeleteFiles
-    };
-    ("workspace/semanticTokens/refresh") => {
-        $crate::request::SemanticTokensRefresh
-    };
-    ("workspace/codeLens/refresh") => {
-        $crate::request::CodeLensRefresh
-    };
-    ("workspace/inlayHint/refresh") => {
-        $crate::request::InlayHintRefreshRequest
-    };
-    ("workspace/inlineValue/refresh") => {
-        $crate::request::InlineValueRefreshRequest
-    };
-    ("codeAction/resolve") => {
-        $crate::request::CodeActionResolveRequest
-    };
-    ("inlayHint/resolve") => {
-        $crate::request::InlayHintResolveRequest
-    };
-    ("window/showDocument") => {
-        $crate::request::ShowDocument
-    };
+  ("textDocument/completion") => {
+    $crate::request::Completion
+  };
+  ("completionItem/resolve") => {
+    $crate::request::ResolveCompletionItem
+  };
+  ("textDocument/hover") => {
+    $crate::request::HoverRequest
+  };
+  ("textDocument/signatureHelp") => {
+    $crate::request::SignatureHelpRequest
+  };
+  ("textDocument/declaration") => {
+    $crate::request::GotoDeclaration
+  };
+  ("textDocument/definition") => {
+    $crate::request::GotoDefinition
+  };
+  ("textDocument/references") => {
+    $crate::request::References
+  };
+  ("textDocument/documentHighlight") => {
+    $crate::request::DocumentHighlightRequest
+  };
+  ("textDocument/documentSymbol") => {
+    $crate::request::DocumentSymbolRequest
+  };
+  ("textDocument/codeAction") => {
+    $crate::request::CodeActionRequest
+  };
+  ("textDocument/codeLens") => {
+    $crate::request::CodeLensRequest
+  };
+  ("codeLens/resolve") => {
+    $crate::request::CodeLensResolve
+  };
+  ("textDocument/documentLink") => {
+    $crate::request::DocumentLinkRequest
+  };
+  ("documentLink/resolve") => {
+    $crate::request::DocumentLinkResolve
+  };
+  ("workspace/applyEdit") => {
+    $crate::request::ApplyWorkspaceEdit
+  };
+  ("textDocument/rangeFormatting") => {
+    $crate::request::RangeFormatting
+  };
+  ("textDocument/onTypeFormatting") => {
+    $crate::request::OnTypeFormatting
+  };
+  ("textDocument/formatting") => {
+    $crate::request::Formatting
+  };
+  ("textDocument/rename") => {
+    $crate::request::Rename
+  };
+  ("textDocument/documentColor") => {
+    $crate::request::DocumentColor
+  };
+  ("textDocument/colorPresentation") => {
+    $crate::request::ColorPresentationRequest
+  };
+  ("textDocument/foldingRange") => {
+    $crate::request::FoldingRangeRequest
+  };
+  ("textDocument/prepareRename") => {
+    $crate::request::PrepareRenameRequest
+  };
+  ("textDocument/implementation") => {
+    $crate::request::GotoImplementation
+  };
+  ("textDocument/typeDefinition") => {
+    $crate::request::GotoTypeDefinition
+  };
+  ("textDocument/selectionRange") => {
+    $crate::request::SelectionRangeRequest
+  };
+  ("workspace/workspaceFolders") => {
+    $crate::request::WorkspaceFoldersRequest
+  };
+  ("workspace/configuration") => {
+    $crate::request::WorkspaceConfiguration
+  };
+  ("window/workDoneProgress/create") => {
+    $crate::request::WorkDoneProgressCreate
+  };
+  ("callHierarchy/incomingCalls") => {
+    $crate::request::CallHierarchyIncomingCalls
+  };
+  ("callHierarchy/outgoingCalls") => {
+    $crate::request::CallHierarchyOutgoingCalls
+  };
+  ("textDocument/moniker") => {
+    $crate::request::MonikerRequest
+  };
+  ("textDocument/linkedEditingRange") => {
+    $crate::request::LinkedEditingRange
+  };
+  ("textDocument/prepareCallHierarchy") => {
+    $crate::request::CallHierarchyPrepare
+  };
+  ("textDocument/prepareTypeHierarchy") => {
+    $crate::request::TypeHierarchyPrepare
+  };
+  ("textDocument/semanticTokens/full") => {
+    $crate::request::SemanticTokensFullRequest
+  };
+  ("textDocument/semanticTokens/full/delta") => {
+    $crate::request::SemanticTokensFullDeltaRequest
+  };
+  ("textDocument/semanticTokens/range") => {
+    $crate::request::SemanticTokensRangeRequest
+  };
+  ("textDocument/inlayHint") => {
+    $crate::request::InlayHintRequest
+  };
+  ("textDocument/inlineValue") => {
+    $crate::request::InlineValueRequest
+  };
+  ("textDocument/diagnostic") => {
+    $crate::request::DocumentDiagnosticRequest
+  };
+  ("workspace/diagnostic") => {
+    $crate::request::WorkspaceDiagnosticRequest
+  };
+  ("workspace/diagnostic/refresh") => {
+    $crate::request::WorkspaceDiagnosticRefresh
+  };
+  ("typeHierarchy/supertypes") => {
+    $crate::request::TypeHierarchySupertypes
+  };
+  ("typeHierarchy/subtypes") => {
+    $crate::request::TypeHierarchySubtypes
+  };
+  ("workspace/willCreateFiles") => {
+    $crate::request::WillCreateFiles
+  };
+  ("workspace/willRenameFiles") => {
+    $crate::request::WillRenameFiles
+  };
+  ("workspace/willDeleteFiles") => {
+    $crate::request::WillDeleteFiles
+  };
+  ("workspace/semanticTokens/refresh") => {
+    $crate::request::SemanticTokensRefresh
+  };
+  ("workspace/codeLens/refresh") => {
+    $crate::request::CodeLensRefresh
+  };
+  ("workspace/inlayHint/refresh") => {
+    $crate::request::InlayHintRefreshRequest
+  };
+  ("workspace/inlineValue/refresh") => {
+    $crate::request::InlineValueRefreshRequest
+  };
+  ("codeAction/resolve") => {
+    $crate::request::CodeActionResolveRequest
+  };
+  ("inlayHint/resolve") => {
+    $crate::request::InlayHintResolveRequest
+  };
+  ("window/showDocument") => {
+    $crate::request::ShowDocument
+  };
 }
 
 /// The initialize request is sent as the first request from the client to the server.
@@ -245,9 +244,9 @@ macro_rules! lsp_request {
 pub enum Initialize {}
 
 impl Request for Initialize {
-    type Params = InitializeParams;
-    type Result = InitializeResult;
-    const METHOD: &'static str = "initialize";
+  type Params = InitializeParams;
+  type Result = InitializeResult;
+  const METHOD: &'static str = "initialize";
 }
 
 /// The shutdown request is sent from the client to the server. It asks the server to shut down,
@@ -257,9 +256,9 @@ impl Request for Initialize {
 pub enum Shutdown {}
 
 impl Request for Shutdown {
-    type Params = ();
-    type Result = ();
-    const METHOD: &'static str = "shutdown";
+  type Params = ();
+  type Result = ();
+  const METHOD: &'static str = "shutdown";
 }
 
 /// The show message request is sent from a server to a client to ask the client to display a particular message
@@ -269,9 +268,9 @@ impl Request for Shutdown {
 pub enum ShowMessageRequest {}
 
 impl Request for ShowMessageRequest {
-    type Params = ShowMessageRequestParams;
-    type Result = Option<MessageActionItem>;
-    const METHOD: &'static str = "window/showMessageRequest";
+  type Params = ShowMessageRequestParams;
+  type Result = Option<MessageActionItem>;
+  const METHOD: &'static str = "window/showMessageRequest";
 }
 
 /// The client/registerCapability request is sent from the server to the client to register for a new capability
@@ -281,9 +280,9 @@ impl Request for ShowMessageRequest {
 pub enum RegisterCapability {}
 
 impl Request for RegisterCapability {
-    type Params = RegistrationParams;
-    type Result = ();
-    const METHOD: &'static str = "client/registerCapability";
+  type Params = RegistrationParams;
+  type Result = ();
+  const METHOD: &'static str = "client/registerCapability";
 }
 
 /// The client/unregisterCapability request is sent from the server to the client to unregister a
@@ -292,9 +291,9 @@ impl Request for RegisterCapability {
 pub enum UnregisterCapability {}
 
 impl Request for UnregisterCapability {
-    type Params = UnregistrationParams;
-    type Result = ();
-    const METHOD: &'static str = "client/unregisterCapability";
+  type Params = UnregistrationParams;
+  type Result = ();
+  const METHOD: &'static str = "client/unregisterCapability";
 }
 
 /// The Completion request is sent from the client to the server to compute completion items at a given cursor position.
@@ -311,9 +310,9 @@ impl Request for UnregisterCapability {
 pub enum Completion {}
 
 impl Request for Completion {
-    type Params = CompletionParams;
-    type Result = Option<CompletionResponse>;
-    const METHOD: &'static str = "textDocument/completion";
+  type Params = CompletionParams;
+  type Result = Option<CompletionResponse>;
+  const METHOD: &'static str = "textDocument/completion";
 }
 
 /// The request is sent from the client to the server to resolve additional information for a given completion item.
@@ -321,9 +320,9 @@ impl Request for Completion {
 pub enum ResolveCompletionItem {}
 
 impl Request for ResolveCompletionItem {
-    type Params = CompletionItem;
-    type Result = CompletionItem;
-    const METHOD: &'static str = "completionItem/resolve";
+  type Params = CompletionItem;
+  type Result = CompletionItem;
+  const METHOD: &'static str = "completionItem/resolve";
 }
 
 /// The hover request is sent from the client to the server to request hover information at a given text
@@ -332,9 +331,9 @@ impl Request for ResolveCompletionItem {
 pub enum HoverRequest {}
 
 impl Request for HoverRequest {
-    type Params = HoverParams;
-    type Result = Option<Hover>;
-    const METHOD: &'static str = "textDocument/hover";
+  type Params = HoverParams;
+  type Result = Option<Hover>;
+  const METHOD: &'static str = "textDocument/hover";
 }
 
 /// The signature help request is sent from the client to the server to request signature information at
@@ -343,9 +342,9 @@ impl Request for HoverRequest {
 pub enum SignatureHelpRequest {}
 
 impl Request for SignatureHelpRequest {
-    type Params = SignatureHelpParams;
-    type Result = Option<SignatureHelp>;
-    const METHOD: &'static str = "textDocument/signatureHelp";
+  type Params = SignatureHelpParams;
+  type Result = Option<SignatureHelp>;
+  const METHOD: &'static str = "textDocument/signatureHelp";
 }
 
 #[derive(Debug)]
@@ -356,9 +355,9 @@ pub type GotoDeclarationResponse = GotoDefinitionResponse;
 /// The goto declaration request is sent from the client to the server to resolve the declaration location of
 /// a symbol at a given text document position.
 impl Request for GotoDeclaration {
-    type Params = GotoDeclarationParams;
-    type Result = Option<GotoDeclarationResponse>;
-    const METHOD: &'static str = "textDocument/declaration";
+  type Params = GotoDeclarationParams;
+  type Result = Option<GotoDeclarationResponse>;
+  const METHOD: &'static str = "textDocument/declaration";
 }
 
 /// The goto definition request is sent from the client to the server to resolve the definition location of
@@ -367,9 +366,9 @@ impl Request for GotoDeclaration {
 pub enum GotoDefinition {}
 
 impl Request for GotoDefinition {
-    type Params = GotoDefinitionParams;
-    type Result = Option<GotoDefinitionResponse>;
-    const METHOD: &'static str = "textDocument/definition";
+  type Params = GotoDefinitionParams;
+  type Result = Option<GotoDefinitionResponse>;
+  const METHOD: &'static str = "textDocument/definition";
 }
 
 /// The references request is sent from the client to the server to resolve project-wide references for the
@@ -378,9 +377,9 @@ impl Request for GotoDefinition {
 pub enum References {}
 
 impl Request for References {
-    type Params = ReferenceParams;
-    type Result = Option<Vec<Location>>;
-    const METHOD: &'static str = "textDocument/references";
+  type Params = ReferenceParams;
+  type Result = Option<Vec<Location>>;
+  const METHOD: &'static str = "textDocument/references";
 }
 
 /// The goto type definition request is sent from the client to the
@@ -393,9 +392,9 @@ pub type GotoTypeDefinitionParams = GotoDefinitionParams;
 pub type GotoTypeDefinitionResponse = GotoDefinitionResponse;
 
 impl Request for GotoTypeDefinition {
-    type Params = GotoTypeDefinitionParams;
-    type Result = Option<GotoTypeDefinitionResponse>;
-    const METHOD: &'static str = "textDocument/typeDefinition";
+  type Params = GotoTypeDefinitionParams;
+  type Result = Option<GotoTypeDefinitionResponse>;
+  const METHOD: &'static str = "textDocument/typeDefinition";
 }
 
 /// The goto implementation request is sent from the client to the
@@ -408,9 +407,9 @@ pub type GotoImplementationParams = GotoTypeDefinitionParams;
 pub type GotoImplementationResponse = GotoDefinitionResponse;
 
 impl Request for GotoImplementation {
-    type Params = GotoImplementationParams;
-    type Result = Option<GotoImplementationResponse>;
-    const METHOD: &'static str = "textDocument/implementation";
+  type Params = GotoImplementationParams;
+  type Result = Option<GotoImplementationResponse>;
+  const METHOD: &'static str = "textDocument/implementation";
 }
 
 /// The document highlight request is sent from the client to the server to resolve a document highlights
@@ -424,9 +423,9 @@ impl Request for GotoImplementation {
 pub enum DocumentHighlightRequest {}
 
 impl Request for DocumentHighlightRequest {
-    type Params = DocumentHighlightParams;
-    type Result = Option<Vec<DocumentHighlight>>;
-    const METHOD: &'static str = "textDocument/documentHighlight";
+  type Params = DocumentHighlightParams;
+  type Result = Option<Vec<DocumentHighlight>>;
+  const METHOD: &'static str = "textDocument/documentHighlight";
 }
 
 /// The document symbol request is sent from the client to the server to list all symbols found in a given
@@ -435,9 +434,9 @@ impl Request for DocumentHighlightRequest {
 pub enum DocumentSymbolRequest {}
 
 impl Request for DocumentSymbolRequest {
-    type Params = DocumentSymbolParams;
-    type Result = Option<DocumentSymbolResponse>;
-    const METHOD: &'static str = "textDocument/documentSymbol";
+  type Params = DocumentSymbolParams;
+  type Result = Option<DocumentSymbolResponse>;
+  const METHOD: &'static str = "textDocument/documentSymbol";
 }
 
 /// The workspace symbol request is sent from the client to the server to list project-wide symbols
@@ -446,9 +445,9 @@ impl Request for DocumentSymbolRequest {
 pub enum WorkspaceSymbolRequest {}
 
 impl Request for WorkspaceSymbolRequest {
-    type Params = WorkspaceSymbolParams;
-    type Result = Option<WorkspaceSymbolResponse>;
-    const METHOD: &'static str = "workspace/symbol";
+  type Params = WorkspaceSymbolParams;
+  type Result = Option<WorkspaceSymbolResponse>;
+  const METHOD: &'static str = "workspace/symbol";
 }
 
 /// The `workspaceSymbol/resolve` request is sent from the client to the server to resolve
@@ -457,9 +456,9 @@ impl Request for WorkspaceSymbolRequest {
 pub enum WorkspaceSymbolResolve {}
 
 impl Request for WorkspaceSymbolResolve {
-    type Params = WorkspaceSymbol;
-    type Result = WorkspaceSymbol;
-    const METHOD: &'static str = "workspaceSymbol/resolve";
+  type Params = WorkspaceSymbol;
+  type Result = WorkspaceSymbol;
+  const METHOD: &'static str = "workspaceSymbol/resolve";
 }
 
 /// The workspace/executeCommand request is sent from the client to the server to trigger command execution on the server.
@@ -469,9 +468,9 @@ impl Request for WorkspaceSymbolResolve {
 pub enum ExecuteCommand {}
 
 impl Request for ExecuteCommand {
-    type Params = ExecuteCommandParams;
-    type Result = Option<Value>;
-    const METHOD: &'static str = "workspace/executeCommand";
+  type Params = ExecuteCommandParams;
+  type Result = Option<Value>;
+  const METHOD: &'static str = "workspace/executeCommand";
 }
 
 /// The document will save request is sent from the client to the server before the document is
@@ -483,9 +482,9 @@ impl Request for ExecuteCommand {
 pub enum WillSaveWaitUntil {}
 
 impl Request for WillSaveWaitUntil {
-    type Params = WillSaveTextDocumentParams;
-    type Result = Option<Vec<TextEdit>>;
-    const METHOD: &'static str = "textDocument/willSaveWaitUntil";
+  type Params = WillSaveTextDocumentParams;
+  type Result = Option<Vec<TextEdit>>;
+  const METHOD: &'static str = "textDocument/willSaveWaitUntil";
 }
 
 /// The workspace/applyEdit request is sent from the server to the client to modify resource on the
@@ -494,9 +493,9 @@ impl Request for WillSaveWaitUntil {
 pub enum ApplyWorkspaceEdit {}
 
 impl Request for ApplyWorkspaceEdit {
-    type Params = ApplyWorkspaceEditParams;
-    type Result = ApplyWorkspaceEditResponse;
-    const METHOD: &'static str = "workspace/applyEdit";
+  type Params = ApplyWorkspaceEditParams;
+  type Result = ApplyWorkspaceEditResponse;
+  const METHOD: &'static str = "workspace/applyEdit";
 }
 
 /// The workspace/configuration request is sent from the server to the client to fetch configuration settings
@@ -516,9 +515,9 @@ impl Request for ApplyWorkspaceEdit {
 pub enum WorkspaceConfiguration {}
 
 impl Request for WorkspaceConfiguration {
-    type Params = ConfigurationParams;
-    type Result = Vec<Value>;
-    const METHOD: &'static str = "workspace/configuration";
+  type Params = ConfigurationParams;
+  type Result = Vec<Value>;
+  const METHOD: &'static str = "workspace/configuration";
 }
 
 /// The code action request is sent from the client to the server to compute commands for a given text document
@@ -528,9 +527,9 @@ impl Request for WorkspaceConfiguration {
 pub enum CodeActionRequest {}
 
 impl Request for CodeActionRequest {
-    type Params = CodeActionParams;
-    type Result = Option<CodeActionResponse>;
-    const METHOD: &'static str = "textDocument/codeAction";
+  type Params = CodeActionParams;
+  type Result = Option<CodeActionResponse>;
+  const METHOD: &'static str = "textDocument/codeAction";
 }
 
 /// The request is sent from the client to the server to resolve additional information for a given code action.
@@ -542,9 +541,9 @@ impl Request for CodeActionRequest {
 pub enum CodeActionResolveRequest {}
 
 impl Request for CodeActionResolveRequest {
-    type Params = CodeAction;
-    type Result = CodeAction;
-    const METHOD: &'static str = "codeAction/resolve";
+  type Params = CodeAction;
+  type Result = CodeAction;
+  const METHOD: &'static str = "codeAction/resolve";
 }
 
 /// The code lens request is sent from the client to the server to compute code lenses for a given text document.
@@ -552,9 +551,9 @@ impl Request for CodeActionResolveRequest {
 pub enum CodeLensRequest {}
 
 impl Request for CodeLensRequest {
-    type Params = CodeLensParams;
-    type Result = Option<Vec<CodeLens>>;
-    const METHOD: &'static str = "textDocument/codeLens";
+  type Params = CodeLensParams;
+  type Result = Option<Vec<CodeLens>>;
+  const METHOD: &'static str = "textDocument/codeLens";
 }
 
 /// The code lens resolve request is sent from the client to the server to resolve the command for a
@@ -563,9 +562,9 @@ impl Request for CodeLensRequest {
 pub enum CodeLensResolve {}
 
 impl Request for CodeLensResolve {
-    type Params = CodeLens;
-    type Result = CodeLens;
-    const METHOD: &'static str = "codeLens/resolve";
+  type Params = CodeLens;
+  type Result = CodeLens;
+  const METHOD: &'static str = "codeLens/resolve";
 }
 
 /// The document links request is sent from the client to the server to request the location of links in a document.
@@ -573,9 +572,9 @@ impl Request for CodeLensResolve {
 pub enum DocumentLinkRequest {}
 
 impl Request for DocumentLinkRequest {
-    type Params = DocumentLinkParams;
-    type Result = Option<Vec<DocumentLink>>;
-    const METHOD: &'static str = "textDocument/documentLink";
+  type Params = DocumentLinkParams;
+  type Result = Option<Vec<DocumentLink>>;
+  const METHOD: &'static str = "textDocument/documentLink";
 }
 
 /// The document link resolve request is sent from the client to the server to resolve the target of
@@ -584,9 +583,9 @@ impl Request for DocumentLinkRequest {
 pub enum DocumentLinkResolve {}
 
 impl Request for DocumentLinkResolve {
-    type Params = DocumentLink;
-    type Result = DocumentLink;
-    const METHOD: &'static str = "documentLink/resolve";
+  type Params = DocumentLink;
+  type Result = DocumentLink;
+  const METHOD: &'static str = "documentLink/resolve";
 }
 
 /// The document formatting request is sent from the server to the client to format a whole document.
@@ -594,9 +593,9 @@ impl Request for DocumentLinkResolve {
 pub enum Formatting {}
 
 impl Request for Formatting {
-    type Params = DocumentFormattingParams;
-    type Result = Option<Vec<TextEdit>>;
-    const METHOD: &'static str = "textDocument/formatting";
+  type Params = DocumentFormattingParams;
+  type Result = Option<Vec<TextEdit>>;
+  const METHOD: &'static str = "textDocument/formatting";
 }
 
 /// The document range formatting request is sent from the client to the server to format a given range in a document.
@@ -604,9 +603,9 @@ impl Request for Formatting {
 pub enum RangeFormatting {}
 
 impl Request for RangeFormatting {
-    type Params = DocumentRangeFormattingParams;
-    type Result = Option<Vec<TextEdit>>;
-    const METHOD: &'static str = "textDocument/rangeFormatting";
+  type Params = DocumentRangeFormattingParams;
+  type Result = Option<Vec<TextEdit>>;
+  const METHOD: &'static str = "textDocument/rangeFormatting";
 }
 
 /// The document on type formatting request is sent from the client to the server to format parts of
@@ -615,9 +614,9 @@ impl Request for RangeFormatting {
 pub enum OnTypeFormatting {}
 
 impl Request for OnTypeFormatting {
-    type Params = DocumentOnTypeFormattingParams;
-    type Result = Option<Vec<TextEdit>>;
-    const METHOD: &'static str = "textDocument/onTypeFormatting";
+  type Params = DocumentOnTypeFormattingParams;
+  type Result = Option<Vec<TextEdit>>;
+  const METHOD: &'static str = "textDocument/onTypeFormatting";
 }
 
 /// The linked editing request is sent from the client to the server to return for a given position in a document
@@ -629,9 +628,9 @@ impl Request for OnTypeFormatting {
 pub enum LinkedEditingRange {}
 
 impl Request for LinkedEditingRange {
-    type Params = LinkedEditingRangeParams;
-    type Result = Option<LinkedEditingRanges>;
-    const METHOD: &'static str = "textDocument/linkedEditingRange";
+  type Params = LinkedEditingRangeParams;
+  type Result = Option<LinkedEditingRanges>;
+  const METHOD: &'static str = "textDocument/linkedEditingRange";
 }
 
 /// The rename request is sent from the client to the server to perform a workspace-wide rename of a symbol.
@@ -639,9 +638,9 @@ impl Request for LinkedEditingRange {
 pub enum Rename {}
 
 impl Request for Rename {
-    type Params = RenameParams;
-    type Result = Option<WorkspaceEdit>;
-    const METHOD: &'static str = "textDocument/rename";
+  type Params = RenameParams;
+  type Result = Option<WorkspaceEdit>;
+  const METHOD: &'static str = "textDocument/rename";
 }
 
 /// The document color request is sent from the client to the server to list all color references found in a given text document.
@@ -650,9 +649,9 @@ impl Request for Rename {
 pub enum DocumentColor {}
 
 impl Request for DocumentColor {
-    type Params = DocumentColorParams;
-    type Result = Vec<ColorInformation>;
-    const METHOD: &'static str = "textDocument/documentColor";
+  type Params = DocumentColorParams;
+  type Result = Vec<ColorInformation>;
+  const METHOD: &'static str = "textDocument/documentColor";
 }
 
 /// The color presentation request is sent from the client to the server to obtain a list of presentations for a color value
@@ -661,9 +660,9 @@ impl Request for DocumentColor {
 pub enum ColorPresentationRequest {}
 
 impl Request for ColorPresentationRequest {
-    type Params = ColorPresentationParams;
-    type Result = Vec<ColorPresentation>;
-    const METHOD: &'static str = "textDocument/colorPresentation";
+  type Params = ColorPresentationParams;
+  type Result = Vec<ColorPresentation>;
+  const METHOD: &'static str = "textDocument/colorPresentation";
 }
 
 /// The folding range request is sent from the client to the server to return all folding ranges found in a given text document.
@@ -671,9 +670,9 @@ impl Request for ColorPresentationRequest {
 pub enum FoldingRangeRequest {}
 
 impl Request for FoldingRangeRequest {
-    type Params = FoldingRangeParams;
-    type Result = Option<Vec<FoldingRange>>;
-    const METHOD: &'static str = "textDocument/foldingRange";
+  type Params = FoldingRangeParams;
+  type Result = Option<Vec<FoldingRange>>;
+  const METHOD: &'static str = "textDocument/foldingRange";
 }
 
 /// The prepare rename request is sent from the client to the server to setup and test the validity of a rename operation
@@ -682,9 +681,9 @@ impl Request for FoldingRangeRequest {
 pub enum PrepareRenameRequest {}
 
 impl Request for PrepareRenameRequest {
-    type Params = TextDocumentPositionParams;
-    type Result = Option<PrepareRenameResponse>;
-    const METHOD: &'static str = "textDocument/prepareRename";
+  type Params = TextDocumentPositionParams;
+  type Result = Option<PrepareRenameResponse>;
+  const METHOD: &'static str = "textDocument/prepareRename";
 }
 
 #[derive(Debug)]
@@ -693,9 +692,9 @@ pub enum InlineCompletionRequest {}
 
 #[cfg(feature = "proposed")]
 impl Request for InlineCompletionRequest {
-    type Params = InlineCompletionParams;
-    type Result = Option<InlineCompletionResponse>;
-    const METHOD: &'static str = "textDocument/inlineCompletion";
+  type Params = InlineCompletionParams;
+  type Result = Option<InlineCompletionResponse>;
+  const METHOD: &'static str = "textDocument/inlineCompletion";
 }
 
 /// The workspace/workspaceFolders request is sent from the server to the client to fetch the current open list of
@@ -705,9 +704,9 @@ impl Request for InlineCompletionRequest {
 pub enum WorkspaceFoldersRequest {}
 
 impl Request for WorkspaceFoldersRequest {
-    type Params = ();
-    type Result = Option<Vec<WorkspaceFolder>>;
-    const METHOD: &'static str = "workspace/workspaceFolders";
+  type Params = ();
+  type Result = Option<Vec<WorkspaceFolder>>;
+  const METHOD: &'static str = "workspace/workspaceFolders";
 }
 
 /// The `window/workDoneProgress/create` request is sent from the server
@@ -716,9 +715,9 @@ impl Request for WorkspaceFoldersRequest {
 pub enum WorkDoneProgressCreate {}
 
 impl Request for WorkDoneProgressCreate {
-    type Params = WorkDoneProgressCreateParams;
-    type Result = ();
-    const METHOD: &'static str = "window/workDoneProgress/create";
+  type Params = WorkDoneProgressCreateParams;
+  type Result = ();
+  const METHOD: &'static str = "window/workDoneProgress/create";
 }
 
 /// The selection range request is sent from the client to the server to return
@@ -733,57 +732,57 @@ impl Request for WorkDoneProgressCreate {
 pub enum SelectionRangeRequest {}
 
 impl Request for SelectionRangeRequest {
-    type Params = SelectionRangeParams;
-    type Result = Option<Vec<SelectionRange>>;
-    const METHOD: &'static str = "textDocument/selectionRange";
+  type Params = SelectionRangeParams;
+  type Result = Option<Vec<SelectionRange>>;
+  const METHOD: &'static str = "textDocument/selectionRange";
 }
 
 pub enum CallHierarchyPrepare {}
 
 impl Request for CallHierarchyPrepare {
-    type Params = CallHierarchyPrepareParams;
-    type Result = Option<Vec<CallHierarchyItem>>;
-    const METHOD: &'static str = "textDocument/prepareCallHierarchy";
+  type Params = CallHierarchyPrepareParams;
+  type Result = Option<Vec<CallHierarchyItem>>;
+  const METHOD: &'static str = "textDocument/prepareCallHierarchy";
 }
 
 pub enum CallHierarchyIncomingCalls {}
 
 impl Request for CallHierarchyIncomingCalls {
-    type Params = CallHierarchyIncomingCallsParams;
-    type Result = Option<Vec<CallHierarchyIncomingCall>>;
-    const METHOD: &'static str = "callHierarchy/incomingCalls";
+  type Params = CallHierarchyIncomingCallsParams;
+  type Result = Option<Vec<CallHierarchyIncomingCall>>;
+  const METHOD: &'static str = "callHierarchy/incomingCalls";
 }
 
 pub enum CallHierarchyOutgoingCalls {}
 
 impl Request for CallHierarchyOutgoingCalls {
-    type Params = CallHierarchyOutgoingCallsParams;
-    type Result = Option<Vec<CallHierarchyOutgoingCall>>;
-    const METHOD: &'static str = "callHierarchy/outgoingCalls";
+  type Params = CallHierarchyOutgoingCallsParams;
+  type Result = Option<Vec<CallHierarchyOutgoingCall>>;
+  const METHOD: &'static str = "callHierarchy/outgoingCalls";
 }
 
 pub enum SemanticTokensFullRequest {}
 
 impl Request for SemanticTokensFullRequest {
-    type Params = SemanticTokensParams;
-    type Result = Option<SemanticTokensResult>;
-    const METHOD: &'static str = "textDocument/semanticTokens/full";
+  type Params = SemanticTokensParams;
+  type Result = Option<SemanticTokensResult>;
+  const METHOD: &'static str = "textDocument/semanticTokens/full";
 }
 
 pub enum SemanticTokensFullDeltaRequest {}
 
 impl Request for SemanticTokensFullDeltaRequest {
-    type Params = SemanticTokensDeltaParams;
-    type Result = Option<SemanticTokensFullDeltaResult>;
-    const METHOD: &'static str = "textDocument/semanticTokens/full/delta";
+  type Params = SemanticTokensDeltaParams;
+  type Result = Option<SemanticTokensFullDeltaResult>;
+  const METHOD: &'static str = "textDocument/semanticTokens/full/delta";
 }
 
 pub enum SemanticTokensRangeRequest {}
 
 impl Request for SemanticTokensRangeRequest {
-    type Params = SemanticTokensRangeParams;
-    type Result = Option<SemanticTokensRangeResult>;
-    const METHOD: &'static str = "textDocument/semanticTokens/range";
+  type Params = SemanticTokensRangeParams;
+  type Result = Option<SemanticTokensRangeResult>;
+  const METHOD: &'static str = "textDocument/semanticTokens/range";
 }
 
 /// The `workspace/semanticTokens/refresh` request is sent from the server to the client.
@@ -794,9 +793,9 @@ impl Request for SemanticTokensRangeRequest {
 pub enum SemanticTokensRefresh {}
 
 impl Request for SemanticTokensRefresh {
-    type Params = ();
-    type Result = ();
-    const METHOD: &'static str = "workspace/semanticTokens/refresh";
+  type Params = ();
+  type Result = ();
+  const METHOD: &'static str = "workspace/semanticTokens/refresh";
 }
 
 /// The workspace/codeLens/refresh request is sent from the server to the client.
@@ -807,53 +806,53 @@ impl Request for SemanticTokensRefresh {
 pub enum CodeLensRefresh {}
 
 impl Request for CodeLensRefresh {
-    type Params = ();
-    type Result = ();
-    const METHOD: &'static str = "workspace/codeLens/refresh";
+  type Params = ();
+  type Result = ();
+  const METHOD: &'static str = "workspace/codeLens/refresh";
 }
 
 /// The will create files request is sent from the client to the server before files are actually created as long as the creation is triggered from within the client. The request can return a `WorkspaceEdit` which will be applied to workspace before the files are created. Please note that clients might drop results if computing the edit took too long or if a server constantly fails on this request. This is done to keep creates fast and reliable.
 pub enum WillCreateFiles {}
 
 impl Request for WillCreateFiles {
-    type Params = CreateFilesParams;
-    type Result = Option<WorkspaceEdit>;
-    const METHOD: &'static str = "workspace/willCreateFiles";
+  type Params = CreateFilesParams;
+  type Result = Option<WorkspaceEdit>;
+  const METHOD: &'static str = "workspace/willCreateFiles";
 }
 
 /// The will rename files request is sent from the client to the server before files are actually renamed as long as the rename is triggered from within the client. The request can return a `WorkspaceEdit` which will be applied to workspace before the files are renamed. Please note that clients might drop results if computing the edit took too long or if a server constantly fails on this request. This is done to keep renames fast and reliable.
 pub enum WillRenameFiles {}
 
 impl Request for WillRenameFiles {
-    type Params = RenameFilesParams;
-    type Result = Option<WorkspaceEdit>;
-    const METHOD: &'static str = "workspace/willRenameFiles";
+  type Params = RenameFilesParams;
+  type Result = Option<WorkspaceEdit>;
+  const METHOD: &'static str = "workspace/willRenameFiles";
 }
 
 /// The will delete files request is sent from the client to the server before files are actually deleted as long as the deletion is triggered from within the client. The request can return a `WorkspaceEdit` which will be applied to workspace before the files are deleted. Please note that clients might drop results if computing the edit took too long or if a server constantly fails on this request. This is done to keep deletes fast and reliable.
 pub enum WillDeleteFiles {}
 
 impl Request for WillDeleteFiles {
-    type Params = DeleteFilesParams;
-    type Result = Option<WorkspaceEdit>;
-    const METHOD: &'static str = "workspace/willDeleteFiles";
+  type Params = DeleteFilesParams;
+  type Result = Option<WorkspaceEdit>;
+  const METHOD: &'static str = "workspace/willDeleteFiles";
 }
 
 /// The show document request is sent from a server to a client to ask the client to display a particular document in the user interface.
 pub enum ShowDocument {}
 
 impl Request for ShowDocument {
-    type Params = ShowDocumentParams;
-    type Result = ShowDocumentResult;
-    const METHOD: &'static str = "window/showDocument";
+  type Params = ShowDocumentParams;
+  type Result = ShowDocumentResult;
+  const METHOD: &'static str = "window/showDocument";
 }
 
 pub enum MonikerRequest {}
 
 impl Request for MonikerRequest {
-    type Params = MonikerParams;
-    type Result = Option<Vec<Moniker>>;
-    const METHOD: &'static str = "textDocument/moniker";
+  type Params = MonikerParams;
+  type Result = Option<Vec<Moniker>>;
+  const METHOD: &'static str = "textDocument/moniker";
 }
 
 /// The inlay hints request is sent from the client to the server to compute inlay hints for a given
@@ -861,9 +860,9 @@ impl Request for MonikerRequest {
 pub enum InlayHintRequest {}
 
 impl Request for InlayHintRequest {
-    type Params = InlayHintParams;
-    type Result = Option<Vec<InlayHint>>;
-    const METHOD: &'static str = "textDocument/inlayHint";
+  type Params = InlayHintParams;
+  type Result = Option<Vec<InlayHint>>;
+  const METHOD: &'static str = "textDocument/inlayHint";
 }
 
 /// The `inlayHint/resolve` request is sent from the client to the server to resolve additional
@@ -873,9 +872,9 @@ impl Request for InlayHintRequest {
 pub enum InlayHintResolveRequest {}
 
 impl Request for InlayHintResolveRequest {
-    type Params = InlayHint;
-    type Result = InlayHint;
-    const METHOD: &'static str = "inlayHint/resolve";
+  type Params = InlayHint;
+  type Result = InlayHint;
+  const METHOD: &'static str = "inlayHint/resolve";
 }
 
 /// The `workspace/inlayHint/refresh` request is sent from the server to the client. Servers can use
@@ -887,9 +886,9 @@ impl Request for InlayHintResolveRequest {
 pub enum InlayHintRefreshRequest {}
 
 impl Request for InlayHintRefreshRequest {
-    type Params = ();
-    type Result = ();
-    const METHOD: &'static str = "workspace/inlayHint/refresh";
+  type Params = ();
+  type Result = ();
+  const METHOD: &'static str = "workspace/inlayHint/refresh";
 }
 
 /// The inline value request is sent from the client to the server to compute inline values for a
@@ -897,9 +896,9 @@ impl Request for InlayHintRefreshRequest {
 pub enum InlineValueRequest {}
 
 impl Request for InlineValueRequest {
-    type Params = InlineValueParams;
-    type Result = Option<InlineValue>;
-    const METHOD: &'static str = "textDocument/inlineValue";
+  type Params = InlineValueParams;
+  type Result = Option<InlineValue>;
+  const METHOD: &'static str = "textDocument/inlineValue";
 }
 
 /// The `workspace/inlineValue/refresh` request is sent from the server to the client. Servers can
@@ -911,9 +910,9 @@ impl Request for InlineValueRequest {
 pub enum InlineValueRefreshRequest {}
 
 impl Request for InlineValueRefreshRequest {
-    type Params = ();
-    type Result = ();
-    const METHOD: &'static str = "workspace/inlineValue/refresh";
+  type Params = ();
+  type Result = ();
+  const METHOD: &'static str = "workspace/inlineValue/refresh";
 }
 
 /// The text document diagnostic request is sent from the client to the server to ask the server to
@@ -923,9 +922,9 @@ impl Request for InlineValueRefreshRequest {
 pub enum DocumentDiagnosticRequest {}
 
 impl Request for DocumentDiagnosticRequest {
-    type Params = DocumentDiagnosticParams;
-    type Result = DocumentDiagnosticReportResult;
-    const METHOD: &'static str = "textDocument/diagnostic";
+  type Params = DocumentDiagnosticParams;
+  type Result = DocumentDiagnosticReportResult;
+  const METHOD: &'static str = "textDocument/diagnostic";
 }
 
 /// The workspace diagnostic request is sent from the client to the server to ask the server to
@@ -938,9 +937,9 @@ impl Request for DocumentDiagnosticRequest {
 pub enum WorkspaceDiagnosticRequest {}
 
 impl Request for WorkspaceDiagnosticRequest {
-    type Params = WorkspaceDiagnosticParams;
-    const METHOD: &'static str = "workspace/diagnostic";
-    type Result = WorkspaceDiagnosticReportResult;
+  type Params = WorkspaceDiagnosticParams;
+  const METHOD: &'static str = "workspace/diagnostic";
+  type Result = WorkspaceDiagnosticReportResult;
 }
 
 /// The `workspace/diagnostic/refresh` request is sent from the server to the client. Servers can
@@ -951,9 +950,9 @@ impl Request for WorkspaceDiagnosticRequest {
 pub enum WorkspaceDiagnosticRefresh {}
 
 impl Request for WorkspaceDiagnosticRefresh {
-    type Params = ();
-    type Result = ();
-    const METHOD: &'static str = "workspace/diagnostic/refresh";
+  type Params = ();
+  type Result = ();
+  const METHOD: &'static str = "workspace/diagnostic/refresh";
 }
 
 /// The type hierarchy request is sent from the client to the server to return a type hierarchy for
@@ -965,9 +964,9 @@ impl Request for WorkspaceDiagnosticRefresh {
 pub enum TypeHierarchyPrepare {}
 
 impl Request for TypeHierarchyPrepare {
-    type Params = TypeHierarchyPrepareParams;
-    type Result = Option<Vec<TypeHierarchyItem>>;
-    const METHOD: &'static str = "textDocument/prepareTypeHierarchy";
+  type Params = TypeHierarchyPrepareParams;
+  type Result = Option<Vec<TypeHierarchyItem>>;
+  const METHOD: &'static str = "textDocument/prepareTypeHierarchy";
 }
 
 /// The `typeHierarchy/supertypes` request is sent from the client to the server to resolve the
@@ -978,9 +977,9 @@ impl Request for TypeHierarchyPrepare {
 pub enum TypeHierarchySupertypes {}
 
 impl Request for TypeHierarchySupertypes {
-    type Params = TypeHierarchySupertypesParams;
-    type Result = Option<Vec<TypeHierarchyItem>>;
-    const METHOD: &'static str = "typeHierarchy/supertypes";
+  type Params = TypeHierarchySupertypesParams;
+  type Result = Option<Vec<TypeHierarchyItem>>;
+  const METHOD: &'static str = "typeHierarchy/supertypes";
 }
 
 /// The `typeHierarchy/subtypes` request is sent from the client to the server to resolve the
@@ -990,106 +989,106 @@ impl Request for TypeHierarchySupertypes {
 pub enum TypeHierarchySubtypes {}
 
 impl Request for TypeHierarchySubtypes {
-    type Params = TypeHierarchySubtypesParams;
-    type Result = Option<Vec<TypeHierarchyItem>>;
-    const METHOD: &'static str = "typeHierarchy/subtypes";
+  type Params = TypeHierarchySubtypesParams;
+  type Result = Option<Vec<TypeHierarchyItem>>;
+  const METHOD: &'static str = "typeHierarchy/subtypes";
 }
 
 #[cfg(test)]
 mod test {
-    use super::*;
+  use super::*;
 
-    fn fake_call<R>()
-    where
-        R: Request,
-        R::Params: serde::Serialize,
-        R::Result: serde::de::DeserializeOwned,
-    {
-    }
+  fn fake_call<R>()
+  where
+    R: Request,
+    R::Params: serde::Serialize,
+    R::Result: serde::de::DeserializeOwned,
+  {
+  }
 
-    macro_rules! check_macro {
-        ($name:tt) => {
-            // check whether the macro name matches the method
-            assert_eq!(<lsp_request!($name) as Request>::METHOD, $name);
-            // test whether type checking passes for each component
-            fake_call::<lsp_request!($name)>();
-        };
-    }
+  macro_rules! check_macro {
+    ($name:tt) => {
+      // check whether the macro name matches the method
+      assert_eq!(<lsp_request!($name) as Request>::METHOD, $name);
+      // test whether type checking passes for each component
+      fake_call::<lsp_request!($name)>();
+    };
+  }
 
-    #[test]
-    fn check_macro_definitions() {
-        check_macro!("initialize");
-        check_macro!("shutdown");
+  #[test]
+  fn check_macro_definitions() {
+    check_macro!("initialize");
+    check_macro!("shutdown");
 
-        check_macro!("window/showDocument");
-        check_macro!("window/showMessageRequest");
-        check_macro!("window/workDoneProgress/create");
+    check_macro!("window/showDocument");
+    check_macro!("window/showMessageRequest");
+    check_macro!("window/workDoneProgress/create");
 
-        check_macro!("client/registerCapability");
-        check_macro!("client/unregisterCapability");
+    check_macro!("client/registerCapability");
+    check_macro!("client/unregisterCapability");
 
-        check_macro!("textDocument/willSaveWaitUntil");
-        check_macro!("textDocument/completion");
-        check_macro!("textDocument/hover");
-        check_macro!("textDocument/signatureHelp");
-        check_macro!("textDocument/declaration");
-        check_macro!("textDocument/definition");
-        check_macro!("textDocument/references");
-        check_macro!("textDocument/documentHighlight");
-        check_macro!("textDocument/documentSymbol");
-        check_macro!("textDocument/codeAction");
-        check_macro!("textDocument/codeLens");
-        check_macro!("textDocument/documentLink");
-        check_macro!("textDocument/rangeFormatting");
-        check_macro!("textDocument/onTypeFormatting");
-        check_macro!("textDocument/formatting");
-        check_macro!("textDocument/rename");
-        check_macro!("textDocument/documentColor");
-        check_macro!("textDocument/colorPresentation");
-        check_macro!("textDocument/foldingRange");
-        check_macro!("textDocument/prepareRename");
-        check_macro!("textDocument/implementation");
-        check_macro!("textDocument/selectionRange");
-        check_macro!("textDocument/typeDefinition");
-        check_macro!("textDocument/moniker");
-        check_macro!("textDocument/linkedEditingRange");
-        check_macro!("textDocument/prepareCallHierarchy");
-        check_macro!("textDocument/prepareTypeHierarchy");
-        check_macro!("textDocument/semanticTokens/full");
-        check_macro!("textDocument/semanticTokens/full/delta");
-        check_macro!("textDocument/semanticTokens/range");
-        check_macro!("textDocument/inlayHint");
-        check_macro!("textDocument/inlineValue");
-        check_macro!("textDocument/diagnostic");
+    check_macro!("textDocument/willSaveWaitUntil");
+    check_macro!("textDocument/completion");
+    check_macro!("textDocument/hover");
+    check_macro!("textDocument/signatureHelp");
+    check_macro!("textDocument/declaration");
+    check_macro!("textDocument/definition");
+    check_macro!("textDocument/references");
+    check_macro!("textDocument/documentHighlight");
+    check_macro!("textDocument/documentSymbol");
+    check_macro!("textDocument/codeAction");
+    check_macro!("textDocument/codeLens");
+    check_macro!("textDocument/documentLink");
+    check_macro!("textDocument/rangeFormatting");
+    check_macro!("textDocument/onTypeFormatting");
+    check_macro!("textDocument/formatting");
+    check_macro!("textDocument/rename");
+    check_macro!("textDocument/documentColor");
+    check_macro!("textDocument/colorPresentation");
+    check_macro!("textDocument/foldingRange");
+    check_macro!("textDocument/prepareRename");
+    check_macro!("textDocument/implementation");
+    check_macro!("textDocument/selectionRange");
+    check_macro!("textDocument/typeDefinition");
+    check_macro!("textDocument/moniker");
+    check_macro!("textDocument/linkedEditingRange");
+    check_macro!("textDocument/prepareCallHierarchy");
+    check_macro!("textDocument/prepareTypeHierarchy");
+    check_macro!("textDocument/semanticTokens/full");
+    check_macro!("textDocument/semanticTokens/full/delta");
+    check_macro!("textDocument/semanticTokens/range");
+    check_macro!("textDocument/inlayHint");
+    check_macro!("textDocument/inlineValue");
+    check_macro!("textDocument/diagnostic");
 
-        check_macro!("workspace/applyEdit");
-        check_macro!("workspace/symbol");
-        check_macro!("workspace/executeCommand");
-        check_macro!("workspace/configuration");
-        check_macro!("workspace/diagnostic");
-        check_macro!("workspace/diagnostic/refresh");
-        check_macro!("workspace/willCreateFiles");
-        check_macro!("workspace/willRenameFiles");
-        check_macro!("workspace/willDeleteFiles");
-        check_macro!("workspace/workspaceFolders");
-        check_macro!("workspace/semanticTokens/refresh");
-        check_macro!("workspace/codeLens/refresh");
-        check_macro!("workspace/inlayHint/refresh");
-        check_macro!("workspace/inlineValue/refresh");
+    check_macro!("workspace/applyEdit");
+    check_macro!("workspace/symbol");
+    check_macro!("workspace/executeCommand");
+    check_macro!("workspace/configuration");
+    check_macro!("workspace/diagnostic");
+    check_macro!("workspace/diagnostic/refresh");
+    check_macro!("workspace/willCreateFiles");
+    check_macro!("workspace/willRenameFiles");
+    check_macro!("workspace/willDeleteFiles");
+    check_macro!("workspace/workspaceFolders");
+    check_macro!("workspace/semanticTokens/refresh");
+    check_macro!("workspace/codeLens/refresh");
+    check_macro!("workspace/inlayHint/refresh");
+    check_macro!("workspace/inlineValue/refresh");
 
-        check_macro!("callHierarchy/incomingCalls");
-        check_macro!("callHierarchy/outgoingCalls");
-        check_macro!("codeAction/resolve");
-        check_macro!("codeLens/resolve");
-        check_macro!("completionItem/resolve");
-        check_macro!("documentLink/resolve");
-        check_macro!("inlayHint/resolve");
-        check_macro!("typeHierarchy/subtypes");
-        check_macro!("typeHierarchy/supertypes");
-        check_macro!("workspaceSymbol/resolve");
-    }
+    check_macro!("callHierarchy/incomingCalls");
+    check_macro!("callHierarchy/outgoingCalls");
+    check_macro!("codeAction/resolve");
+    check_macro!("codeLens/resolve");
+    check_macro!("completionItem/resolve");
+    check_macro!("documentLink/resolve");
+    check_macro!("inlayHint/resolve");
+    check_macro!("typeHierarchy/subtypes");
+    check_macro!("typeHierarchy/supertypes");
+    check_macro!("workspaceSymbol/resolve");
+  }
 
-    #[test]
-    #[cfg(feature = "proposed")]
-    fn check_proposed_macro_definitions() {}
+  #[test]
+  #[cfg(feature = "proposed")]
+  fn check_proposed_macro_definitions() {}
 }

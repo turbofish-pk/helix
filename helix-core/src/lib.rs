@@ -36,9 +36,9 @@ pub mod uri;
 pub mod wrap;
 
 pub mod unicode {
-    pub use unicode_general_category as category;
-    pub use unicode_segmentation as segmentation;
-    pub use unicode_width as width;
+  pub use unicode_general_category as category;
+  pub use unicode_segmentation as segmentation;
+  pub use unicode_width as width;
 }
 
 pub use helix_loader::find_workspace;
@@ -57,8 +57,8 @@ pub type Tendril = SmartString<smartstring::LazyCompact>;
 pub use {regex, tree_house::tree_sitter};
 
 pub use position::{
-    Position, VisualOffsetError, char_idx_at_visual_offset, coords_at_pos, pos_at_coords,
-    softwrapped_dimensions, visual_offset_from_anchor, visual_offset_from_block,
+  Position, VisualOffsetError, char_idx_at_visual_offset, coords_at_pos, pos_at_coords,
+  softwrapped_dimensions, visual_offset_from_anchor, visual_offset_from_block,
 };
 #[allow(deprecated)]
 pub use position::{pos_at_visual_coords, visual_coords_at_pos};

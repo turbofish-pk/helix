@@ -28,24 +28,24 @@ use std::num::NonZeroUsize;
 pub struct DocumentId(NonZeroUsize);
 
 impl Default for DocumentId {
-    fn default() -> DocumentId {
-        DocumentId(NonZeroUsize::new(1).unwrap())
-    }
+  fn default() -> DocumentId {
+    DocumentId(NonZeroUsize::new(1).unwrap())
+  }
 }
 
 #[cfg(test)]
 impl DocumentId {
-    /// Constructs a `DocumentId` with the given non-zero id, for use in tests
-    /// that need several distinct ids without spinning up an `Editor`.
-    pub(crate) fn new(id: usize) -> DocumentId {
-        DocumentId(NonZeroUsize::new(id).expect("document id must be non-zero"))
-    }
+  /// Constructs a `DocumentId` with the given non-zero id, for use in tests
+  /// that need several distinct ids without spinning up an `Editor`.
+  pub(crate) fn new(id: usize) -> DocumentId {
+    DocumentId(NonZeroUsize::new(id).expect("document id must be non-zero"))
+  }
 }
 
 impl std::fmt::Display for DocumentId {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_fmt(format_args!("{}", self.0))
-    }
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    f.write_fmt(format_args!("{}", self.0))
+  }
 }
 
 slotmap::new_key_type! {
@@ -53,34 +53,34 @@ slotmap::new_key_type! {
 }
 #[derive(Copy, Clone)]
 pub enum Align {
-    Top,
-    Center,
-    Bottom,
+  Top,
+  Center,
+  Bottom,
 }
 
 pub fn align_view(doc: &mut Document, view: &View, align: Align) {
-    let doc_text = doc.text().slice(..);
-    let cursor = doc.selection(view.id).primary().cursor(doc_text);
-    let viewport = view.inner_area(doc);
-    let last_line_height = viewport.height.saturating_sub(1);
-    let mut view_offset = doc.view_offset(view.id);
+  let doc_text = doc.text().slice(..);
+  let cursor = doc.selection(view.id).primary().cursor(doc_text);
+  let viewport = view.inner_area(doc);
+  let last_line_height = viewport.height.saturating_sub(1);
+  let mut view_offset = doc.view_offset(view.id);
 
-    let relative = match align {
-        Align::Center => last_line_height / 2,
-        Align::Top => 0,
-        Align::Bottom => last_line_height,
-    };
+  let relative = match align {
+    Align::Center => last_line_height / 2,
+    Align::Top => 0,
+    Align::Bottom => last_line_height,
+  };
 
-    let text_fmt = doc.text_format(viewport.width, None);
-    (view_offset.anchor, view_offset.vertical_offset) = char_idx_at_visual_offset(
-        doc_text,
-        cursor,
-        -usize::from(relative).cast_signed(),
-        0,
-        &text_fmt,
-        &view.text_annotations(doc, None),
-    );
-    doc.set_view_offset(view.id, view_offset);
+  let text_fmt = doc.text_format(viewport.width, None);
+  (view_offset.anchor, view_offset.vertical_offset) = char_idx_at_visual_offset(
+    doc_text,
+    cursor,
+    -usize::from(relative).cast_signed(),
+    0,
+    &text_fmt,
+    &view.text_annotations(doc, None),
+  );
+  doc.set_view_offset(view.id, view_offset);
 }
 
 pub use document::Document;

@@ -14,17 +14,17 @@
 use std::ops::Deref;
 
 pub struct RuntimeLocal<T: 'static> {
-    /// inner API used in the macro, not part of public API
-    #[doc(hidden)]
-    pub __data: T,
+  /// inner API used in the macro, not part of public API
+  #[doc(hidden)]
+  pub __data: T,
 }
 
 impl<T> Deref for RuntimeLocal<T> {
-    type Target = T;
+  type Target = T;
 
-    fn deref(&self) -> &Self::Target {
-        &self.__data
-    }
+  fn deref(&self) -> &Self::Target {
+    &self.__data
+  }
 }
 
 #[macro_export]

@@ -3,8 +3,8 @@ use std::{collections::HashMap, sync::Arc};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    Diagnostic, PartialResultParams, StaticRegistrationOptions, TextDocumentIdentifier,
-    TextDocumentRegistrationOptions, Url, WorkDoneProgressOptions, WorkDoneProgressParams,
+  Diagnostic, PartialResultParams, StaticRegistrationOptions, TextDocumentIdentifier,
+  TextDocumentRegistrationOptions, Url, WorkDoneProgressOptions, WorkDoneProgressParams,
 };
 
 /// Client capabilities specific to diagnostic pull requests.
@@ -13,16 +13,16 @@ use crate::{
 #[derive(Debug, Eq, PartialEq, Clone, Default, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DiagnosticClientCapabilities {
-    /// Whether implementation supports dynamic registration.
-    ///
-    /// If this is set to `true` the client supports the new `(TextDocumentRegistrationOptions &
-    /// StaticRegistrationOptions)` return value for the corresponding server capability as well.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub dynamic_registration: Option<bool>,
+  /// Whether implementation supports dynamic registration.
+  ///
+  /// If this is set to `true` the client supports the new `(TextDocumentRegistrationOptions &
+  /// StaticRegistrationOptions)` return value for the corresponding server capability as well.
+  #[serde(skip_serializing_if = "Option::is_none")]
+  pub dynamic_registration: Option<bool>,
 
-    /// Whether the clients supports related documents for document diagnostic pulls.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub related_document_support: Option<bool>,
+  /// Whether the clients supports related documents for document diagnostic pulls.
+  #[serde(skip_serializing_if = "Option::is_none")]
+  pub related_document_support: Option<bool>,
 }
 
 /// Diagnostic options.
@@ -31,40 +31,40 @@ pub struct DiagnosticClientCapabilities {
 #[derive(Debug, Eq, PartialEq, Clone, Default, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DiagnosticOptions {
-    /// An optional identifier under which the diagnostics are
-    /// managed by the client.
-    #[serde(
-        default,
-        skip_serializing_if = "Option::is_none",
-        serialize_with = "serialize_option_arc_str",
-        deserialize_with = "deserialize_option_arc_str"
-    )]
-    pub identifier: Option<Arc<str>>,
+  /// An optional identifier under which the diagnostics are
+  /// managed by the client.
+  #[serde(
+    default,
+    skip_serializing_if = "Option::is_none",
+    serialize_with = "serialize_option_arc_str",
+    deserialize_with = "deserialize_option_arc_str"
+  )]
+  pub identifier: Option<Arc<str>>,
 
-    /// Whether the language has inter file dependencies, meaning that editing code in one file can
-    /// result in a different diagnostic set in another file. Inter file dependencies are common
-    /// for most programming languages and typically uncommon for linters.
-    pub inter_file_dependencies: bool,
+  /// Whether the language has inter file dependencies, meaning that editing code in one file can
+  /// result in a different diagnostic set in another file. Inter file dependencies are common
+  /// for most programming languages and typically uncommon for linters.
+  pub inter_file_dependencies: bool,
 
-    /// The server provides support for workspace diagnostics as well.
-    pub workspace_diagnostics: bool,
+  /// The server provides support for workspace diagnostics as well.
+  pub workspace_diagnostics: bool,
 
-    #[serde(flatten)]
-    pub work_done_progress_options: WorkDoneProgressOptions,
+  #[serde(flatten)]
+  pub work_done_progress_options: WorkDoneProgressOptions,
 }
 
 #[allow(clippy::ref_option)]
 fn serialize_option_arc_str<S: serde::Serializer>(
-    val: &Option<Arc<str>>,
-    serializer: S,
+  val: &Option<Arc<str>>,
+  serializer: S,
 ) -> Result<S::Ok, S::Error> {
-    serializer.serialize_str(val.as_ref().unwrap())
+  serializer.serialize_str(val.as_ref().unwrap())
 }
 
 fn deserialize_option_arc_str<'de, D: serde::Deserializer<'de>>(
-    deserializer: D,
+  deserializer: D,
 ) -> Result<Option<Arc<str>>, D::Error> {
-    Option::<String>::deserialize(deserializer).map(|opt| opt.map(std::convert::Into::into))
+  Option::<String>::deserialize(deserializer).map(|opt| opt.map(std::convert::Into::into))
 }
 
 /// Diagnostic registration options.
@@ -73,21 +73,21 @@ fn deserialize_option_arc_str<'de, D: serde::Deserializer<'de>>(
 #[derive(Debug, Eq, PartialEq, Clone, Default, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DiagnosticRegistrationOptions {
-    #[serde(flatten)]
-    pub text_document_registration_options: TextDocumentRegistrationOptions,
+  #[serde(flatten)]
+  pub text_document_registration_options: TextDocumentRegistrationOptions,
 
-    #[serde(flatten)]
-    pub diagnostic_options: DiagnosticOptions,
+  #[serde(flatten)]
+  pub diagnostic_options: DiagnosticOptions,
 
-    #[serde(flatten)]
-    pub static_registration_options: StaticRegistrationOptions,
+  #[serde(flatten)]
+  pub static_registration_options: StaticRegistrationOptions,
 }
 
 #[derive(Debug, Eq, PartialEq, Clone, Deserialize, Serialize)]
 #[serde(untagged)]
 pub enum DiagnosticServerCapabilities {
-    Options(DiagnosticOptions),
-    RegistrationOptions(DiagnosticRegistrationOptions),
+  Options(DiagnosticOptions),
+  RegistrationOptions(DiagnosticRegistrationOptions),
 }
 
 /// Parameters of the document diagnostic request.
@@ -96,27 +96,27 @@ pub enum DiagnosticServerCapabilities {
 #[derive(Debug, Eq, PartialEq, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DocumentDiagnosticParams {
-    /// The text document.
-    pub text_document: TextDocumentIdentifier,
+  /// The text document.
+  pub text_document: TextDocumentIdentifier,
 
-    /// The additional identifier provided during registration.
-    #[serde(
-        default,
-        skip_serializing_if = "Option::is_none",
-        serialize_with = "serialize_option_arc_str",
-        deserialize_with = "deserialize_option_arc_str"
-    )]
-    pub identifier: Option<Arc<str>>,
+  /// The additional identifier provided during registration.
+  #[serde(
+    default,
+    skip_serializing_if = "Option::is_none",
+    serialize_with = "serialize_option_arc_str",
+    deserialize_with = "deserialize_option_arc_str"
+  )]
+  pub identifier: Option<Arc<str>>,
 
-    /// The result ID of a previous response if provided.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub previous_result_id: Option<String>,
+  /// The result ID of a previous response if provided.
+  #[serde(skip_serializing_if = "Option::is_none")]
+  pub previous_result_id: Option<String>,
 
-    #[serde(flatten)]
-    pub work_done_progress_params: WorkDoneProgressParams,
+  #[serde(flatten)]
+  pub work_done_progress_params: WorkDoneProgressParams,
 
-    #[serde(flatten)]
-    pub partial_result_params: PartialResultParams,
+  #[serde(flatten)]
+  pub partial_result_params: PartialResultParams,
 }
 
 /// A diagnostic report with a full set of problems.
@@ -125,13 +125,13 @@ pub struct DocumentDiagnosticParams {
 #[derive(Debug, PartialEq, Default, Deserialize, Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct FullDocumentDiagnosticReport {
-    /// An optional result ID. If provided it will be sent on the next diagnostic request for the
-    /// same document.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub result_id: Option<String>,
+  /// An optional result ID. If provided it will be sent on the next diagnostic request for the
+  /// same document.
+  #[serde(skip_serializing_if = "Option::is_none")]
+  pub result_id: Option<String>,
 
-    /// The actual items.
-    pub items: Vec<Diagnostic>,
+  /// The actual items.
+  pub items: Vec<Diagnostic>,
 }
 
 /// A diagnostic report indicating that the last returned report is still accurate.
@@ -142,8 +142,8 @@ pub struct FullDocumentDiagnosticReport {
 #[derive(Debug, PartialEq, Deserialize, Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct UnchangedDocumentDiagnosticReport {
-    /// A result ID which will be sent on the next diagnostic request for the same document.
-    pub result_id: String,
+  /// A result ID which will be sent on the next diagnostic request for the same document.
+  pub result_id: String,
 }
 
 /// The document diagnostic report kinds.
@@ -152,22 +152,22 @@ pub struct UnchangedDocumentDiagnosticReport {
 #[derive(Debug, PartialEq, Deserialize, Serialize, Clone)]
 #[serde(tag = "kind", rename_all = "lowercase")]
 pub enum DocumentDiagnosticReportKind {
-    /// A diagnostic report with a full set of problems.
-    Full(FullDocumentDiagnosticReport),
-    /// A report indicating that the last returned report is still accurate.
-    Unchanged(UnchangedDocumentDiagnosticReport),
+  /// A diagnostic report with a full set of problems.
+  Full(FullDocumentDiagnosticReport),
+  /// A report indicating that the last returned report is still accurate.
+  Unchanged(UnchangedDocumentDiagnosticReport),
 }
 
 impl From<FullDocumentDiagnosticReport> for DocumentDiagnosticReportKind {
-    fn from(from: FullDocumentDiagnosticReport) -> Self {
-        DocumentDiagnosticReportKind::Full(from)
-    }
+  fn from(from: FullDocumentDiagnosticReport) -> Self {
+    DocumentDiagnosticReportKind::Full(from)
+  }
 }
 
 impl From<UnchangedDocumentDiagnosticReport> for DocumentDiagnosticReportKind {
-    fn from(from: UnchangedDocumentDiagnosticReport) -> Self {
-        DocumentDiagnosticReportKind::Unchanged(from)
-    }
+  fn from(from: UnchangedDocumentDiagnosticReport) -> Self {
+    DocumentDiagnosticReportKind::Unchanged(from)
+  }
 }
 
 /// A full diagnostic report with a set of related documents.
@@ -176,20 +176,20 @@ impl From<UnchangedDocumentDiagnosticReport> for DocumentDiagnosticReportKind {
 #[derive(Debug, PartialEq, Default, Deserialize, Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct RelatedFullDocumentDiagnosticReport {
-    /// Diagnostics of related documents.
-    ///
-    /// This information is useful in programming languages where code in a file A can generate
-    /// diagnostics in a file B which A depends on. An example of such a language is C/C++ where
-    /// macro definitions in a file `a.cpp` result in errors in a header file `b.hpp`.
-    ///
-    /// @since 3.17.0
-    #[serde(with = "crate::url_map")]
-    #[serde(skip_serializing_if = "Option::is_none")]
-    #[serde(default)]
-    pub related_documents: Option<HashMap<Url, DocumentDiagnosticReportKind>>,
-    // relatedDocuments?: { [uri: string]: FullDocumentDiagnosticReport | UnchangedDocumentDiagnosticReport; };
-    #[serde(flatten)]
-    pub full_document_diagnostic_report: FullDocumentDiagnosticReport,
+  /// Diagnostics of related documents.
+  ///
+  /// This information is useful in programming languages where code in a file A can generate
+  /// diagnostics in a file B which A depends on. An example of such a language is C/C++ where
+  /// macro definitions in a file `a.cpp` result in errors in a header file `b.hpp`.
+  ///
+  /// @since 3.17.0
+  #[serde(with = "crate::url_map")]
+  #[serde(skip_serializing_if = "Option::is_none")]
+  #[serde(default)]
+  pub related_documents: Option<HashMap<Url, DocumentDiagnosticReportKind>>,
+  // relatedDocuments?: { [uri: string]: FullDocumentDiagnosticReport | UnchangedDocumentDiagnosticReport; };
+  #[serde(flatten)]
+  pub full_document_diagnostic_report: FullDocumentDiagnosticReport,
 }
 
 /// An unchanged diagnostic report with a set of related documents.
@@ -198,20 +198,20 @@ pub struct RelatedFullDocumentDiagnosticReport {
 #[derive(Debug, PartialEq, Deserialize, Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct RelatedUnchangedDocumentDiagnosticReport {
-    /// Diagnostics of related documents.
-    ///
-    /// This information is useful in programming languages where code in a file A can generate
-    /// diagnostics in a file B which A depends on. An example of such a language is C/C++ where
-    /// macro definitions in a file `a.cpp` result in errors in a header file `b.hpp`.
-    ///
-    /// @since 3.17.0
-    #[serde(with = "crate::url_map")]
-    #[serde(skip_serializing_if = "Option::is_none")]
-    #[serde(default)]
-    pub related_documents: Option<HashMap<Url, DocumentDiagnosticReportKind>>,
-    // relatedDocuments?: { [uri: string]: FullDocumentDiagnosticReport | UnchangedDocumentDiagnosticReport; };
-    #[serde(flatten)]
-    pub unchanged_document_diagnostic_report: UnchangedDocumentDiagnosticReport,
+  /// Diagnostics of related documents.
+  ///
+  /// This information is useful in programming languages where code in a file A can generate
+  /// diagnostics in a file B which A depends on. An example of such a language is C/C++ where
+  /// macro definitions in a file `a.cpp` result in errors in a header file `b.hpp`.
+  ///
+  /// @since 3.17.0
+  #[serde(with = "crate::url_map")]
+  #[serde(skip_serializing_if = "Option::is_none")]
+  #[serde(default)]
+  pub related_documents: Option<HashMap<Url, DocumentDiagnosticReportKind>>,
+  // relatedDocuments?: { [uri: string]: FullDocumentDiagnosticReport | UnchangedDocumentDiagnosticReport; };
+  #[serde(flatten)]
+  pub unchanged_document_diagnostic_report: UnchangedDocumentDiagnosticReport,
 }
 
 /// The result of a document diagnostic pull request.
@@ -224,22 +224,22 @@ pub struct RelatedUnchangedDocumentDiagnosticReport {
 #[derive(Debug, PartialEq, Deserialize, Serialize, Clone)]
 #[serde(tag = "kind", rename_all = "lowercase")]
 pub enum DocumentDiagnosticReport {
-    /// A diagnostic report with a full set of problems.
-    Full(RelatedFullDocumentDiagnosticReport),
-    /// A report indicating that the last returned report is still accurate.
-    Unchanged(RelatedUnchangedDocumentDiagnosticReport),
+  /// A diagnostic report with a full set of problems.
+  Full(RelatedFullDocumentDiagnosticReport),
+  /// A report indicating that the last returned report is still accurate.
+  Unchanged(RelatedUnchangedDocumentDiagnosticReport),
 }
 
 impl From<RelatedFullDocumentDiagnosticReport> for DocumentDiagnosticReport {
-    fn from(from: RelatedFullDocumentDiagnosticReport) -> Self {
-        DocumentDiagnosticReport::Full(from)
-    }
+  fn from(from: RelatedFullDocumentDiagnosticReport) -> Self {
+    DocumentDiagnosticReport::Full(from)
+  }
 }
 
 impl From<RelatedUnchangedDocumentDiagnosticReport> for DocumentDiagnosticReport {
-    fn from(from: RelatedUnchangedDocumentDiagnosticReport) -> Self {
-        DocumentDiagnosticReport::Unchanged(from)
-    }
+  fn from(from: RelatedUnchangedDocumentDiagnosticReport) -> Self {
+    DocumentDiagnosticReport::Unchanged(from)
+  }
 }
 
 /// A partial result for a document diagnostic report.
@@ -248,30 +248,30 @@ impl From<RelatedUnchangedDocumentDiagnosticReport> for DocumentDiagnosticReport
 #[derive(Debug, PartialEq, Default, Deserialize, Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct DocumentDiagnosticReportPartialResult {
-    #[serde(with = "crate::url_map")]
-    #[serde(skip_serializing_if = "Option::is_none")]
-    #[serde(default)]
-    pub related_documents: Option<HashMap<Url, DocumentDiagnosticReportKind>>,
-    // relatedDocuments?: { [uri: string]: FullDocumentDiagnosticReport | UnchangedDocumentDiagnosticReport; };
+  #[serde(with = "crate::url_map")]
+  #[serde(skip_serializing_if = "Option::is_none")]
+  #[serde(default)]
+  pub related_documents: Option<HashMap<Url, DocumentDiagnosticReportKind>>,
+  // relatedDocuments?: { [uri: string]: FullDocumentDiagnosticReport | UnchangedDocumentDiagnosticReport; };
 }
 
 #[derive(Debug, PartialEq, Deserialize, Serialize, Clone)]
 #[serde(untagged)]
 pub enum DocumentDiagnosticReportResult {
-    Report(DocumentDiagnosticReport),
-    Partial(DocumentDiagnosticReportPartialResult),
+  Report(DocumentDiagnosticReport),
+  Partial(DocumentDiagnosticReportPartialResult),
 }
 
 impl From<DocumentDiagnosticReport> for DocumentDiagnosticReportResult {
-    fn from(from: DocumentDiagnosticReport) -> Self {
-        DocumentDiagnosticReportResult::Report(from)
-    }
+  fn from(from: DocumentDiagnosticReport) -> Self {
+    DocumentDiagnosticReportResult::Report(from)
+  }
 }
 
 impl From<DocumentDiagnosticReportPartialResult> for DocumentDiagnosticReportResult {
-    fn from(from: DocumentDiagnosticReportPartialResult) -> Self {
-        DocumentDiagnosticReportResult::Partial(from)
-    }
+  fn from(from: DocumentDiagnosticReportPartialResult) -> Self {
+    DocumentDiagnosticReportResult::Partial(from)
+  }
 }
 
 /// Cancellation data returned from a diagnostic request.
@@ -282,13 +282,13 @@ impl From<DocumentDiagnosticReportPartialResult> for DocumentDiagnosticReportRes
 #[derive(Debug, PartialEq, Deserialize, Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct DiagnosticServerCancellationData {
-    pub retrigger_request: bool,
+  pub retrigger_request: bool,
 }
 
 impl Default for DiagnosticServerCancellationData {
-    fn default() -> Self {
-        DiagnosticServerCancellationData {
-            retrigger_request: true,
-        }
+  fn default() -> Self {
+    DiagnosticServerCancellationData {
+      retrigger_request: true,
     }
+  }
 }

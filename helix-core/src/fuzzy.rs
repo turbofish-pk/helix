@@ -5,21 +5,21 @@ use nucleo::pattern::{Atom, AtomKind, CaseMatching, Normalization};
 use parking_lot::Mutex;
 
 pub struct LazyMutex<T> {
-    inner: Mutex<Option<T>>,
-    init: fn() -> T,
+  inner: Mutex<Option<T>>,
+  init: fn() -> T,
 }
 
 impl<T> LazyMutex<T> {
-    pub const fn new(init: fn() -> T) -> Self {
-        Self {
-            inner: Mutex::new(None),
-            init,
-        }
+  pub const fn new(init: fn() -> T) -> Self {
+    Self {
+      inner: Mutex::new(None),
+      init,
     }
+  }
 
-    pub fn lock(&self) -> impl DerefMut<Target = T> + '_ {
-        parking_lot::MutexGuard::map(self.inner.lock(), |val| val.get_or_insert_with(self.init))
-    }
+  pub fn lock(&self) -> impl DerefMut<Target = T> + '_ {
+    parking_lot::MutexGuard::map(self.inner.lock(), |val| val.get_or_insert_with(self.init))
+  }
 }
 
 pub static MATCHER: LazyMutex<nucleo::Matcher> = LazyMutex::new(nucleo::Matcher::default);
@@ -29,21 +29,21 @@ pub static MATCHER: LazyMutex<nucleo::Matcher> = LazyMutex::new(nucleo::Matcher:
 /// application that can match large numbers of matches as all matching is done on the current
 /// thread, effectively blocking the UI
 pub fn fuzzy_match<T: AsRef<str>>(
-    pattern: &str,
-    items: impl IntoIterator<Item = T>,
-    path: bool,
+  pattern: &str,
+  items: impl IntoIterator<Item = T>,
+  path: bool,
 ) -> Vec<(T, u16)> {
-    let mut matcher = MATCHER.lock();
-    matcher.config = Config::DEFAULT;
-    if path {
-        matcher.config.set_match_paths();
-    }
-    let pattern = Atom::new(
-        pattern,
-        CaseMatching::Smart,
-        Normalization::Smart,
-        AtomKind::Fuzzy,
-        false,
-    );
-    pattern.match_list(items, &mut matcher)
+  let mut matcher = MATCHER.lock();
+  matcher.config = Config::DEFAULT;
+  if path {
+    matcher.config.set_match_paths();
+  }
+  let pattern = Atom::new(
+    pattern,
+    CaseMatching::Smart,
+    Normalization::Smart,
+    AtomKind::Fuzzy,
+    false,
+  );
+  pattern.match_list(items, &mut matcher)
 }

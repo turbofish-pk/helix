@@ -1,20 +1,20 @@
 use crate::{
-    Call, Error, LanguageServerId, OffsetEncoding, Result,
-    file_operations::FileOperationsInterest,
-    find_lsp_workspace, jsonrpc,
-    lsp::{
-        self, CodeActionCapabilityResolveSupport, DidChangeWorkspaceFoldersParams, OneOf,
-        PositionEncodingKind, SignatureHelp, Url, WorkspaceFolder, WorkspaceFoldersChangeEvent,
-        notification::DidChangeWorkspaceFolders,
-    },
-    transport::{Payload, Transport},
+  Call, Error, LanguageServerId, OffsetEncoding, Result,
+  file_operations::FileOperationsInterest,
+  find_lsp_workspace, jsonrpc,
+  lsp::{
+    self, CodeActionCapabilityResolveSupport, DidChangeWorkspaceFoldersParams, OneOf,
+    PositionEncodingKind, SignatureHelp, Url, WorkspaceFolder, WorkspaceFoldersChangeEvent,
+    notification::DidChangeWorkspaceFolders,
+  },
+  transport::{Payload, Transport},
 };
 
 use log::info;
 
 use helix_core::{
-    ChangeSet, Rope, find_workspace,
-    syntax::config::{LanguageServerFeature, RootMarkers},
+  ChangeSet, Rope, find_workspace,
+  syntax::config::{LanguageServerFeature, RootMarkers},
 };
 use helix_loader::VERSION_AND_GIT_HASH;
 use helix_stdx::path;
@@ -22,1801 +22,1790 @@ use parking_lot::Mutex;
 use serde::Deserialize;
 use serde_json::Value;
 use std::{
-    collections::HashMap,
-    ffi::OsStr,
-    future::Future,
-    path::{Path, PathBuf},
-    process::Stdio,
-    sync::{
-        Arc, OnceLock,
-        atomic::{AtomicU64, Ordering},
-    },
+  collections::HashMap,
+  ffi::OsStr,
+  future::Future,
+  path::{Path, PathBuf},
+  process::Stdio,
+  sync::{
+    Arc, OnceLock,
+    atomic::{AtomicU64, Ordering},
+  },
 };
 use tokio::{
-    io::{BufReader, BufWriter},
-    process::{Child, Command},
-    sync::{
-        Notify, OnceCell,
-        mpsc::{UnboundedReceiver, UnboundedSender, channel},
-    },
+  io::{BufReader, BufWriter},
+  process::{Child, Command},
+  sync::{
+    Notify, OnceCell,
+    mpsc::{UnboundedReceiver, UnboundedSender, channel},
+  },
 };
 
 fn workspace_for_uri(uri: lsp::Url) -> WorkspaceFolder {
-    lsp::WorkspaceFolder {
-        name: uri
-            .path()
-            .rsplit('/')
-            .find(|segment| !segment.is_empty())
-            .map(std::string::ToString::to_string)
-            .unwrap_or_default(),
-        uri,
-    }
+  lsp::WorkspaceFolder {
+    name: uri
+      .path()
+      .rsplit('/')
+      .find(|segment| !segment.is_empty())
+      .map(std::string::ToString::to_string)
+      .unwrap_or_default(),
+    uri,
+  }
 }
 
 #[derive(Debug)]
 pub struct Client {
-    id: LanguageServerId,
-    name: String,
-    _process: Child,
-    server_tx: UnboundedSender<Payload>,
-    request_counter: AtomicU64,
-    pub(crate) capabilities: OnceCell<lsp::ServerCapabilities>,
-    pub(crate) file_operation_interest: OnceLock<FileOperationsInterest>,
-    config: Option<Value>,
-    root_path: std::path::PathBuf,
-    root_uri: Option<lsp::Url>,
-    workspace_folders: Mutex<Vec<lsp::WorkspaceFolder>>,
-    initialize_notify: Arc<Notify>,
-    /// Notified by the transport once `exit` has been flushed to the server's stdin.
-    shutdown_flushed: Arc<Notify>,
-    /// workspace folders added while the server is still initializing
-    req_timeout: u64,
+  id: LanguageServerId,
+  name: String,
+  _process: Child,
+  server_tx: UnboundedSender<Payload>,
+  request_counter: AtomicU64,
+  pub(crate) capabilities: OnceCell<lsp::ServerCapabilities>,
+  pub(crate) file_operation_interest: OnceLock<FileOperationsInterest>,
+  config: Option<Value>,
+  root_path: std::path::PathBuf,
+  root_uri: Option<lsp::Url>,
+  workspace_folders: Mutex<Vec<lsp::WorkspaceFolder>>,
+  initialize_notify: Arc<Notify>,
+  /// Notified by the transport once `exit` has been flushed to the server's stdin.
+  shutdown_flushed: Arc<Notify>,
+  /// workspace folders added while the server is still initializing
+  req_timeout: u64,
 }
 
 impl Client {
-    pub fn try_add_doc(
-        self: &Arc<Self>,
-        root_markers: &RootMarkers,
-        manual_roots: &[PathBuf],
-        doc_path: Option<&std::path::Path>,
-        may_support_workspace: bool,
-    ) -> bool {
-        let (workspace, workspace_is_cwd) = find_workspace();
-        let workspace = path::normalize(workspace);
-        let root = find_lsp_workspace(
-            doc_path
-                .and_then(|x| x.parent().and_then(|x| x.to_str()))
-                .unwrap_or("."),
-            root_markers,
-            manual_roots,
-            &workspace,
-            workspace_is_cwd,
-        );
-        let root_uri = root
-            .as_ref()
-            .and_then(|root| lsp::Url::from_file_path(root).ok());
+  pub fn try_add_doc(
+    self: &Arc<Self>,
+    root_markers: &RootMarkers,
+    manual_roots: &[PathBuf],
+    doc_path: Option<&std::path::Path>,
+    may_support_workspace: bool,
+  ) -> bool {
+    let (workspace, workspace_is_cwd) = find_workspace();
+    let workspace = path::normalize(workspace);
+    let root = find_lsp_workspace(
+      doc_path
+        .and_then(|x| x.parent().and_then(|x| x.to_str()))
+        .unwrap_or("."),
+      root_markers,
+      manual_roots,
+      &workspace,
+      workspace_is_cwd,
+    );
+    let root_uri = root
+      .as_ref()
+      .and_then(|root| lsp::Url::from_file_path(root).ok());
 
-        if self.root_path == root.unwrap_or(workspace)
-            || root_uri.as_ref().is_some_and(|root_uri| {
-                self.workspace_folders
-                    .lock()
-                    .iter()
-                    .any(|workspace| &workspace.uri == root_uri)
-            })
+    if self.root_path == root.unwrap_or(workspace)
+      || root_uri.as_ref().is_some_and(|root_uri| {
+        self
+          .workspace_folders
+          .lock()
+          .iter()
+          .any(|workspace| &workspace.uri == root_uri)
+      })
+    {
+      // workspace URI is already registered so we can use this client
+      return true;
+    }
+
+    // this server definitely doesn't support multiple workspace, no need to check capabilities
+    if !may_support_workspace {
+      return false;
+    }
+
+    let Some(capabilities) = self.capabilities.get() else {
+      let client = Arc::clone(self);
+      // initialization hasn't finished yet, deal with this new root later
+      // TODO: In the edgecase that a **new root** is added
+      // for an LSP that **doesn't support workspace_folders** before initaliation is finished
+      // the new roots are ignored.
+      // That particular edgecase would require retroactively spawning new LSP
+      // clients and therefore also require us to retroactively update the corresponding
+      // documents LSP client handle. It's doable but a pretty weird edgecase so let's
+      // wait and see if anyone ever runs into it.
+      tokio::spawn(async move {
+        client.initialize_notify.notified().await;
+        if let Some(workspace_folders_caps) = client
+          .capabilities()
+          .workspace
+          .as_ref()
+          .and_then(|cap| cap.workspace_folders.as_ref())
+          .filter(|cap| cap.supported.unwrap_or(false))
         {
-            // workspace URI is already registered so we can use this client
-            return true;
-        }
-
-        // this server definitely doesn't support multiple workspace, no need to check capabilities
-        if !may_support_workspace {
-            return false;
-        }
-
-        let Some(capabilities) = self.capabilities.get() else {
-            let client = Arc::clone(self);
-            // initialization hasn't finished yet, deal with this new root later
-            // TODO: In the edgecase that a **new root** is added
-            // for an LSP that **doesn't support workspace_folders** before initaliation is finished
-            // the new roots are ignored.
-            // That particular edgecase would require retroactively spawning new LSP
-            // clients and therefore also require us to retroactively update the corresponding
-            // documents LSP client handle. It's doable but a pretty weird edgecase so let's
-            // wait and see if anyone ever runs into it.
-            tokio::spawn(async move {
-                client.initialize_notify.notified().await;
-                if let Some(workspace_folders_caps) = client
-                    .capabilities()
-                    .workspace
-                    .as_ref()
-                    .and_then(|cap| cap.workspace_folders.as_ref())
-                    .filter(|cap| cap.supported.unwrap_or(false))
-                {
-                    client.add_workspace_folder(
-                        root_uri,
-                        workspace_folders_caps.change_notifications.as_ref(),
-                    );
-                }
-            });
-            return true;
-        };
-
-        if let Some(workspace_folders_caps) = capabilities
-            .workspace
-            .as_ref()
-            .and_then(|cap| cap.workspace_folders.as_ref())
-            .filter(|cap| cap.supported.unwrap_or(false))
-        {
-            self.add_workspace_folder(
-                root_uri,
-                workspace_folders_caps.change_notifications.as_ref(),
-            );
-            true
-        } else {
-            // the server doesn't support multi workspaces, we need a new client
-            false
-        }
-    }
-
-    fn add_workspace_folder(
-        &self,
-        root_uri: Option<lsp::Url>,
-        change_notifications: Option<&OneOf<bool, String>>,
-    ) {
-        // root_uri is None just means that there isn't really any LSP workspace
-        // associated with this file. For servers that support multiple workspaces
-        // there is just one server so we can always just use that shared instance.
-        // No need to add a new workspace root here as there is no logical root for this file
-        // let the server deal with this
-        let Some(root_uri) = root_uri else {
-            return;
-        };
-
-        // server supports workspace folders, let's add the new root to the list
-        self.workspace_folders
-            .lock()
-            .push(workspace_for_uri(root_uri.clone()));
-        if Some(&OneOf::Left(false)) == change_notifications {
-            // server specifically opted out of DidWorkspaceChange notifications
-            // let's assume the server will request the workspace folders itself
-            // and that we can therefore reuse the client (but are done now)
-            return;
-        }
-        self.did_change_workspace(vec![workspace_for_uri(root_uri)], Vec::new());
-    }
-
-    /// Merge `FormattingOptions` with 'config.format' and return it
-    fn get_merged_formatting_options(
-        &self,
-        options: lsp::FormattingOptions,
-    ) -> lsp::FormattingOptions {
-        let config_format = self
-            .config
-            .as_ref()
-            .and_then(|cfg| cfg.get("format"))
-            .and_then(|fmt| HashMap::<String, lsp::FormattingProperty>::deserialize(fmt).ok());
-
-        if let Some(mut properties) = config_format {
-            // passed in options take precedence over 'config.format'
-            properties.extend(options.properties);
-            lsp::FormattingOptions {
-                properties,
-                ..options
-            }
-        } else {
-            options
-        }
-    }
-
-    #[allow(clippy::type_complexity, clippy::too_many_arguments)]
-    pub fn start(
-        cmd: &str,
-        args: &[String],
-        config: Option<Value>,
-        server_environment: impl IntoIterator<Item = (impl AsRef<OsStr>, impl AsRef<OsStr>)>,
-        root_path: PathBuf,
-        root_uri: Option<lsp::Url>,
-        id: LanguageServerId,
-        name: String,
-        req_timeout: u64,
-    ) -> Result<(
-        Self,
-        UnboundedReceiver<(LanguageServerId, Call)>,
-        Arc<Notify>,
-    )> {
-        info!("Starting lsp {name:?} in root {}", root_path.display());
-        // Resolve path to the binary
-        let cmd = helix_stdx::env::which(cmd)?;
-
-        let process = Command::new(cmd)
-            .envs(server_environment)
-            .args(args)
-            .stdin(Stdio::piped())
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
-            .current_dir(&root_path)
-            // make sure the process is reaped on drop
-            .kill_on_drop(true)
-            .spawn();
-
-        let mut process = process?;
-
-        // TODO: do we need bufreader/writer here? or do we use async wrappers on unblock?
-        let writer = BufWriter::new(process.stdin.take().expect("Failed to open stdin"));
-        let reader = BufReader::new(process.stdout.take().expect("Failed to open stdout"));
-        let stderr = BufReader::new(process.stderr.take().expect("Failed to open stderr"));
-
-        let (server_rx, server_tx, initialize_notify, shutdown_flushed) =
-            Transport::start(reader, writer, stderr, id, name.clone());
-
-        let workspace_folders = root_uri
-            .clone()
-            .map(|root| vec![workspace_for_uri(root)])
-            .unwrap_or_default();
-
-        let client = Self {
-            id,
-            name,
-            _process: process,
-            server_tx,
-            request_counter: AtomicU64::new(0),
-            capabilities: OnceCell::new(),
-            file_operation_interest: OnceLock::new(),
-            config,
-            req_timeout,
-            root_path,
+          client.add_workspace_folder(
             root_uri,
-            workspace_folders: Mutex::new(workspace_folders),
-            initialize_notify: initialize_notify.clone(),
-            shutdown_flushed,
-        };
-
-        Ok((client, server_rx, initialize_notify))
-    }
-
-    pub fn name(&self) -> &str {
-        &self.name
-    }
-
-    pub fn id(&self) -> LanguageServerId {
-        self.id
-    }
-
-    fn next_request_id(&self) -> jsonrpc::Id {
-        let id = self.request_counter.fetch_add(1, Ordering::Relaxed);
-        jsonrpc::Id::Num(id)
-    }
-
-    fn value_into_params(value: Value) -> jsonrpc::Params {
-        use jsonrpc::Params;
-
-        match value {
-            Value::Null => Params::None,
-            Value::Bool(_) | Value::Number(_) | Value::String(_) => Params::Array(vec![value]),
-            Value::Array(vec) => Params::Array(vec),
-            Value::Object(map) => Params::Map(map),
+            workspace_folders_caps.change_notifications.as_ref(),
+          );
         }
-    }
+      });
+      return true;
+    };
 
-    pub fn is_initialized(&self) -> bool {
-        self.capabilities.get().is_some()
-    }
-
-    pub fn capabilities(&self) -> &lsp::ServerCapabilities {
-        self.capabilities
-            .get()
-            .expect("language server not yet initialized!")
-    }
-
-    pub(crate) fn file_operations_intests(&self) -> &FileOperationsInterest {
-        self.file_operation_interest
-            .get_or_init(|| FileOperationsInterest::new(self.capabilities()))
-    }
-
-    /// Client has to be initialized otherwise this function panics
-    #[inline]
-    pub fn supports_feature(&self, feature: LanguageServerFeature) -> bool {
-        use lsp::{
-            CallHierarchyServerCapability, CodeActionProviderCapability, ColorProviderCapability,
-            DeclarationCapability, HoverProviderCapability, ImplementationProviderCapability,
-            InlayHintServerCapabilities, OneOf, TypeDefinitionProviderCapability,
-        };
-        let capabilities = self.capabilities();
-
-        match feature {
-            LanguageServerFeature::Format => matches!(
-                capabilities.document_formatting_provider,
-                Some(OneOf::Left(true) | OneOf::Right(_))
-            ),
-            LanguageServerFeature::GotoDeclaration => matches!(
-                capabilities.declaration_provider,
-                Some(
-                    DeclarationCapability::Simple(true)
-                        | DeclarationCapability::RegistrationOptions(_)
-                        | DeclarationCapability::Options(_),
-                )
-            ),
-            LanguageServerFeature::GotoDefinition => matches!(
-                capabilities.definition_provider,
-                Some(OneOf::Left(true) | OneOf::Right(_))
-            ),
-            LanguageServerFeature::GotoTypeDefinition => matches!(
-                capabilities.type_definition_provider,
-                Some(
-                    TypeDefinitionProviderCapability::Simple(true)
-                        | TypeDefinitionProviderCapability::Options(_),
-                )
-            ),
-            LanguageServerFeature::GotoReference => matches!(
-                capabilities.references_provider,
-                Some(OneOf::Left(true) | OneOf::Right(_))
-            ),
-            LanguageServerFeature::GotoImplementation => matches!(
-                capabilities.implementation_provider,
-                Some(
-                    ImplementationProviderCapability::Simple(true)
-                        | ImplementationProviderCapability::Options(_),
-                )
-            ),
-            LanguageServerFeature::SignatureHelp => capabilities.signature_help_provider.is_some(),
-            LanguageServerFeature::Hover => matches!(
-                capabilities.hover_provider,
-                Some(HoverProviderCapability::Simple(true) | HoverProviderCapability::Options(_),)
-            ),
-            LanguageServerFeature::DocumentHighlight => matches!(
-                capabilities.document_highlight_provider,
-                Some(OneOf::Left(true) | OneOf::Right(_))
-            ),
-            LanguageServerFeature::Completion => capabilities.completion_provider.is_some(),
-            LanguageServerFeature::CodeAction => matches!(
-                capabilities.code_action_provider,
-                Some(
-                    CodeActionProviderCapability::Simple(true)
-                        | CodeActionProviderCapability::Options(_),
-                )
-            ),
-            LanguageServerFeature::DocumentLinks => capabilities.document_link_provider.is_some(),
-            LanguageServerFeature::WorkspaceCommand => {
-                capabilities.execute_command_provider.is_some()
-            }
-            LanguageServerFeature::DocumentSymbols => matches!(
-                capabilities.document_symbol_provider,
-                Some(OneOf::Left(true) | OneOf::Right(_))
-            ),
-            LanguageServerFeature::WorkspaceSymbols => matches!(
-                capabilities.workspace_symbol_provider,
-                Some(OneOf::Left(true) | OneOf::Right(_))
-            ),
-            LanguageServerFeature::Diagnostics => true, // there's no extra server capability
-            LanguageServerFeature::PullDiagnostics => capabilities.diagnostic_provider.is_some(),
-            LanguageServerFeature::RenameSymbol => matches!(
-                capabilities.rename_provider,
-                Some(OneOf::Left(true) | OneOf::Right(_))
-            ),
-            LanguageServerFeature::InlayHints => matches!(
-                capabilities.inlay_hint_provider,
-                Some(OneOf::Left(true) | OneOf::Right(InlayHintServerCapabilities::Options(_)))
-            ),
-            LanguageServerFeature::DocumentColors => matches!(
-                capabilities.color_provider,
-                Some(
-                    ColorProviderCapability::Simple(true)
-                        | ColorProviderCapability::ColorProvider(_)
-                        | ColorProviderCapability::Options(_)
-                )
-            ),
-            LanguageServerFeature::CallHierarchy => matches!(
-                capabilities.call_hierarchy_provider,
-                Some(
-                    CallHierarchyServerCapability::Simple(true)
-                        | CallHierarchyServerCapability::Options(_)
-                )
-            ),
-        }
-    }
-
-    pub fn offset_encoding(&self) -> OffsetEncoding {
-        self.capabilities()
-            .position_encoding
-            .as_ref()
-            .and_then(|encoding| match encoding.as_str() {
-                "utf-8" => Some(OffsetEncoding::Utf8),
-                "utf-16" => Some(OffsetEncoding::Utf16),
-                "utf-32" => Some(OffsetEncoding::Utf32),
-                encoding => {
-                    log::error!(
-                        "Server provided invalid position encoding {encoding}, defaulting to utf-16"
-                    );
-                    None
-                }
-            })
-            .unwrap_or_default()
-    }
-
-    pub fn config(&self) -> Option<&Value> {
-        self.config.as_ref()
-    }
-
-    pub fn workspace_folders(&self) -> parking_lot::MutexGuard<'_, Vec<lsp::WorkspaceFolder>> {
-        self.workspace_folders.lock()
-    }
-
-    /// Execute a RPC request on the language server.
-    fn call<R: lsp::request::Request>(
-        &self,
-        params: R::Params,
-    ) -> impl Future<Output = Result<R::Result>> + use<R>
-    where
-        R::Params: serde::Serialize,
+    if let Some(workspace_folders_caps) = capabilities
+      .workspace
+      .as_ref()
+      .and_then(|cap| cap.workspace_folders.as_ref())
+      .filter(|cap| cap.supported.unwrap_or(false))
     {
-        self.call_with_ref::<R>(&params)
+      self.add_workspace_folder(
+        root_uri,
+        workspace_folders_caps.change_notifications.as_ref(),
+      );
+      true
+    } else {
+      // the server doesn't support multi workspaces, we need a new client
+      false
     }
+  }
 
-    fn call_with_ref<R: lsp::request::Request>(
-        &self,
-        params: &R::Params,
-    ) -> impl Future<Output = Result<R::Result>> + use<R>
-    where
-        R::Params: serde::Serialize,
-    {
-        self.call_with_timeout::<R>(params, self.req_timeout)
+  fn add_workspace_folder(
+    &self,
+    root_uri: Option<lsp::Url>,
+    change_notifications: Option<&OneOf<bool, String>>,
+  ) {
+    // root_uri is None just means that there isn't really any LSP workspace
+    // associated with this file. For servers that support multiple workspaces
+    // there is just one server so we can always just use that shared instance.
+    // No need to add a new workspace root here as there is no logical root for this file
+    // let the server deal with this
+    let Some(root_uri) = root_uri else {
+      return;
+    };
+
+    // server supports workspace folders, let's add the new root to the list
+    self
+      .workspace_folders
+      .lock()
+      .push(workspace_for_uri(root_uri.clone()));
+    if Some(&OneOf::Left(false)) == change_notifications {
+      // server specifically opted out of DidWorkspaceChange notifications
+      // let's assume the server will request the workspace folders itself
+      // and that we can therefore reuse the client (but are done now)
+      return;
     }
+    self.did_change_workspace(vec![workspace_for_uri(root_uri)], Vec::new());
+  }
 
-    fn call_with_timeout<R: lsp::request::Request>(
-        &self,
-        params: &R::Params,
-        timeout_secs: u64,
-    ) -> impl Future<Output = Result<R::Result>> + use<R>
-    where
-        R::Params: serde::Serialize,
-    {
-        let server_tx = self.server_tx.clone();
-        let id = self.next_request_id();
+  /// Merge `FormattingOptions` with 'config.format' and return it
+  fn get_merged_formatting_options(
+    &self,
+    options: lsp::FormattingOptions,
+  ) -> lsp::FormattingOptions {
+    let config_format = self
+      .config
+      .as_ref()
+      .and_then(|cfg| cfg.get("format"))
+      .and_then(|fmt| HashMap::<String, lsp::FormattingProperty>::deserialize(fmt).ok());
 
-        // It's important that this is not part of the future so that it gets executed right away
-        // and the request order stays consistent.
-        let rx = serde_json::to_value(params)
-            .map_err(Error::from)
-            .and_then(|params| {
-                let request = jsonrpc::MethodCall {
-                    jsonrpc: Some(jsonrpc::Version::V2),
-                    id: id.clone(),
-                    method: R::METHOD.to_string(),
-                    params: Self::value_into_params(params),
-                };
-                let (tx, rx) = channel::<Result<Value>>(1);
-                server_tx
-                    .send(Payload::Request {
-                        chan: tx,
-                        value: request,
-                    })
-                    .map_err(|e| Error::Other(e.into()))?;
-                Ok(rx)
-            });
+    if let Some(mut properties) = config_format {
+      // passed in options take precedence over 'config.format'
+      properties.extend(options.properties);
+      lsp::FormattingOptions {
+        properties,
+        ..options
+      }
+    } else {
+      options
+    }
+  }
 
-        async move {
-            use std::time::Duration;
-            use tokio::time::timeout;
-            // TODO: delay other calls until initialize success
-            timeout(Duration::from_secs(timeout_secs), rx?.recv())
-                .await
-                .map_err(|_| Error::Timeout(id))? // return Timeout
-                .ok_or(Error::StreamClosed)?
-                .and_then(|value| serde_json::from_value(value).map_err(Into::into))
+  #[allow(clippy::type_complexity, clippy::too_many_arguments)]
+  pub fn start(
+    cmd: &str,
+    args: &[String],
+    config: Option<Value>,
+    server_environment: impl IntoIterator<Item = (impl AsRef<OsStr>, impl AsRef<OsStr>)>,
+    root_path: PathBuf,
+    root_uri: Option<lsp::Url>,
+    id: LanguageServerId,
+    name: String,
+    req_timeout: u64,
+  ) -> Result<(
+    Self,
+    UnboundedReceiver<(LanguageServerId, Call)>,
+    Arc<Notify>,
+  )> {
+    info!("Starting lsp {name:?} in root {}", root_path.display());
+    // Resolve path to the binary
+    let cmd = helix_stdx::env::which(cmd)?;
+
+    let process = Command::new(cmd)
+      .envs(server_environment)
+      .args(args)
+      .stdin(Stdio::piped())
+      .stdout(Stdio::piped())
+      .stderr(Stdio::piped())
+      .current_dir(&root_path)
+      // make sure the process is reaped on drop
+      .kill_on_drop(true)
+      .spawn();
+
+    let mut process = process?;
+
+    // TODO: do we need bufreader/writer here? or do we use async wrappers on unblock?
+    let writer = BufWriter::new(process.stdin.take().expect("Failed to open stdin"));
+    let reader = BufReader::new(process.stdout.take().expect("Failed to open stdout"));
+    let stderr = BufReader::new(process.stderr.take().expect("Failed to open stderr"));
+
+    let (server_rx, server_tx, initialize_notify, shutdown_flushed) =
+      Transport::start(reader, writer, stderr, id, name.clone());
+
+    let workspace_folders = root_uri
+      .clone()
+      .map(|root| vec![workspace_for_uri(root)])
+      .unwrap_or_default();
+
+    let client = Self {
+      id,
+      name,
+      _process: process,
+      server_tx,
+      request_counter: AtomicU64::new(0),
+      capabilities: OnceCell::new(),
+      file_operation_interest: OnceLock::new(),
+      config,
+      req_timeout,
+      root_path,
+      root_uri,
+      workspace_folders: Mutex::new(workspace_folders),
+      initialize_notify: initialize_notify.clone(),
+      shutdown_flushed,
+    };
+
+    Ok((client, server_rx, initialize_notify))
+  }
+
+  pub fn name(&self) -> &str {
+    &self.name
+  }
+
+  pub fn id(&self) -> LanguageServerId {
+    self.id
+  }
+
+  fn next_request_id(&self) -> jsonrpc::Id {
+    let id = self.request_counter.fetch_add(1, Ordering::Relaxed);
+    jsonrpc::Id::Num(id)
+  }
+
+  fn value_into_params(value: Value) -> jsonrpc::Params {
+    use jsonrpc::Params;
+
+    match value {
+      Value::Null => Params::None,
+      Value::Bool(_) | Value::Number(_) | Value::String(_) => Params::Array(vec![value]),
+      Value::Array(vec) => Params::Array(vec),
+      Value::Object(map) => Params::Map(map),
+    }
+  }
+
+  pub fn is_initialized(&self) -> bool {
+    self.capabilities.get().is_some()
+  }
+
+  pub fn capabilities(&self) -> &lsp::ServerCapabilities {
+    self
+      .capabilities
+      .get()
+      .expect("language server not yet initialized!")
+  }
+
+  pub(crate) fn file_operations_intests(&self) -> &FileOperationsInterest {
+    self
+      .file_operation_interest
+      .get_or_init(|| FileOperationsInterest::new(self.capabilities()))
+  }
+
+  /// Client has to be initialized otherwise this function panics
+  #[inline]
+  pub fn supports_feature(&self, feature: LanguageServerFeature) -> bool {
+    use lsp::{
+      CallHierarchyServerCapability, CodeActionProviderCapability, ColorProviderCapability,
+      DeclarationCapability, HoverProviderCapability, ImplementationProviderCapability,
+      InlayHintServerCapabilities, OneOf, TypeDefinitionProviderCapability,
+    };
+    let capabilities = self.capabilities();
+
+    match feature {
+      LanguageServerFeature::Format => matches!(
+        capabilities.document_formatting_provider,
+        Some(OneOf::Left(true) | OneOf::Right(_))
+      ),
+      LanguageServerFeature::GotoDeclaration => matches!(
+        capabilities.declaration_provider,
+        Some(
+          DeclarationCapability::Simple(true)
+            | DeclarationCapability::RegistrationOptions(_)
+            | DeclarationCapability::Options(_),
+        )
+      ),
+      LanguageServerFeature::GotoDefinition => matches!(
+        capabilities.definition_provider,
+        Some(OneOf::Left(true) | OneOf::Right(_))
+      ),
+      LanguageServerFeature::GotoTypeDefinition => matches!(
+        capabilities.type_definition_provider,
+        Some(
+          TypeDefinitionProviderCapability::Simple(true)
+            | TypeDefinitionProviderCapability::Options(_),
+        )
+      ),
+      LanguageServerFeature::GotoReference => matches!(
+        capabilities.references_provider,
+        Some(OneOf::Left(true) | OneOf::Right(_))
+      ),
+      LanguageServerFeature::GotoImplementation => matches!(
+        capabilities.implementation_provider,
+        Some(
+          ImplementationProviderCapability::Simple(true)
+            | ImplementationProviderCapability::Options(_),
+        )
+      ),
+      LanguageServerFeature::SignatureHelp => capabilities.signature_help_provider.is_some(),
+      LanguageServerFeature::Hover => matches!(
+        capabilities.hover_provider,
+        Some(HoverProviderCapability::Simple(true) | HoverProviderCapability::Options(_),)
+      ),
+      LanguageServerFeature::DocumentHighlight => matches!(
+        capabilities.document_highlight_provider,
+        Some(OneOf::Left(true) | OneOf::Right(_))
+      ),
+      LanguageServerFeature::Completion => capabilities.completion_provider.is_some(),
+      LanguageServerFeature::CodeAction => matches!(
+        capabilities.code_action_provider,
+        Some(CodeActionProviderCapability::Simple(true) | CodeActionProviderCapability::Options(_),)
+      ),
+      LanguageServerFeature::DocumentLinks => capabilities.document_link_provider.is_some(),
+      LanguageServerFeature::WorkspaceCommand => capabilities.execute_command_provider.is_some(),
+      LanguageServerFeature::DocumentSymbols => matches!(
+        capabilities.document_symbol_provider,
+        Some(OneOf::Left(true) | OneOf::Right(_))
+      ),
+      LanguageServerFeature::WorkspaceSymbols => matches!(
+        capabilities.workspace_symbol_provider,
+        Some(OneOf::Left(true) | OneOf::Right(_))
+      ),
+      LanguageServerFeature::Diagnostics => true, // there's no extra server capability
+      LanguageServerFeature::PullDiagnostics => capabilities.diagnostic_provider.is_some(),
+      LanguageServerFeature::RenameSymbol => matches!(
+        capabilities.rename_provider,
+        Some(OneOf::Left(true) | OneOf::Right(_))
+      ),
+      LanguageServerFeature::InlayHints => matches!(
+        capabilities.inlay_hint_provider,
+        Some(OneOf::Left(true) | OneOf::Right(InlayHintServerCapabilities::Options(_)))
+      ),
+      LanguageServerFeature::DocumentColors => matches!(
+        capabilities.color_provider,
+        Some(
+          ColorProviderCapability::Simple(true)
+            | ColorProviderCapability::ColorProvider(_)
+            | ColorProviderCapability::Options(_)
+        )
+      ),
+      LanguageServerFeature::CallHierarchy => matches!(
+        capabilities.call_hierarchy_provider,
+        Some(
+          CallHierarchyServerCapability::Simple(true) | CallHierarchyServerCapability::Options(_)
+        )
+      ),
+    }
+  }
+
+  pub fn offset_encoding(&self) -> OffsetEncoding {
+    self
+      .capabilities()
+      .position_encoding
+      .as_ref()
+      .and_then(|encoding| match encoding.as_str() {
+        "utf-8" => Some(OffsetEncoding::Utf8),
+        "utf-16" => Some(OffsetEncoding::Utf16),
+        "utf-32" => Some(OffsetEncoding::Utf32),
+        encoding => {
+          log::error!("Server provided invalid position encoding {encoding}, defaulting to utf-16");
+          None
         }
-    }
+      })
+      .unwrap_or_default()
+  }
 
-    /// Send a RPC notification to the language server.
-    pub fn notify<R: lsp::notification::Notification>(&self, params: R::Params)
-    where
-        R::Params: serde::Serialize,
-    {
-        let server_tx = self.server_tx.clone();
+  pub fn config(&self) -> Option<&Value> {
+    self.config.as_ref()
+  }
 
-        let params = match serde_json::to_value(params) {
-            Ok(params) => params,
-            Err(err) => {
-                log::error!(
-                    "Failed to serialize params for notification '{}' for server '{}': {err}",
-                    R::METHOD,
-                    self.name,
-                );
-                return;
-            }
-        };
+  pub fn workspace_folders(&self) -> parking_lot::MutexGuard<'_, Vec<lsp::WorkspaceFolder>> {
+    self.workspace_folders.lock()
+  }
 
-        let notification = jsonrpc::Notification {
-            jsonrpc: Some(jsonrpc::Version::V2),
-            method: R::METHOD.to_string(),
-            params: Self::value_into_params(params),
-        };
+  /// Execute a RPC request on the language server.
+  fn call<R: lsp::request::Request>(
+    &self,
+    params: R::Params,
+  ) -> impl Future<Output = Result<R::Result>> + use<R>
+  where
+    R::Params: serde::Serialize,
+  {
+    self.call_with_ref::<R>(&params)
+  }
 
-        if let Err(err) = server_tx.send(Payload::Notification(notification)) {
-            log::error!(
-                "Failed to send notification '{}' to server '{}': {err}",
-                R::METHOD,
-                self.name
-            );
-        }
-    }
+  fn call_with_ref<R: lsp::request::Request>(
+    &self,
+    params: &R::Params,
+  ) -> impl Future<Output = Result<R::Result>> + use<R>
+  where
+    R::Params: serde::Serialize,
+  {
+    self.call_with_timeout::<R>(params, self.req_timeout)
+  }
 
-    /// Reply to a language server RPC call.
-    pub fn reply(
-        &self,
-        id: jsonrpc::Id,
-        result: core::result::Result<Value, jsonrpc::Error>,
-    ) -> Result<()> {
-        use jsonrpc::{Failure, Output, Success, Version};
+  fn call_with_timeout<R: lsp::request::Request>(
+    &self,
+    params: &R::Params,
+    timeout_secs: u64,
+  ) -> impl Future<Output = Result<R::Result>> + use<R>
+  where
+    R::Params: serde::Serialize,
+  {
+    let server_tx = self.server_tx.clone();
+    let id = self.next_request_id();
 
-        let server_tx = self.server_tx.clone();
-
-        let output = match result {
-            Ok(result) => Output::Success(Success {
-                jsonrpc: Some(Version::V2),
-                id,
-                result,
-            }),
-            Err(error) => Output::Failure(Failure {
-                jsonrpc: Some(Version::V2),
-                id,
-                error,
-            }),
-        };
-
-        server_tx
-            .send(Payload::Response(output))
-            .map_err(|e| Error::Other(e.into()))?;
-
-        Ok(())
-    }
-
-    // -------------------------------------------------------------------------------------------
-    // General messages
-    // -------------------------------------------------------------------------------------------
-
-    pub(crate) async fn initialize(&self, enable_snippets: bool) -> Result<lsp::InitializeResult> {
-        if let Some(config) = &self.config {
-            log::info!("Using custom LSP config: {config}");
-        }
-
-        #[allow(deprecated)]
-        let params = lsp::InitializeParams {
-            process_id: Some(std::process::id()),
-            workspace_folders: Some(self.workspace_folders.lock().clone()),
-            // root_path is obsolete, but some clients like pyright still use it so we specify both.
-            // clients will prefer _uri if possible
-            root_path: self.root_path.to_str().map(std::borrow::ToOwned::to_owned),
-            root_uri: self.root_uri.clone(),
-            initialization_options: self.config.clone(),
-            capabilities: lsp::ClientCapabilities {
-                workspace: Some(lsp::WorkspaceClientCapabilities {
-                    configuration: Some(true),
-                    did_change_configuration: Some(lsp::DynamicRegistrationClientCapabilities {
-                        dynamic_registration: Some(false),
-                    }),
-                    workspace_folders: Some(true),
-                    apply_edit: Some(true),
-                    symbol: Some(lsp::WorkspaceSymbolClientCapabilities {
-                        dynamic_registration: Some(false),
-                        symbol_kind: Some(lsp::SymbolKindCapability {
-                            value_set: Some(lsp::SymbolKind::all()),
-                        }),
-                        ..Default::default()
-                    }),
-                    execute_command: Some(lsp::DynamicRegistrationClientCapabilities {
-                        dynamic_registration: Some(false),
-                    }),
-                    inlay_hint: Some(lsp::InlayHintWorkspaceClientCapabilities {
-                        refresh_support: Some(false),
-                    }),
-                    workspace_edit: Some(lsp::WorkspaceEditClientCapabilities {
-                        document_changes: Some(true),
-                        resource_operations: Some(vec![
-                            lsp::ResourceOperationKind::Create,
-                            lsp::ResourceOperationKind::Rename,
-                            lsp::ResourceOperationKind::Delete,
-                        ]),
-                        failure_handling: Some(lsp::FailureHandlingKind::Abort),
-                        normalizes_line_endings: Some(false),
-                        change_annotation_support: None,
-                    }),
-                    did_change_watched_files: Some(lsp::DidChangeWatchedFilesClientCapabilities {
-                        dynamic_registration: Some(true),
-                        relative_pattern_support: Some(true),
-                    }),
-                    file_operations: Some(lsp::WorkspaceFileOperationsClientCapabilities {
-                        will_create: Some(true),
-                        did_create: Some(true),
-                        will_rename: Some(true),
-                        did_rename: Some(true),
-                        will_delete: Some(true),
-                        did_delete: Some(true),
-                        ..Default::default()
-                    }),
-                    diagnostic: Some(lsp::DiagnosticWorkspaceClientCapabilities {
-                        refresh_support: Some(true),
-                    }),
-                    ..Default::default()
-                }),
-                text_document: Some(lsp::TextDocumentClientCapabilities {
-                    completion: Some(lsp::CompletionClientCapabilities {
-                        completion_item: Some(lsp::CompletionItemCapability {
-                            snippet_support: Some(enable_snippets),
-                            resolve_support: Some(lsp::CompletionItemCapabilityResolveSupport {
-                                properties: vec![
-                                    String::from("documentation"),
-                                    String::from("detail"),
-                                    String::from("additionalTextEdits"),
-                                ],
-                            }),
-                            insert_replace_support: Some(true),
-                            deprecated_support: Some(true),
-                            tag_support: Some(lsp::TagSupport {
-                                value_set: vec![lsp::CompletionItemTag::DEPRECATED],
-                            }),
-                            ..Default::default()
-                        }),
-                        completion_item_kind: Some(lsp::CompletionItemKindCapability {
-                            ..Default::default()
-                        }),
-                        context_support: None, // additional context information Some(true)
-                        ..Default::default()
-                    }),
-                    hover: Some(lsp::HoverClientCapabilities {
-                        // if not specified, rust-analyzer returns plaintext marked as markdown but
-                        // badly formatted.
-                        content_format: Some(vec![lsp::MarkupKind::Markdown]),
-                        ..Default::default()
-                    }),
-                    signature_help: Some(lsp::SignatureHelpClientCapabilities {
-                        signature_information: Some(lsp::SignatureInformationSettings {
-                            documentation_format: Some(vec![lsp::MarkupKind::Markdown]),
-                            parameter_information: Some(lsp::ParameterInformationSettings {
-                                label_offset_support: Some(true),
-                            }),
-                            active_parameter_support: Some(true),
-                        }),
-                        ..Default::default()
-                    }),
-                    rename: Some(lsp::RenameClientCapabilities {
-                        dynamic_registration: Some(false),
-                        prepare_support: Some(true),
-                        prepare_support_default_behavior: None,
-                        honors_change_annotations: Some(false),
-                    }),
-                    formatting: Some(lsp::DocumentFormattingClientCapabilities {
-                        dynamic_registration: Some(false),
-                    }),
-                    code_action: Some(lsp::CodeActionClientCapabilities {
-                        code_action_literal_support: Some(lsp::CodeActionLiteralSupport {
-                            code_action_kind: lsp::CodeActionKindLiteralSupport {
-                                value_set: [
-                                    lsp::CodeActionKind::EMPTY,
-                                    lsp::CodeActionKind::QUICKFIX,
-                                    lsp::CodeActionKind::REFACTOR,
-                                    lsp::CodeActionKind::REFACTOR_EXTRACT,
-                                    lsp::CodeActionKind::REFACTOR_INLINE,
-                                    lsp::CodeActionKind::REFACTOR_REWRITE,
-                                    lsp::CodeActionKind::SOURCE,
-                                    lsp::CodeActionKind::SOURCE_ORGANIZE_IMPORTS,
-                                    lsp::CodeActionKind::SOURCE_FIX_ALL,
-                                ]
-                                .iter()
-                                .map(|kind| kind.as_str().to_string())
-                                .collect(),
-                            },
-                        }),
-                        is_preferred_support: Some(true),
-                        disabled_support: Some(true),
-                        data_support: Some(true),
-                        resolve_support: Some(CodeActionCapabilityResolveSupport {
-                            properties: vec!["edit".to_owned(), "command".to_owned()],
-                        }),
-                        ..Default::default()
-                    }),
-                    diagnostic: Some(lsp::DiagnosticClientCapabilities {
-                        dynamic_registration: Some(false),
-                        related_document_support: Some(true),
-                    }),
-                    publish_diagnostics: Some(lsp::PublishDiagnosticsClientCapabilities {
-                        version_support: Some(true),
-                        tag_support: Some(lsp::TagSupport {
-                            value_set: vec![
-                                lsp::DiagnosticTag::UNNECESSARY,
-                                lsp::DiagnosticTag::DEPRECATED,
-                            ],
-                        }),
-                        ..Default::default()
-                    }),
-                    inlay_hint: Some(lsp::InlayHintClientCapabilities {
-                        dynamic_registration: Some(false),
-                        resolve_support: None,
-                    }),
-                    document_link: Some(lsp::DocumentLinkClientCapabilities {
-                        dynamic_registration: Some(false),
-                        tooltip_support: Some(false),
-                    }),
-                    call_hierarchy: Some(lsp::DynamicRegistrationClientCapabilities {
-                        dynamic_registration: Some(false),
-                    }),
-                    document_symbol: Some(lsp::DocumentSymbolClientCapabilities {
-                        dynamic_registration: Some(false),
-                        symbol_kind: Some(lsp::SymbolKindCapability {
-                            value_set: Some(lsp::SymbolKind::all()),
-                        }),
-                        hierarchical_document_symbol_support: Some(false),
-                        ..Default::default()
-                    }),
-                    ..Default::default()
-                }),
-                window: Some(lsp::WindowClientCapabilities {
-                    show_message: Some(lsp::ShowMessageRequestClientCapabilities {
-                        message_action_item: Some(lsp::MessageActionItemCapabilities {
-                            additional_properties_support: Some(true),
-                        }),
-                    }),
-                    work_done_progress: Some(true),
-                    show_document: Some(lsp::ShowDocumentClientCapabilities { support: true }),
-                }),
-                general: Some(lsp::GeneralClientCapabilities {
-                    position_encodings: Some(vec![
-                        PositionEncodingKind::UTF8,
-                        PositionEncodingKind::UTF32,
-                        PositionEncodingKind::UTF16,
-                    ]),
-                    ..Default::default()
-                }),
-                ..Default::default()
-            },
-            trace: None,
-            client_info: Some(lsp::ClientInfo {
-                name: String::from("helix"),
-                version: Some(String::from(VERSION_AND_GIT_HASH)),
-            }),
-            locale: None, // TODO
-            work_done_progress_params: lsp::WorkDoneProgressParams::default(),
-        };
-
-        self.call::<lsp::request::Initialize>(params).await
-    }
-
-    pub async fn shutdown(&self) -> Result<()> {
-        self.call::<lsp::request::Shutdown>(()).await
-    }
-
-    pub fn exit(&self) {
-        self.notify::<lsp::notification::Exit>(());
-    }
-
-    /// Tries to shut down the language server but returns
-    /// early if server responds with an error.
-    pub async fn shutdown_and_exit(&self) -> Result<()> {
-        self.shutdown().await?;
-        self.exit();
-        Ok(())
-    }
-
-    /// Sends the LSP shutdown request followed immediately by the exit
-    /// notification, without waiting for the shutdown response (fire-and-forget).
-    /// The server receives both in order and exits on its own; any late shutdown
-    /// response is discarded. Quitting therefore never blocks on a slow server
-    /// (e.g. gopls flushing ~1k log messages before it would answer `shutdown`).
-    ///
-    /// The child process is not waited on here: it is killed by `kill_on_drop`
-    /// when this `Client` is dropped. `close_language_servers` first gives a short
-    /// grace window so the `exit` reaches stdin and well-behaved servers can begin
-    /// exiting before the kill.
-    pub fn force_shutdown(&self) {
+    // It's important that this is not part of the future so that it gets executed right away
+    // and the request order stays consistent.
+    let rx = serde_json::to_value(params)
+      .map_err(Error::from)
+      .and_then(|params| {
         let request = jsonrpc::MethodCall {
-            jsonrpc: Some(jsonrpc::Version::V2),
-            id: self.next_request_id(),
-            method: <lsp::request::Shutdown as lsp::request::Request>::METHOD.to_string(),
-            params: jsonrpc::Params::None,
+          jsonrpc: Some(jsonrpc::Version::V2),
+          id: id.clone(),
+          method: R::METHOD.to_string(),
+          params: Self::value_into_params(params),
         };
-        // The response receiver is dropped immediately; we do not wait for a reply.
-        let (chan, _) = tokio::sync::mpsc::channel(1);
-        let _ = self.server_tx.send(Payload::Request {
-            chan,
+        let (tx, rx) = channel::<Result<Value>>(1);
+        server_tx
+          .send(Payload::Request {
+            chan: tx,
             value: request,
-        });
-        self.exit();
+          })
+          .map_err(|e| Error::Other(e.into()))?;
+        Ok(rx)
+      });
+
+    async move {
+      use std::time::Duration;
+      use tokio::time::timeout;
+      // TODO: delay other calls until initialize success
+      timeout(Duration::from_secs(timeout_secs), rx?.recv())
+        .await
+        .map_err(|_| Error::Timeout(id))? // return Timeout
+        .ok_or(Error::StreamClosed)?
+        .and_then(|value| serde_json::from_value(value).map_err(Into::into))
     }
+  }
 
-    /// Resolves once the `exit` notification has been written to the server's stdin
-    /// (i.e. helix's *outbound* write completed — independent of how slow the server
-    /// is, since it doesn't wait for any server response).
-    pub async fn wait_shutdown_flushed(&self) {
-        self.shutdown_flushed.notified().await;
-    }
+  /// Send a RPC notification to the language server.
+  pub fn notify<R: lsp::notification::Notification>(&self, params: R::Params)
+  where
+    R::Params: serde::Serialize,
+  {
+    let server_tx = self.server_tx.clone();
 
-    // -------------------------------------------------------------------------------------------
-    // Workspace
-    // -------------------------------------------------------------------------------------------
-
-    pub fn did_change_configuration(&self, settings: Value) {
-        self.notify::<lsp::notification::DidChangeConfiguration>(
-            lsp::DidChangeConfigurationParams { settings },
+    let params = match serde_json::to_value(params) {
+      Ok(params) => params,
+      Err(err) => {
+        log::error!(
+          "Failed to serialize params for notification '{}' for server '{}': {err}",
+          R::METHOD,
+          self.name,
         );
+        return;
+      }
+    };
+
+    let notification = jsonrpc::Notification {
+      jsonrpc: Some(jsonrpc::Version::V2),
+      method: R::METHOD.to_string(),
+      params: Self::value_into_params(params),
+    };
+
+    if let Err(err) = server_tx.send(Payload::Notification(notification)) {
+      log::error!(
+        "Failed to send notification '{}' to server '{}': {err}",
+        R::METHOD,
+        self.name
+      );
+    }
+  }
+
+  /// Reply to a language server RPC call.
+  pub fn reply(
+    &self,
+    id: jsonrpc::Id,
+    result: core::result::Result<Value, jsonrpc::Error>,
+  ) -> Result<()> {
+    use jsonrpc::{Failure, Output, Success, Version};
+
+    let server_tx = self.server_tx.clone();
+
+    let output = match result {
+      Ok(result) => Output::Success(Success {
+        jsonrpc: Some(Version::V2),
+        id,
+        result,
+      }),
+      Err(error) => Output::Failure(Failure {
+        jsonrpc: Some(Version::V2),
+        id,
+        error,
+      }),
+    };
+
+    server_tx
+      .send(Payload::Response(output))
+      .map_err(|e| Error::Other(e.into()))?;
+
+    Ok(())
+  }
+
+  // -------------------------------------------------------------------------------------------
+  // General messages
+  // -------------------------------------------------------------------------------------------
+
+  pub(crate) async fn initialize(&self, enable_snippets: bool) -> Result<lsp::InitializeResult> {
+    if let Some(config) = &self.config {
+      log::info!("Using custom LSP config: {config}");
     }
 
-    pub fn did_change_workspace(&self, added: Vec<WorkspaceFolder>, removed: Vec<WorkspaceFolder>) {
-        self.notify::<DidChangeWorkspaceFolders>(DidChangeWorkspaceFoldersParams {
-            event: WorkspaceFoldersChangeEvent { added, removed },
-        });
-    }
-
-    fn file_operation_uri(path: &Path, is_dir: bool) -> Option<String> {
-        let url = if is_dir {
-            Url::from_directory_path(path)
-        } else {
-            Url::from_file_path(path)
-        };
-        Some(url.ok()?.to_string())
-    }
-
-    pub fn will_create(
-        &self,
-        path: &Path,
-        is_dir: bool,
-    ) -> Option<impl Future<Output = Result<Option<lsp::WorkspaceEdit>>>> {
-        let capabilities = self.file_operations_intests();
-        if !capabilities.will_create.has_interest(path, is_dir) {
-            return None;
-        }
-
-        let files = vec![lsp::FileCreate {
-            uri: Self::file_operation_uri(path, is_dir)?,
-        }];
-        Some(self.call_with_timeout::<lsp::request::WillCreateFiles>(
-            &lsp::CreateFilesParams { files },
-            5,
-        ))
-    }
-
-    pub fn did_create(&self, path: &Path, is_dir: bool) -> Option<()> {
-        let capabilities = self.file_operations_intests();
-        if !capabilities.did_create.has_interest(path, is_dir) {
-            return None;
-        }
-
-        let files = vec![lsp::FileCreate {
-            uri: Self::file_operation_uri(path, is_dir)?,
-        }];
-        self.notify::<lsp::notification::DidCreateFiles>(lsp::CreateFilesParams { files });
-        Some(())
-    }
-
-    pub fn will_rename(
-        &self,
-        old_path: &Path,
-        new_path: &Path,
-        is_dir: bool,
-    ) -> Option<impl Future<Output = Result<Option<lsp::WorkspaceEdit>>> + use<>> {
-        let capabilities = self.file_operations_intests();
-        if !capabilities.will_rename.has_interest(old_path, is_dir) {
-            return None;
-        }
-        let files = vec![lsp::FileRename {
-            old_uri: Self::file_operation_uri(old_path, is_dir)?,
-            new_uri: Self::file_operation_uri(new_path, is_dir)?,
-        }];
-        Some(self.call_with_timeout::<lsp::request::WillRenameFiles>(
-            &lsp::RenameFilesParams { files },
-            5,
-        ))
-    }
-
-    pub fn did_rename(&self, old_path: &Path, new_path: &Path, is_dir: bool) -> Option<()> {
-        let capabilities = self.file_operations_intests();
-        if !capabilities.did_rename.has_interest(new_path, is_dir) {
-            return None;
-        }
-
-        let files = vec![lsp::FileRename {
-            old_uri: Self::file_operation_uri(old_path, is_dir)?,
-            new_uri: Self::file_operation_uri(new_path, is_dir)?,
-        }];
-        self.notify::<lsp::notification::DidRenameFiles>(lsp::RenameFilesParams { files });
-        Some(())
-    }
-
-    pub fn will_delete(
-        &self,
-        path: &Path,
-        is_dir: bool,
-    ) -> Option<impl Future<Output = Result<Option<lsp::WorkspaceEdit>>>> {
-        let capabilities = self.file_operations_intests();
-        if !capabilities.will_delete.has_interest(path, is_dir) {
-            return None;
-        }
-
-        let files = vec![lsp::FileDelete {
-            uri: Self::file_operation_uri(path, is_dir)?,
-        }];
-        Some(self.call_with_timeout::<lsp::request::WillDeleteFiles>(
-            &lsp::DeleteFilesParams { files },
-            5,
-        ))
-    }
-
-    pub fn did_delete(&self, path: &Path, is_dir: bool) -> Option<()> {
-        let capabilities = self.file_operations_intests();
-        if !capabilities.did_delete.has_interest(path, is_dir) {
-            return None;
-        }
-
-        let files = vec![lsp::FileDelete {
-            uri: Self::file_operation_uri(path, is_dir)?,
-        }];
-        self.notify::<lsp::notification::DidDeleteFiles>(lsp::DeleteFilesParams { files });
-        Some(())
-    }
-
-    // -------------------------------------------------------------------------------------------
-    // Text document
-    // -------------------------------------------------------------------------------------------
-
-    pub fn text_document_did_open(
-        &self,
-        uri: lsp::Url,
-        version: i32,
-        doc: &Rope,
-        language_id: String,
-    ) {
-        self.notify::<lsp::notification::DidOpenTextDocument>(lsp::DidOpenTextDocumentParams {
-            text_document: lsp::TextDocumentItem {
-                uri,
-                language_id,
-                version,
-                text: String::from(doc),
-            },
-        });
-    }
-
-    #[must_use]
-    pub fn changeset_to_changes(
-        old_text: &Rope,
-        new_text: &Rope,
-        changeset: &ChangeSet,
-        offset_encoding: OffsetEncoding,
-    ) -> Vec<lsp::TextDocumentContentChangeEvent> {
-        use crate::util::pos_to_lsp_pos;
-        use helix_core::Operation::{Delete, Insert, Retain};
-        use helix_core::RopeSlice;
-
-        // this is dumb. TextEdit describes changes to the initial doc (concurrent), but
-        // TextDocumentContentChangeEvent describes a series of changes (sequential).
-        // So S -> S1 -> S2, meaning positioning depends on the previous edits.
-        //
-        // Calculation is therefore a bunch trickier.
-
-        fn traverse(
-            pos: lsp::Position,
-            text: RopeSlice,
-            offset_encoding: OffsetEncoding,
-        ) -> lsp::Position {
-            let lsp::Position {
-                mut line,
-                mut character,
-            } = pos;
-
-            let mut chars = text.chars().peekable();
-            while let Some(ch) = chars.next() {
-                // LSP only considers \n, \r or \r\n as line endings
-                if ch == '\n' || ch == '\r' {
-                    // consume a \r\n
-                    if ch == '\r' && chars.peek() == Some(&'\n') {
-                        chars.next();
-                    }
-                    line += 1;
-                    character = 0;
-                } else {
-                    character += match offset_encoding {
-                        OffsetEncoding::Utf8 => u32::try_from(ch.len_utf8()).unwrap(),
-                        OffsetEncoding::Utf16 => u32::try_from(ch.len_utf16()).unwrap(),
-                        OffsetEncoding::Utf32 => 1,
-                    };
-                }
-            }
-            lsp::Position { line, character }
-        }
-        let mut iter = changeset.changes().iter().peekable();
-        let mut old_pos = 0;
-        let mut new_pos = 0;
-
-        let mut changes = Vec::new();
-
-        let old_text = old_text.slice(..);
-
-        while let Some(change) = iter.next() {
-            let len = match change {
-                Delete(i) | Retain(i) => *i,
-                Insert(_) => 0,
-            };
-            let mut old_end = old_pos + len;
-
-            match change {
-                Retain(i) => {
-                    new_pos += i;
-                }
-                Delete(_) => {
-                    let start = pos_to_lsp_pos(new_text, new_pos, offset_encoding);
-                    let end = traverse(start, old_text.slice(old_pos..old_end), offset_encoding);
-
-                    // deletion
-                    changes.push(lsp::TextDocumentContentChangeEvent {
-                        range: Some(lsp::Range::new(start, end)),
-                        text: String::new(),
-                        range_length: None,
-                    });
-                }
-                Insert(s) => {
-                    let start = pos_to_lsp_pos(new_text, new_pos, offset_encoding);
-
-                    new_pos += s.chars().count();
-
-                    // a subsequent delete means a replace, consume it
-                    let end = if let Some(Delete(len)) = iter.peek() {
-                        old_end = old_pos + len;
-                        let end =
-                            traverse(start, old_text.slice(old_pos..old_end), offset_encoding);
-
-                        iter.next();
-
-                        // replacement
-                        end
-                    } else {
-                        // insert
-                        start
-                    };
-
-                    changes.push(lsp::TextDocumentContentChangeEvent {
-                        range: Some(lsp::Range::new(start, end)),
-                        text: s.to_string(),
-                        range_length: None,
-                    });
-                }
-            }
-            old_pos = old_end;
-        }
-
-        changes
-    }
-
-    pub fn text_document_did_change(
-        &self,
-        text_document: lsp::VersionedTextDocumentIdentifier,
-        old_text: &Rope,
-        new_text: &Rope,
-        changes: &ChangeSet,
-    ) -> Option<()> {
-        let capabilities = self.capabilities.get().unwrap();
-
-        // Return early if the server does not support document sync.
-        let Some(
-            lsp::TextDocumentSyncCapability::Kind(sync_capabilities)
-            | lsp::TextDocumentSyncCapability::Options(lsp::TextDocumentSyncOptions {
-                change: Some(sync_capabilities),
-                ..
+    #[allow(deprecated)]
+    let params = lsp::InitializeParams {
+      process_id: Some(std::process::id()),
+      workspace_folders: Some(self.workspace_folders.lock().clone()),
+      // root_path is obsolete, but some clients like pyright still use it so we specify both.
+      // clients will prefer _uri if possible
+      root_path: self.root_path.to_str().map(std::borrow::ToOwned::to_owned),
+      root_uri: self.root_uri.clone(),
+      initialization_options: self.config.clone(),
+      capabilities: lsp::ClientCapabilities {
+        workspace: Some(lsp::WorkspaceClientCapabilities {
+          configuration: Some(true),
+          did_change_configuration: Some(lsp::DynamicRegistrationClientCapabilities {
+            dynamic_registration: Some(false),
+          }),
+          workspace_folders: Some(true),
+          apply_edit: Some(true),
+          symbol: Some(lsp::WorkspaceSymbolClientCapabilities {
+            dynamic_registration: Some(false),
+            symbol_kind: Some(lsp::SymbolKindCapability {
+              value_set: Some(lsp::SymbolKind::all()),
             }),
-        ) = capabilities.text_document_sync
-        else {
-            return None;
-        };
+            ..Default::default()
+          }),
+          execute_command: Some(lsp::DynamicRegistrationClientCapabilities {
+            dynamic_registration: Some(false),
+          }),
+          inlay_hint: Some(lsp::InlayHintWorkspaceClientCapabilities {
+            refresh_support: Some(false),
+          }),
+          workspace_edit: Some(lsp::WorkspaceEditClientCapabilities {
+            document_changes: Some(true),
+            resource_operations: Some(vec![
+              lsp::ResourceOperationKind::Create,
+              lsp::ResourceOperationKind::Rename,
+              lsp::ResourceOperationKind::Delete,
+            ]),
+            failure_handling: Some(lsp::FailureHandlingKind::Abort),
+            normalizes_line_endings: Some(false),
+            change_annotation_support: None,
+          }),
+          did_change_watched_files: Some(lsp::DidChangeWatchedFilesClientCapabilities {
+            dynamic_registration: Some(true),
+            relative_pattern_support: Some(true),
+          }),
+          file_operations: Some(lsp::WorkspaceFileOperationsClientCapabilities {
+            will_create: Some(true),
+            did_create: Some(true),
+            will_rename: Some(true),
+            did_rename: Some(true),
+            will_delete: Some(true),
+            did_delete: Some(true),
+            ..Default::default()
+          }),
+          diagnostic: Some(lsp::DiagnosticWorkspaceClientCapabilities {
+            refresh_support: Some(true),
+          }),
+          ..Default::default()
+        }),
+        text_document: Some(lsp::TextDocumentClientCapabilities {
+          completion: Some(lsp::CompletionClientCapabilities {
+            completion_item: Some(lsp::CompletionItemCapability {
+              snippet_support: Some(enable_snippets),
+              resolve_support: Some(lsp::CompletionItemCapabilityResolveSupport {
+                properties: vec![
+                  String::from("documentation"),
+                  String::from("detail"),
+                  String::from("additionalTextEdits"),
+                ],
+              }),
+              insert_replace_support: Some(true),
+              deprecated_support: Some(true),
+              tag_support: Some(lsp::TagSupport {
+                value_set: vec![lsp::CompletionItemTag::DEPRECATED],
+              }),
+              ..Default::default()
+            }),
+            completion_item_kind: Some(lsp::CompletionItemKindCapability {
+              ..Default::default()
+            }),
+            context_support: None, // additional context information Some(true)
+            ..Default::default()
+          }),
+          hover: Some(lsp::HoverClientCapabilities {
+            // if not specified, rust-analyzer returns plaintext marked as markdown but
+            // badly formatted.
+            content_format: Some(vec![lsp::MarkupKind::Markdown]),
+            ..Default::default()
+          }),
+          signature_help: Some(lsp::SignatureHelpClientCapabilities {
+            signature_information: Some(lsp::SignatureInformationSettings {
+              documentation_format: Some(vec![lsp::MarkupKind::Markdown]),
+              parameter_information: Some(lsp::ParameterInformationSettings {
+                label_offset_support: Some(true),
+              }),
+              active_parameter_support: Some(true),
+            }),
+            ..Default::default()
+          }),
+          rename: Some(lsp::RenameClientCapabilities {
+            dynamic_registration: Some(false),
+            prepare_support: Some(true),
+            prepare_support_default_behavior: None,
+            honors_change_annotations: Some(false),
+          }),
+          formatting: Some(lsp::DocumentFormattingClientCapabilities {
+            dynamic_registration: Some(false),
+          }),
+          code_action: Some(lsp::CodeActionClientCapabilities {
+            code_action_literal_support: Some(lsp::CodeActionLiteralSupport {
+              code_action_kind: lsp::CodeActionKindLiteralSupport {
+                value_set: [
+                  lsp::CodeActionKind::EMPTY,
+                  lsp::CodeActionKind::QUICKFIX,
+                  lsp::CodeActionKind::REFACTOR,
+                  lsp::CodeActionKind::REFACTOR_EXTRACT,
+                  lsp::CodeActionKind::REFACTOR_INLINE,
+                  lsp::CodeActionKind::REFACTOR_REWRITE,
+                  lsp::CodeActionKind::SOURCE,
+                  lsp::CodeActionKind::SOURCE_ORGANIZE_IMPORTS,
+                  lsp::CodeActionKind::SOURCE_FIX_ALL,
+                ]
+                .iter()
+                .map(|kind| kind.as_str().to_string())
+                .collect(),
+              },
+            }),
+            is_preferred_support: Some(true),
+            disabled_support: Some(true),
+            data_support: Some(true),
+            resolve_support: Some(CodeActionCapabilityResolveSupport {
+              properties: vec!["edit".to_owned(), "command".to_owned()],
+            }),
+            ..Default::default()
+          }),
+          diagnostic: Some(lsp::DiagnosticClientCapabilities {
+            dynamic_registration: Some(false),
+            related_document_support: Some(true),
+          }),
+          publish_diagnostics: Some(lsp::PublishDiagnosticsClientCapabilities {
+            version_support: Some(true),
+            tag_support: Some(lsp::TagSupport {
+              value_set: vec![
+                lsp::DiagnosticTag::UNNECESSARY,
+                lsp::DiagnosticTag::DEPRECATED,
+              ],
+            }),
+            ..Default::default()
+          }),
+          inlay_hint: Some(lsp::InlayHintClientCapabilities {
+            dynamic_registration: Some(false),
+            resolve_support: None,
+          }),
+          document_link: Some(lsp::DocumentLinkClientCapabilities {
+            dynamic_registration: Some(false),
+            tooltip_support: Some(false),
+          }),
+          call_hierarchy: Some(lsp::DynamicRegistrationClientCapabilities {
+            dynamic_registration: Some(false),
+          }),
+          document_symbol: Some(lsp::DocumentSymbolClientCapabilities {
+            dynamic_registration: Some(false),
+            symbol_kind: Some(lsp::SymbolKindCapability {
+              value_set: Some(lsp::SymbolKind::all()),
+            }),
+            hierarchical_document_symbol_support: Some(false),
+            ..Default::default()
+          }),
+          ..Default::default()
+        }),
+        window: Some(lsp::WindowClientCapabilities {
+          show_message: Some(lsp::ShowMessageRequestClientCapabilities {
+            message_action_item: Some(lsp::MessageActionItemCapabilities {
+              additional_properties_support: Some(true),
+            }),
+          }),
+          work_done_progress: Some(true),
+          show_document: Some(lsp::ShowDocumentClientCapabilities { support: true }),
+        }),
+        general: Some(lsp::GeneralClientCapabilities {
+          position_encodings: Some(vec![
+            PositionEncodingKind::UTF8,
+            PositionEncodingKind::UTF32,
+            PositionEncodingKind::UTF16,
+          ]),
+          ..Default::default()
+        }),
+        ..Default::default()
+      },
+      trace: None,
+      client_info: Some(lsp::ClientInfo {
+        name: String::from("helix"),
+        version: Some(String::from(VERSION_AND_GIT_HASH)),
+      }),
+      locale: None, // TODO
+      work_done_progress_params: lsp::WorkDoneProgressParams::default(),
+    };
 
-        let changes = match sync_capabilities {
-            lsp::TextDocumentSyncKind::FULL => {
-                vec![lsp::TextDocumentContentChangeEvent {
-                    // range = None -> whole document
-                    range: None,        //Some(Range)
-                    range_length: None, // u64 apparently deprecated
-                    text: new_text.to_string(),
-                }]
-            }
-            lsp::TextDocumentSyncKind::INCREMENTAL => {
-                Self::changeset_to_changes(old_text, new_text, changes, self.offset_encoding())
-            }
-            lsp::TextDocumentSyncKind::NONE => return None,
-            kind => unimplemented!("{:?}", kind),
-        };
+    self.call::<lsp::request::Initialize>(params).await
+  }
 
-        self.notify::<lsp::notification::DidChangeTextDocument>(lsp::DidChangeTextDocumentParams {
-            text_document,
-            content_changes: changes,
-        });
-        Some(())
+  pub async fn shutdown(&self) -> Result<()> {
+    self.call::<lsp::request::Shutdown>(()).await
+  }
+
+  pub fn exit(&self) {
+    self.notify::<lsp::notification::Exit>(());
+  }
+
+  /// Tries to shut down the language server but returns
+  /// early if server responds with an error.
+  pub async fn shutdown_and_exit(&self) -> Result<()> {
+    self.shutdown().await?;
+    self.exit();
+    Ok(())
+  }
+
+  /// Sends the LSP shutdown request followed immediately by the exit
+  /// notification, without waiting for the shutdown response (fire-and-forget).
+  /// The server receives both in order and exits on its own; any late shutdown
+  /// response is discarded. Quitting therefore never blocks on a slow server
+  /// (e.g. gopls flushing ~1k log messages before it would answer `shutdown`).
+  ///
+  /// The child process is not waited on here: it is killed by `kill_on_drop`
+  /// when this `Client` is dropped. `close_language_servers` first gives a short
+  /// grace window so the `exit` reaches stdin and well-behaved servers can begin
+  /// exiting before the kill.
+  pub fn force_shutdown(&self) {
+    let request = jsonrpc::MethodCall {
+      jsonrpc: Some(jsonrpc::Version::V2),
+      id: self.next_request_id(),
+      method: <lsp::request::Shutdown as lsp::request::Request>::METHOD.to_string(),
+      params: jsonrpc::Params::None,
+    };
+    // The response receiver is dropped immediately; we do not wait for a reply.
+    let (chan, _) = tokio::sync::mpsc::channel(1);
+    let _ = self.server_tx.send(Payload::Request {
+      chan,
+      value: request,
+    });
+    self.exit();
+  }
+
+  /// Resolves once the `exit` notification has been written to the server's stdin
+  /// (i.e. helix's *outbound* write completed — independent of how slow the server
+  /// is, since it doesn't wait for any server response).
+  pub async fn wait_shutdown_flushed(&self) {
+    self.shutdown_flushed.notified().await;
+  }
+
+  // -------------------------------------------------------------------------------------------
+  // Workspace
+  // -------------------------------------------------------------------------------------------
+
+  pub fn did_change_configuration(&self, settings: Value) {
+    self.notify::<lsp::notification::DidChangeConfiguration>(lsp::DidChangeConfigurationParams {
+      settings,
+    });
+  }
+
+  pub fn did_change_workspace(&self, added: Vec<WorkspaceFolder>, removed: Vec<WorkspaceFolder>) {
+    self.notify::<DidChangeWorkspaceFolders>(DidChangeWorkspaceFoldersParams {
+      event: WorkspaceFoldersChangeEvent { added, removed },
+    });
+  }
+
+  fn file_operation_uri(path: &Path, is_dir: bool) -> Option<String> {
+    let url = if is_dir {
+      Url::from_directory_path(path)
+    } else {
+      Url::from_file_path(path)
+    };
+    Some(url.ok()?.to_string())
+  }
+
+  pub fn will_create(
+    &self,
+    path: &Path,
+    is_dir: bool,
+  ) -> Option<impl Future<Output = Result<Option<lsp::WorkspaceEdit>>>> {
+    let capabilities = self.file_operations_intests();
+    if !capabilities.will_create.has_interest(path, is_dir) {
+      return None;
     }
 
-    pub fn text_document_did_close(&self, text_document: lsp::TextDocumentIdentifier) {
-        self.notify::<lsp::notification::DidCloseTextDocument>(lsp::DidCloseTextDocumentParams {
-            text_document,
-        });
+    let files = vec![lsp::FileCreate {
+      uri: Self::file_operation_uri(path, is_dir)?,
+    }];
+    Some(
+      self.call_with_timeout::<lsp::request::WillCreateFiles>(&lsp::CreateFilesParams { files }, 5),
+    )
+  }
+
+  pub fn did_create(&self, path: &Path, is_dir: bool) -> Option<()> {
+    let capabilities = self.file_operations_intests();
+    if !capabilities.did_create.has_interest(path, is_dir) {
+      return None;
     }
 
-    // will_save / will_save_wait_until
+    let files = vec![lsp::FileCreate {
+      uri: Self::file_operation_uri(path, is_dir)?,
+    }];
+    self.notify::<lsp::notification::DidCreateFiles>(lsp::CreateFilesParams { files });
+    Some(())
+  }
 
-    pub fn text_document_did_save(
-        &self,
-        text_document: lsp::TextDocumentIdentifier,
-        text: &Rope,
-    ) -> Option<()> {
-        let capabilities = self.capabilities.get().unwrap();
+  pub fn will_rename(
+    &self,
+    old_path: &Path,
+    new_path: &Path,
+    is_dir: bool,
+  ) -> Option<impl Future<Output = Result<Option<lsp::WorkspaceEdit>>> + use<>> {
+    let capabilities = self.file_operations_intests();
+    if !capabilities.will_rename.has_interest(old_path, is_dir) {
+      return None;
+    }
+    let files = vec![lsp::FileRename {
+      old_uri: Self::file_operation_uri(old_path, is_dir)?,
+      new_uri: Self::file_operation_uri(new_path, is_dir)?,
+    }];
+    Some(
+      self.call_with_timeout::<lsp::request::WillRenameFiles>(&lsp::RenameFilesParams { files }, 5),
+    )
+  }
 
-        let include_text = match &capabilities.text_document_sync.as_ref()? {
-            lsp::TextDocumentSyncCapability::Options(lsp::TextDocumentSyncOptions {
-                save: options,
-                ..
-            }) => match options.as_ref()? {
-                lsp::TextDocumentSyncSaveOptions::Supported(true) => false,
-                lsp::TextDocumentSyncSaveOptions::SaveOptions(lsp::SaveOptions {
-                    include_text,
-                }) => include_text.unwrap_or(false),
-                lsp::TextDocumentSyncSaveOptions::Supported(false) => return None,
-            },
-            // see: https://github.com/microsoft/language-server-protocol/issues/288
-            lsp::TextDocumentSyncCapability::Kind(..) => false,
-        };
-
-        self.notify::<lsp::notification::DidSaveTextDocument>(lsp::DidSaveTextDocumentParams {
-            text_document,
-            text: include_text.then_some(text.into()),
-        });
-        Some(())
+  pub fn did_rename(&self, old_path: &Path, new_path: &Path, is_dir: bool) -> Option<()> {
+    let capabilities = self.file_operations_intests();
+    if !capabilities.did_rename.has_interest(new_path, is_dir) {
+      return None;
     }
 
-    pub fn completion(
-        &self,
-        text_document: lsp::TextDocumentIdentifier,
-        position: lsp::Position,
-        work_done_token: Option<lsp::ProgressToken>,
-        context: lsp::CompletionContext,
-    ) -> Option<impl Future<Output = Result<Option<lsp::CompletionResponse>>> + use<>> {
-        let capabilities = self.capabilities.get().unwrap();
+    let files = vec![lsp::FileRename {
+      old_uri: Self::file_operation_uri(old_path, is_dir)?,
+      new_uri: Self::file_operation_uri(new_path, is_dir)?,
+    }];
+    self.notify::<lsp::notification::DidRenameFiles>(lsp::RenameFilesParams { files });
+    Some(())
+  }
 
-        // Return early if the server does not support completion.
-        capabilities.completion_provider.as_ref()?;
-
-        let params = lsp::CompletionParams {
-            text_document_position: lsp::TextDocumentPositionParams {
-                text_document,
-                position,
-            },
-            context: Some(context),
-            // TODO: support these tokens by async receiving and updating the choice list
-            work_done_progress_params: lsp::WorkDoneProgressParams { work_done_token },
-            partial_result_params: lsp::PartialResultParams {
-                partial_result_token: None,
-            },
-        };
-
-        Some(self.call::<lsp::request::Completion>(params))
+  pub fn will_delete(
+    &self,
+    path: &Path,
+    is_dir: bool,
+  ) -> Option<impl Future<Output = Result<Option<lsp::WorkspaceEdit>>>> {
+    let capabilities = self.file_operations_intests();
+    if !capabilities.will_delete.has_interest(path, is_dir) {
+      return None;
     }
 
-    pub fn resolve_completion_item(
-        &self,
-        completion_item: &lsp::CompletionItem,
-    ) -> impl Future<Output = Result<lsp::CompletionItem>> + use<> {
-        self.call_with_ref::<lsp::request::ResolveCompletionItem>(completion_item)
+    let files = vec![lsp::FileDelete {
+      uri: Self::file_operation_uri(path, is_dir)?,
+    }];
+    Some(
+      self.call_with_timeout::<lsp::request::WillDeleteFiles>(&lsp::DeleteFilesParams { files }, 5),
+    )
+  }
+
+  pub fn did_delete(&self, path: &Path, is_dir: bool) -> Option<()> {
+    let capabilities = self.file_operations_intests();
+    if !capabilities.did_delete.has_interest(path, is_dir) {
+      return None;
     }
 
-    pub fn resolve_code_action(
-        &self,
-        code_action: &lsp::CodeAction,
-    ) -> Option<impl Future<Output = Result<lsp::CodeAction>> + use<>> {
-        let capabilities = self.capabilities.get().unwrap();
+    let files = vec![lsp::FileDelete {
+      uri: Self::file_operation_uri(path, is_dir)?,
+    }];
+    self.notify::<lsp::notification::DidDeleteFiles>(lsp::DeleteFilesParams { files });
+    Some(())
+  }
 
-        // Return early if the server does not support resolving code actions.
-        match capabilities.code_action_provider {
-            Some(lsp::CodeActionProviderCapability::Options(lsp::CodeActionOptions {
-                resolve_provider: Some(true),
-                ..
-            })) => (),
-            _ => return None,
+  // -------------------------------------------------------------------------------------------
+  // Text document
+  // -------------------------------------------------------------------------------------------
+
+  pub fn text_document_did_open(
+    &self,
+    uri: lsp::Url,
+    version: i32,
+    doc: &Rope,
+    language_id: String,
+  ) {
+    self.notify::<lsp::notification::DidOpenTextDocument>(lsp::DidOpenTextDocumentParams {
+      text_document: lsp::TextDocumentItem {
+        uri,
+        language_id,
+        version,
+        text: String::from(doc),
+      },
+    });
+  }
+
+  #[must_use]
+  pub fn changeset_to_changes(
+    old_text: &Rope,
+    new_text: &Rope,
+    changeset: &ChangeSet,
+    offset_encoding: OffsetEncoding,
+  ) -> Vec<lsp::TextDocumentContentChangeEvent> {
+    use crate::util::pos_to_lsp_pos;
+    use helix_core::Operation::{Delete, Insert, Retain};
+    use helix_core::RopeSlice;
+
+    // this is dumb. TextEdit describes changes to the initial doc (concurrent), but
+    // TextDocumentContentChangeEvent describes a series of changes (sequential).
+    // So S -> S1 -> S2, meaning positioning depends on the previous edits.
+    //
+    // Calculation is therefore a bunch trickier.
+
+    fn traverse(
+      pos: lsp::Position,
+      text: RopeSlice,
+      offset_encoding: OffsetEncoding,
+    ) -> lsp::Position {
+      let lsp::Position {
+        mut line,
+        mut character,
+      } = pos;
+
+      let mut chars = text.chars().peekable();
+      while let Some(ch) = chars.next() {
+        // LSP only considers \n, \r or \r\n as line endings
+        if ch == '\n' || ch == '\r' {
+          // consume a \r\n
+          if ch == '\r' && chars.peek() == Some(&'\n') {
+            chars.next();
+          }
+          line += 1;
+          character = 0;
+        } else {
+          character += match offset_encoding {
+            OffsetEncoding::Utf8 => u32::try_from(ch.len_utf8()).unwrap(),
+            OffsetEncoding::Utf16 => u32::try_from(ch.len_utf16()).unwrap(),
+            OffsetEncoding::Utf32 => 1,
+          };
         }
-
-        Some(self.call_with_ref::<lsp::request::CodeActionResolveRequest>(code_action))
+      }
+      lsp::Position { line, character }
     }
+    let mut iter = changeset.changes().iter().peekable();
+    let mut old_pos = 0;
+    let mut new_pos = 0;
 
-    pub fn text_document_signature_help(
-        &self,
-        text_document: lsp::TextDocumentIdentifier,
-        position: lsp::Position,
-        work_done_token: Option<lsp::ProgressToken>,
-    ) -> Option<impl Future<Output = Result<Option<SignatureHelp>>> + use<>> {
-        let capabilities = self.capabilities.get().unwrap();
+    let mut changes = Vec::new();
 
-        // Return early if the server does not support signature help.
-        capabilities.signature_help_provider.as_ref()?;
+    let old_text = old_text.slice(..);
 
-        let params = lsp::SignatureHelpParams {
-            text_document_position_params: lsp::TextDocumentPositionParams {
-                text_document,
-                position,
-            },
-            work_done_progress_params: lsp::WorkDoneProgressParams { work_done_token },
-            context: None,
-            // lsp::SignatureHelpContext
-        };
+    while let Some(change) = iter.next() {
+      let len = match change {
+        Delete(i) | Retain(i) => *i,
+        Insert(_) => 0,
+      };
+      let mut old_end = old_pos + len;
 
-        Some(self.call::<lsp::request::SignatureHelpRequest>(params))
-    }
-
-    pub fn text_document_range_inlay_hints(
-        &self,
-        text_document: lsp::TextDocumentIdentifier,
-        range: lsp::Range,
-        work_done_token: Option<lsp::ProgressToken>,
-    ) -> Option<impl Future<Output = Result<Option<Vec<lsp::InlayHint>>>> + use<>> {
-        let capabilities = self.capabilities.get().unwrap();
-
-        match capabilities.inlay_hint_provider {
-            Some(
-                lsp::OneOf::Left(true)
-                | lsp::OneOf::Right(lsp::InlayHintServerCapabilities::Options(_)),
-            ) => (),
-            _ => return None,
+      match change {
+        Retain(i) => {
+          new_pos += i;
         }
+        Delete(_) => {
+          let start = pos_to_lsp_pos(new_text, new_pos, offset_encoding);
+          let end = traverse(start, old_text.slice(old_pos..old_end), offset_encoding);
 
-        let params = lsp::InlayHintParams {
-            text_document,
-            range,
-            work_done_progress_params: lsp::WorkDoneProgressParams { work_done_token },
-        };
-
-        Some(self.call::<lsp::request::InlayHintRequest>(params))
-    }
-
-    pub fn text_document_document_color(
-        &self,
-        text_document: lsp::TextDocumentIdentifier,
-        work_done_token: Option<lsp::ProgressToken>,
-    ) -> Option<impl Future<Output = Result<Vec<lsp::ColorInformation>>> + use<>> {
-        self.capabilities.get().unwrap().color_provider.as_ref()?;
-        let params = lsp::DocumentColorParams {
-            text_document,
-            work_done_progress_params: lsp::WorkDoneProgressParams {
-                work_done_token: work_done_token.clone(),
-            },
-            partial_result_params: helix_lsp_types::PartialResultParams {
-                partial_result_token: work_done_token,
-            },
-        };
-
-        Some(self.call::<lsp::request::DocumentColor>(params))
-    }
-
-    pub fn text_document_document_link(
-        &self,
-        text_document: lsp::TextDocumentIdentifier,
-        work_done_token: Option<lsp::ProgressToken>,
-    ) -> Option<impl Future<Output = Result<Option<Vec<lsp::DocumentLink>>>> + use<>> {
-        if !self.supports_feature(LanguageServerFeature::DocumentLinks) {
-            return None;
+          // deletion
+          changes.push(lsp::TextDocumentContentChangeEvent {
+            range: Some(lsp::Range::new(start, end)),
+            text: String::new(),
+            range_length: None,
+          });
         }
+        Insert(s) => {
+          let start = pos_to_lsp_pos(new_text, new_pos, offset_encoding);
 
-        let params = lsp::DocumentLinkParams {
-            text_document,
-            work_done_progress_params: lsp::WorkDoneProgressParams { work_done_token },
-            partial_result_params: lsp::PartialResultParams::default(),
-        };
+          new_pos += s.chars().count();
 
-        Some(self.call::<lsp::request::DocumentLinkRequest>(params))
-    }
+          // a subsequent delete means a replace, consume it
+          let end = if let Some(Delete(len)) = iter.peek() {
+            old_end = old_pos + len;
+            let end = traverse(start, old_text.slice(old_pos..old_end), offset_encoding);
 
-    pub fn resolve_document_link(
-        &self,
-        params: lsp::DocumentLink,
-    ) -> Option<impl Future<Output = Result<lsp::DocumentLink>> + use<>> {
-        if !self.supports_feature(LanguageServerFeature::DocumentLinks) {
-            return None;
+            iter.next();
+
+            // replacement
+            end
+          } else {
+            // insert
+            start
+          };
+
+          changes.push(lsp::TextDocumentContentChangeEvent {
+            range: Some(lsp::Range::new(start, end)),
+            text: s.to_string(),
+            range_length: None,
+          });
         }
-
-        Some(self.call::<lsp::request::DocumentLinkResolve>(params))
+      }
+      old_pos = old_end;
     }
 
-    pub fn text_document_hover(
-        &self,
-        text_document: lsp::TextDocumentIdentifier,
-        position: lsp::Position,
-        work_done_token: Option<lsp::ProgressToken>,
-    ) -> Option<impl Future<Output = Result<Option<lsp::Hover>>> + use<>> {
-        let capabilities = self.capabilities.get().unwrap();
+    changes
+  }
 
-        // Return early if the server does not support hover.
-        match capabilities.hover_provider {
-            Some(
-                lsp::HoverProviderCapability::Simple(true)
-                | lsp::HoverProviderCapability::Options(_),
-            ) => (),
-            _ => return None,
+  pub fn text_document_did_change(
+    &self,
+    text_document: lsp::VersionedTextDocumentIdentifier,
+    old_text: &Rope,
+    new_text: &Rope,
+    changes: &ChangeSet,
+  ) -> Option<()> {
+    let capabilities = self.capabilities.get().unwrap();
+
+    // Return early if the server does not support document sync.
+    let Some(
+      lsp::TextDocumentSyncCapability::Kind(sync_capabilities)
+      | lsp::TextDocumentSyncCapability::Options(lsp::TextDocumentSyncOptions {
+        change: Some(sync_capabilities),
+        ..
+      }),
+    ) = capabilities.text_document_sync
+    else {
+      return None;
+    };
+
+    let changes = match sync_capabilities {
+      lsp::TextDocumentSyncKind::FULL => {
+        vec![lsp::TextDocumentContentChangeEvent {
+          // range = None -> whole document
+          range: None,        //Some(Range)
+          range_length: None, // u64 apparently deprecated
+          text: new_text.to_string(),
+        }]
+      }
+      lsp::TextDocumentSyncKind::INCREMENTAL => {
+        Self::changeset_to_changes(old_text, new_text, changes, self.offset_encoding())
+      }
+      lsp::TextDocumentSyncKind::NONE => return None,
+      kind => unimplemented!("{:?}", kind),
+    };
+
+    self.notify::<lsp::notification::DidChangeTextDocument>(lsp::DidChangeTextDocumentParams {
+      text_document,
+      content_changes: changes,
+    });
+    Some(())
+  }
+
+  pub fn text_document_did_close(&self, text_document: lsp::TextDocumentIdentifier) {
+    self.notify::<lsp::notification::DidCloseTextDocument>(lsp::DidCloseTextDocumentParams {
+      text_document,
+    });
+  }
+
+  // will_save / will_save_wait_until
+
+  pub fn text_document_did_save(
+    &self,
+    text_document: lsp::TextDocumentIdentifier,
+    text: &Rope,
+  ) -> Option<()> {
+    let capabilities = self.capabilities.get().unwrap();
+
+    let include_text = match &capabilities.text_document_sync.as_ref()? {
+      lsp::TextDocumentSyncCapability::Options(lsp::TextDocumentSyncOptions {
+        save: options,
+        ..
+      }) => match options.as_ref()? {
+        lsp::TextDocumentSyncSaveOptions::Supported(true) => false,
+        lsp::TextDocumentSyncSaveOptions::SaveOptions(lsp::SaveOptions { include_text }) => {
+          include_text.unwrap_or(false)
         }
+        lsp::TextDocumentSyncSaveOptions::Supported(false) => return None,
+      },
+      // see: https://github.com/microsoft/language-server-protocol/issues/288
+      lsp::TextDocumentSyncCapability::Kind(..) => false,
+    };
 
-        let params = lsp::HoverParams {
-            text_document_position_params: lsp::TextDocumentPositionParams {
-                text_document,
-                position,
-            },
-            work_done_progress_params: lsp::WorkDoneProgressParams { work_done_token },
-            // lsp::SignatureHelpContext
-        };
+    self.notify::<lsp::notification::DidSaveTextDocument>(lsp::DidSaveTextDocumentParams {
+      text_document,
+      text: include_text.then_some(text.into()),
+    });
+    Some(())
+  }
 
-        Some(self.call::<lsp::request::HoverRequest>(params))
+  pub fn completion(
+    &self,
+    text_document: lsp::TextDocumentIdentifier,
+    position: lsp::Position,
+    work_done_token: Option<lsp::ProgressToken>,
+    context: lsp::CompletionContext,
+  ) -> Option<impl Future<Output = Result<Option<lsp::CompletionResponse>>> + use<>> {
+    let capabilities = self.capabilities.get().unwrap();
+
+    // Return early if the server does not support completion.
+    capabilities.completion_provider.as_ref()?;
+
+    let params = lsp::CompletionParams {
+      text_document_position: lsp::TextDocumentPositionParams {
+        text_document,
+        position,
+      },
+      context: Some(context),
+      // TODO: support these tokens by async receiving and updating the choice list
+      work_done_progress_params: lsp::WorkDoneProgressParams { work_done_token },
+      partial_result_params: lsp::PartialResultParams {
+        partial_result_token: None,
+      },
+    };
+
+    Some(self.call::<lsp::request::Completion>(params))
+  }
+
+  pub fn resolve_completion_item(
+    &self,
+    completion_item: &lsp::CompletionItem,
+  ) -> impl Future<Output = Result<lsp::CompletionItem>> + use<> {
+    self.call_with_ref::<lsp::request::ResolveCompletionItem>(completion_item)
+  }
+
+  pub fn resolve_code_action(
+    &self,
+    code_action: &lsp::CodeAction,
+  ) -> Option<impl Future<Output = Result<lsp::CodeAction>> + use<>> {
+    let capabilities = self.capabilities.get().unwrap();
+
+    // Return early if the server does not support resolving code actions.
+    match capabilities.code_action_provider {
+      Some(lsp::CodeActionProviderCapability::Options(lsp::CodeActionOptions {
+        resolve_provider: Some(true),
+        ..
+      })) => (),
+      _ => return None,
     }
 
-    // formatting
+    Some(self.call_with_ref::<lsp::request::CodeActionResolveRequest>(code_action))
+  }
 
-    pub fn text_document_formatting(
-        &self,
-        text_document: lsp::TextDocumentIdentifier,
-        options: lsp::FormattingOptions,
-        work_done_token: Option<lsp::ProgressToken>,
-    ) -> Option<impl Future<Output = Result<Option<Vec<lsp::TextEdit>>>> + use<>> {
-        let capabilities = self.capabilities.get().unwrap();
+  pub fn text_document_signature_help(
+    &self,
+    text_document: lsp::TextDocumentIdentifier,
+    position: lsp::Position,
+    work_done_token: Option<lsp::ProgressToken>,
+  ) -> Option<impl Future<Output = Result<Option<SignatureHelp>>> + use<>> {
+    let capabilities = self.capabilities.get().unwrap();
 
-        // Return early if the server does not support formatting.
-        match capabilities.document_formatting_provider {
-            Some(lsp::OneOf::Left(true) | lsp::OneOf::Right(_)) => (),
-            _ => return None,
-        }
+    // Return early if the server does not support signature help.
+    capabilities.signature_help_provider.as_ref()?;
 
-        let options = self.get_merged_formatting_options(options);
+    let params = lsp::SignatureHelpParams {
+      text_document_position_params: lsp::TextDocumentPositionParams {
+        text_document,
+        position,
+      },
+      work_done_progress_params: lsp::WorkDoneProgressParams { work_done_token },
+      context: None,
+      // lsp::SignatureHelpContext
+    };
 
-        let params = lsp::DocumentFormattingParams {
-            text_document,
-            options,
-            work_done_progress_params: lsp::WorkDoneProgressParams { work_done_token },
-        };
+    Some(self.call::<lsp::request::SignatureHelpRequest>(params))
+  }
 
-        Some(self.call::<lsp::request::Formatting>(params))
+  pub fn text_document_range_inlay_hints(
+    &self,
+    text_document: lsp::TextDocumentIdentifier,
+    range: lsp::Range,
+    work_done_token: Option<lsp::ProgressToken>,
+  ) -> Option<impl Future<Output = Result<Option<Vec<lsp::InlayHint>>>> + use<>> {
+    let capabilities = self.capabilities.get().unwrap();
+
+    match capabilities.inlay_hint_provider {
+      Some(
+        lsp::OneOf::Left(true) | lsp::OneOf::Right(lsp::InlayHintServerCapabilities::Options(_)),
+      ) => (),
+      _ => return None,
     }
 
-    pub fn text_document_range_formatting(
-        &self,
-        text_document: lsp::TextDocumentIdentifier,
-        range: lsp::Range,
-        options: lsp::FormattingOptions,
-        work_done_token: Option<lsp::ProgressToken>,
-    ) -> Option<impl Future<Output = Result<Option<Vec<lsp::TextEdit>>>> + use<>> {
-        let capabilities = self.capabilities.get().unwrap();
+    let params = lsp::InlayHintParams {
+      text_document,
+      range,
+      work_done_progress_params: lsp::WorkDoneProgressParams { work_done_token },
+    };
 
-        // Return early if the server does not support range formatting.
-        match capabilities.document_range_formatting_provider {
-            Some(lsp::OneOf::Left(true) | lsp::OneOf::Right(_)) => (),
-            _ => return None,
-        }
+    Some(self.call::<lsp::request::InlayHintRequest>(params))
+  }
 
-        let options = self.get_merged_formatting_options(options);
+  pub fn text_document_document_color(
+    &self,
+    text_document: lsp::TextDocumentIdentifier,
+    work_done_token: Option<lsp::ProgressToken>,
+  ) -> Option<impl Future<Output = Result<Vec<lsp::ColorInformation>>> + use<>> {
+    self.capabilities.get().unwrap().color_provider.as_ref()?;
+    let params = lsp::DocumentColorParams {
+      text_document,
+      work_done_progress_params: lsp::WorkDoneProgressParams {
+        work_done_token: work_done_token.clone(),
+      },
+      partial_result_params: helix_lsp_types::PartialResultParams {
+        partial_result_token: work_done_token,
+      },
+    };
 
-        let params = lsp::DocumentRangeFormattingParams {
-            text_document,
-            range,
-            options,
-            work_done_progress_params: lsp::WorkDoneProgressParams { work_done_token },
-        };
+    Some(self.call::<lsp::request::DocumentColor>(params))
+  }
 
-        Some(self.call::<lsp::request::RangeFormatting>(params))
+  pub fn text_document_document_link(
+    &self,
+    text_document: lsp::TextDocumentIdentifier,
+    work_done_token: Option<lsp::ProgressToken>,
+  ) -> Option<impl Future<Output = Result<Option<Vec<lsp::DocumentLink>>>> + use<>> {
+    if !self.supports_feature(LanguageServerFeature::DocumentLinks) {
+      return None;
     }
 
-    pub fn text_document_diagnostic(
-        &self,
-        text_document: lsp::TextDocumentIdentifier,
-        previous_result_id: Option<String>,
-    ) -> Option<impl Future<Output = Result<lsp::DocumentDiagnosticReportResult>> + use<>> {
-        let capabilities = self.capabilities();
+    let params = lsp::DocumentLinkParams {
+      text_document,
+      work_done_progress_params: lsp::WorkDoneProgressParams { work_done_token },
+      partial_result_params: lsp::PartialResultParams::default(),
+    };
 
-        // Return early if the server does not support pull diagnostic.
-        let identifier = match capabilities.diagnostic_provider.as_ref()? {
-            lsp::DiagnosticServerCapabilities::Options(cap) => cap.identifier.clone(),
-            lsp::DiagnosticServerCapabilities::RegistrationOptions(cap) => {
-                cap.diagnostic_options.identifier.clone()
-            }
-        };
+    Some(self.call::<lsp::request::DocumentLinkRequest>(params))
+  }
 
-        let params = lsp::DocumentDiagnosticParams {
-            text_document,
-            identifier,
-            previous_result_id,
-            work_done_progress_params: lsp::WorkDoneProgressParams::default(),
-            partial_result_params: lsp::PartialResultParams::default(),
-        };
-
-        Some(self.call::<lsp::request::DocumentDiagnosticRequest>(params))
+  pub fn resolve_document_link(
+    &self,
+    params: lsp::DocumentLink,
+  ) -> Option<impl Future<Output = Result<lsp::DocumentLink>> + use<>> {
+    if !self.supports_feature(LanguageServerFeature::DocumentLinks) {
+      return None;
     }
 
-    pub fn text_document_document_highlight(
-        &self,
-        text_document: lsp::TextDocumentIdentifier,
-        position: lsp::Position,
-        work_done_token: Option<lsp::ProgressToken>,
-    ) -> Option<impl Future<Output = Result<Option<Vec<lsp::DocumentHighlight>>>> + use<>> {
-        let capabilities = self.capabilities.get().unwrap();
+    Some(self.call::<lsp::request::DocumentLinkResolve>(params))
+  }
 
-        // Return early if the server does not support document highlight.
-        match capabilities.document_highlight_provider {
-            Some(lsp::OneOf::Left(true) | lsp::OneOf::Right(_)) => (),
-            _ => return None,
-        }
+  pub fn text_document_hover(
+    &self,
+    text_document: lsp::TextDocumentIdentifier,
+    position: lsp::Position,
+    work_done_token: Option<lsp::ProgressToken>,
+  ) -> Option<impl Future<Output = Result<Option<lsp::Hover>>> + use<>> {
+    let capabilities = self.capabilities.get().unwrap();
 
-        let params = lsp::DocumentHighlightParams {
-            text_document_position_params: lsp::TextDocumentPositionParams {
-                text_document,
-                position,
-            },
-            work_done_progress_params: lsp::WorkDoneProgressParams { work_done_token },
-            partial_result_params: lsp::PartialResultParams {
-                partial_result_token: None,
-            },
-        };
-
-        Some(self.call::<lsp::request::DocumentHighlightRequest>(params))
+    // Return early if the server does not support hover.
+    match capabilities.hover_provider {
+      Some(
+        lsp::HoverProviderCapability::Simple(true) | lsp::HoverProviderCapability::Options(_),
+      ) => (),
+      _ => return None,
     }
 
-    fn goto_request<
-        T: lsp::request::Request<
-                Params = lsp::GotoDefinitionParams,
-                Result = Option<lsp::GotoDefinitionResponse>,
-            >,
-    >(
-        &self,
-        text_document: lsp::TextDocumentIdentifier,
-        position: lsp::Position,
-        work_done_token: Option<lsp::ProgressToken>,
-    ) -> impl Future<Output = Result<T::Result>> + use<T> {
-        let params = lsp::GotoDefinitionParams {
-            text_document_position_params: lsp::TextDocumentPositionParams {
-                text_document,
-                position,
-            },
-            work_done_progress_params: lsp::WorkDoneProgressParams { work_done_token },
-            partial_result_params: lsp::PartialResultParams {
-                partial_result_token: None,
-            },
-        };
+    let params = lsp::HoverParams {
+      text_document_position_params: lsp::TextDocumentPositionParams {
+        text_document,
+        position,
+      },
+      work_done_progress_params: lsp::WorkDoneProgressParams { work_done_token },
+      // lsp::SignatureHelpContext
+    };
 
-        self.call::<T>(params)
+    Some(self.call::<lsp::request::HoverRequest>(params))
+  }
+
+  // formatting
+
+  pub fn text_document_formatting(
+    &self,
+    text_document: lsp::TextDocumentIdentifier,
+    options: lsp::FormattingOptions,
+    work_done_token: Option<lsp::ProgressToken>,
+  ) -> Option<impl Future<Output = Result<Option<Vec<lsp::TextEdit>>>> + use<>> {
+    let capabilities = self.capabilities.get().unwrap();
+
+    // Return early if the server does not support formatting.
+    match capabilities.document_formatting_provider {
+      Some(lsp::OneOf::Left(true) | lsp::OneOf::Right(_)) => (),
+      _ => return None,
     }
 
-    pub fn goto_definition(
-        &self,
-        text_document: lsp::TextDocumentIdentifier,
-        position: lsp::Position,
-        work_done_token: Option<lsp::ProgressToken>,
-    ) -> Option<impl Future<Output = Result<Option<lsp::GotoDefinitionResponse>>> + use<>> {
-        let capabilities = self.capabilities.get().unwrap();
+    let options = self.get_merged_formatting_options(options);
 
-        // Return early if the server does not support goto-definition.
-        match capabilities.definition_provider {
-            Some(lsp::OneOf::Left(true) | lsp::OneOf::Right(_)) => (),
-            _ => return None,
-        }
+    let params = lsp::DocumentFormattingParams {
+      text_document,
+      options,
+      work_done_progress_params: lsp::WorkDoneProgressParams { work_done_token },
+    };
 
-        Some(self.goto_request::<lsp::request::GotoDefinition>(
-            text_document,
-            position,
-            work_done_token,
-        ))
+    Some(self.call::<lsp::request::Formatting>(params))
+  }
+
+  pub fn text_document_range_formatting(
+    &self,
+    text_document: lsp::TextDocumentIdentifier,
+    range: lsp::Range,
+    options: lsp::FormattingOptions,
+    work_done_token: Option<lsp::ProgressToken>,
+  ) -> Option<impl Future<Output = Result<Option<Vec<lsp::TextEdit>>>> + use<>> {
+    let capabilities = self.capabilities.get().unwrap();
+
+    // Return early if the server does not support range formatting.
+    match capabilities.document_range_formatting_provider {
+      Some(lsp::OneOf::Left(true) | lsp::OneOf::Right(_)) => (),
+      _ => return None,
     }
 
-    pub fn goto_declaration(
-        &self,
-        text_document: lsp::TextDocumentIdentifier,
-        position: lsp::Position,
-        work_done_token: Option<lsp::ProgressToken>,
-    ) -> Option<impl Future<Output = Result<Option<lsp::GotoDefinitionResponse>>> + use<>> {
-        let capabilities = self.capabilities.get().unwrap();
+    let options = self.get_merged_formatting_options(options);
 
-        // Return early if the server does not support goto-declaration.
-        match capabilities.declaration_provider {
-            Some(
-                lsp::DeclarationCapability::Simple(true)
-                | lsp::DeclarationCapability::RegistrationOptions(_)
-                | lsp::DeclarationCapability::Options(_),
-            ) => (),
-            _ => return None,
-        }
+    let params = lsp::DocumentRangeFormattingParams {
+      text_document,
+      range,
+      options,
+      work_done_progress_params: lsp::WorkDoneProgressParams { work_done_token },
+    };
 
-        Some(self.goto_request::<lsp::request::GotoDeclaration>(
-            text_document,
-            position,
-            work_done_token,
-        ))
+    Some(self.call::<lsp::request::RangeFormatting>(params))
+  }
+
+  pub fn text_document_diagnostic(
+    &self,
+    text_document: lsp::TextDocumentIdentifier,
+    previous_result_id: Option<String>,
+  ) -> Option<impl Future<Output = Result<lsp::DocumentDiagnosticReportResult>> + use<>> {
+    let capabilities = self.capabilities();
+
+    // Return early if the server does not support pull diagnostic.
+    let identifier = match capabilities.diagnostic_provider.as_ref()? {
+      lsp::DiagnosticServerCapabilities::Options(cap) => cap.identifier.clone(),
+      lsp::DiagnosticServerCapabilities::RegistrationOptions(cap) => {
+        cap.diagnostic_options.identifier.clone()
+      }
+    };
+
+    let params = lsp::DocumentDiagnosticParams {
+      text_document,
+      identifier,
+      previous_result_id,
+      work_done_progress_params: lsp::WorkDoneProgressParams::default(),
+      partial_result_params: lsp::PartialResultParams::default(),
+    };
+
+    Some(self.call::<lsp::request::DocumentDiagnosticRequest>(params))
+  }
+
+  pub fn text_document_document_highlight(
+    &self,
+    text_document: lsp::TextDocumentIdentifier,
+    position: lsp::Position,
+    work_done_token: Option<lsp::ProgressToken>,
+  ) -> Option<impl Future<Output = Result<Option<Vec<lsp::DocumentHighlight>>>> + use<>> {
+    let capabilities = self.capabilities.get().unwrap();
+
+    // Return early if the server does not support document highlight.
+    match capabilities.document_highlight_provider {
+      Some(lsp::OneOf::Left(true) | lsp::OneOf::Right(_)) => (),
+      _ => return None,
     }
 
-    pub fn goto_type_definition(
-        &self,
-        text_document: lsp::TextDocumentIdentifier,
-        position: lsp::Position,
-        work_done_token: Option<lsp::ProgressToken>,
-    ) -> Option<impl Future<Output = Result<Option<lsp::GotoDefinitionResponse>>> + use<>> {
-        let capabilities = self.capabilities.get().unwrap();
+    let params = lsp::DocumentHighlightParams {
+      text_document_position_params: lsp::TextDocumentPositionParams {
+        text_document,
+        position,
+      },
+      work_done_progress_params: lsp::WorkDoneProgressParams { work_done_token },
+      partial_result_params: lsp::PartialResultParams {
+        partial_result_token: None,
+      },
+    };
 
-        // Return early if the server does not support goto-type-definition.
-        match capabilities.type_definition_provider {
-            Some(
-                lsp::TypeDefinitionProviderCapability::Simple(true)
-                | lsp::TypeDefinitionProviderCapability::Options(_),
-            ) => (),
-            _ => return None,
-        }
+    Some(self.call::<lsp::request::DocumentHighlightRequest>(params))
+  }
 
-        Some(self.goto_request::<lsp::request::GotoTypeDefinition>(
-            text_document,
-            position,
-            work_done_token,
-        ))
+  fn goto_request<
+    T: lsp::request::Request<
+        Params = lsp::GotoDefinitionParams,
+        Result = Option<lsp::GotoDefinitionResponse>,
+      >,
+  >(
+    &self,
+    text_document: lsp::TextDocumentIdentifier,
+    position: lsp::Position,
+    work_done_token: Option<lsp::ProgressToken>,
+  ) -> impl Future<Output = Result<T::Result>> + use<T> {
+    let params = lsp::GotoDefinitionParams {
+      text_document_position_params: lsp::TextDocumentPositionParams {
+        text_document,
+        position,
+      },
+      work_done_progress_params: lsp::WorkDoneProgressParams { work_done_token },
+      partial_result_params: lsp::PartialResultParams {
+        partial_result_token: None,
+      },
+    };
+
+    self.call::<T>(params)
+  }
+
+  pub fn goto_definition(
+    &self,
+    text_document: lsp::TextDocumentIdentifier,
+    position: lsp::Position,
+    work_done_token: Option<lsp::ProgressToken>,
+  ) -> Option<impl Future<Output = Result<Option<lsp::GotoDefinitionResponse>>> + use<>> {
+    let capabilities = self.capabilities.get().unwrap();
+
+    // Return early if the server does not support goto-definition.
+    match capabilities.definition_provider {
+      Some(lsp::OneOf::Left(true) | lsp::OneOf::Right(_)) => (),
+      _ => return None,
     }
 
-    pub fn goto_implementation(
-        &self,
-        text_document: lsp::TextDocumentIdentifier,
-        position: lsp::Position,
-        work_done_token: Option<lsp::ProgressToken>,
-    ) -> Option<impl Future<Output = Result<Option<lsp::GotoDefinitionResponse>>> + use<>> {
-        let capabilities = self.capabilities.get().unwrap();
+    Some(self.goto_request::<lsp::request::GotoDefinition>(
+      text_document,
+      position,
+      work_done_token,
+    ))
+  }
 
-        // Return early if the server does not support goto-definition.
-        match capabilities.implementation_provider {
-            Some(
-                lsp::ImplementationProviderCapability::Simple(true)
-                | lsp::ImplementationProviderCapability::Options(_),
-            ) => (),
-            _ => return None,
-        }
+  pub fn goto_declaration(
+    &self,
+    text_document: lsp::TextDocumentIdentifier,
+    position: lsp::Position,
+    work_done_token: Option<lsp::ProgressToken>,
+  ) -> Option<impl Future<Output = Result<Option<lsp::GotoDefinitionResponse>>> + use<>> {
+    let capabilities = self.capabilities.get().unwrap();
 
-        Some(self.goto_request::<lsp::request::GotoImplementation>(
-            text_document,
-            position,
-            work_done_token,
-        ))
+    // Return early if the server does not support goto-declaration.
+    match capabilities.declaration_provider {
+      Some(
+        lsp::DeclarationCapability::Simple(true)
+        | lsp::DeclarationCapability::RegistrationOptions(_)
+        | lsp::DeclarationCapability::Options(_),
+      ) => (),
+      _ => return None,
     }
 
-    pub fn goto_reference(
-        &self,
-        text_document: lsp::TextDocumentIdentifier,
-        position: lsp::Position,
-        include_declaration: bool,
-        work_done_token: Option<lsp::ProgressToken>,
-    ) -> Option<impl Future<Output = Result<Option<Vec<lsp::Location>>>> + use<>> {
-        let capabilities = self.capabilities.get().unwrap();
+    Some(self.goto_request::<lsp::request::GotoDeclaration>(
+      text_document,
+      position,
+      work_done_token,
+    ))
+  }
 
-        // Return early if the server does not support goto-reference.
-        match capabilities.references_provider {
-            Some(lsp::OneOf::Left(true) | lsp::OneOf::Right(_)) => (),
-            _ => return None,
-        }
+  pub fn goto_type_definition(
+    &self,
+    text_document: lsp::TextDocumentIdentifier,
+    position: lsp::Position,
+    work_done_token: Option<lsp::ProgressToken>,
+  ) -> Option<impl Future<Output = Result<Option<lsp::GotoDefinitionResponse>>> + use<>> {
+    let capabilities = self.capabilities.get().unwrap();
 
-        let params = lsp::ReferenceParams {
-            text_document_position: lsp::TextDocumentPositionParams {
-                text_document,
-                position,
-            },
-            context: lsp::ReferenceContext {
-                include_declaration,
-            },
-            work_done_progress_params: lsp::WorkDoneProgressParams { work_done_token },
-            partial_result_params: lsp::PartialResultParams {
-                partial_result_token: None,
-            },
-        };
-
-        Some(self.call::<lsp::request::References>(params))
+    // Return early if the server does not support goto-type-definition.
+    match capabilities.type_definition_provider {
+      Some(
+        lsp::TypeDefinitionProviderCapability::Simple(true)
+        | lsp::TypeDefinitionProviderCapability::Options(_),
+      ) => (),
+      _ => return None,
     }
 
-    pub fn document_symbols(
-        &self,
-        text_document: lsp::TextDocumentIdentifier,
-    ) -> Option<impl Future<Output = Result<Option<lsp::DocumentSymbolResponse>>> + use<>> {
-        let capabilities = self.capabilities.get().unwrap();
+    Some(self.goto_request::<lsp::request::GotoTypeDefinition>(
+      text_document,
+      position,
+      work_done_token,
+    ))
+  }
 
-        // Return early if the server does not support document symbols.
-        match capabilities.document_symbol_provider {
-            Some(lsp::OneOf::Left(true) | lsp::OneOf::Right(_)) => (),
-            _ => return None,
-        }
+  pub fn goto_implementation(
+    &self,
+    text_document: lsp::TextDocumentIdentifier,
+    position: lsp::Position,
+    work_done_token: Option<lsp::ProgressToken>,
+  ) -> Option<impl Future<Output = Result<Option<lsp::GotoDefinitionResponse>>> + use<>> {
+    let capabilities = self.capabilities.get().unwrap();
 
-        let params = lsp::DocumentSymbolParams {
-            text_document,
-            work_done_progress_params: lsp::WorkDoneProgressParams::default(),
-            partial_result_params: lsp::PartialResultParams::default(),
-        };
-
-        Some(self.call::<lsp::request::DocumentSymbolRequest>(params))
+    // Return early if the server does not support goto-definition.
+    match capabilities.implementation_provider {
+      Some(
+        lsp::ImplementationProviderCapability::Simple(true)
+        | lsp::ImplementationProviderCapability::Options(_),
+      ) => (),
+      _ => return None,
     }
 
-    pub fn prepare_call_hierarchy(
-        &self,
-        text_document: lsp::TextDocumentIdentifier,
-        position: lsp::Position,
-    ) -> Option<impl Future<Output = Result<Option<Vec<lsp::CallHierarchyItem>>>> + use<>> {
-        let capabilities = self.capabilities.get().unwrap();
+    Some(self.goto_request::<lsp::request::GotoImplementation>(
+      text_document,
+      position,
+      work_done_token,
+    ))
+  }
 
-        match capabilities.call_hierarchy_provider {
-            Some(
-                lsp::CallHierarchyServerCapability::Simple(true)
-                | lsp::CallHierarchyServerCapability::Options(_),
-            ) => (),
-            _ => return None,
-        }
+  pub fn goto_reference(
+    &self,
+    text_document: lsp::TextDocumentIdentifier,
+    position: lsp::Position,
+    include_declaration: bool,
+    work_done_token: Option<lsp::ProgressToken>,
+  ) -> Option<impl Future<Output = Result<Option<Vec<lsp::Location>>>> + use<>> {
+    let capabilities = self.capabilities.get().unwrap();
 
-        let params = lsp::CallHierarchyPrepareParams {
-            text_document_position_params: lsp::TextDocumentPositionParams {
-                text_document,
-                position,
-            },
-            work_done_progress_params: lsp::WorkDoneProgressParams::default(),
-        };
-
-        Some(self.call::<lsp::request::CallHierarchyPrepare>(params))
+    // Return early if the server does not support goto-reference.
+    match capabilities.references_provider {
+      Some(lsp::OneOf::Left(true) | lsp::OneOf::Right(_)) => (),
+      _ => return None,
     }
 
-    pub fn call_hierarchy_incoming(
-        &self,
-        item: lsp::CallHierarchyItem,
-    ) -> Option<impl Future<Output = Result<Option<Vec<lsp::CallHierarchyIncomingCall>>>> + use<>>
-    {
-        let capabilities = self.capabilities.get().unwrap();
+    let params = lsp::ReferenceParams {
+      text_document_position: lsp::TextDocumentPositionParams {
+        text_document,
+        position,
+      },
+      context: lsp::ReferenceContext {
+        include_declaration,
+      },
+      work_done_progress_params: lsp::WorkDoneProgressParams { work_done_token },
+      partial_result_params: lsp::PartialResultParams {
+        partial_result_token: None,
+      },
+    };
 
-        match capabilities.call_hierarchy_provider {
-            Some(
-                lsp::CallHierarchyServerCapability::Simple(true)
-                | lsp::CallHierarchyServerCapability::Options(_),
-            ) => (),
-            _ => return None,
-        }
+    Some(self.call::<lsp::request::References>(params))
+  }
 
-        let params = lsp::CallHierarchyIncomingCallsParams {
-            item,
-            work_done_progress_params: lsp::WorkDoneProgressParams::default(),
-            partial_result_params: lsp::PartialResultParams::default(),
-        };
+  pub fn document_symbols(
+    &self,
+    text_document: lsp::TextDocumentIdentifier,
+  ) -> Option<impl Future<Output = Result<Option<lsp::DocumentSymbolResponse>>> + use<>> {
+    let capabilities = self.capabilities.get().unwrap();
 
-        Some(self.call::<lsp::request::CallHierarchyIncomingCalls>(params))
+    // Return early if the server does not support document symbols.
+    match capabilities.document_symbol_provider {
+      Some(lsp::OneOf::Left(true) | lsp::OneOf::Right(_)) => (),
+      _ => return None,
     }
 
-    pub fn call_hierarchy_outgoing(
-        &self,
-        item: lsp::CallHierarchyItem,
-    ) -> Option<impl Future<Output = Result<Option<Vec<lsp::CallHierarchyOutgoingCall>>>> + use<>>
-    {
-        let capabilities = self.capabilities.get().unwrap();
+    let params = lsp::DocumentSymbolParams {
+      text_document,
+      work_done_progress_params: lsp::WorkDoneProgressParams::default(),
+      partial_result_params: lsp::PartialResultParams::default(),
+    };
 
-        match capabilities.call_hierarchy_provider {
-            Some(
-                lsp::CallHierarchyServerCapability::Simple(true)
-                | lsp::CallHierarchyServerCapability::Options(_),
-            ) => (),
-            _ => return None,
-        }
+    Some(self.call::<lsp::request::DocumentSymbolRequest>(params))
+  }
 
-        let params = lsp::CallHierarchyOutgoingCallsParams {
-            item,
-            work_done_progress_params: lsp::WorkDoneProgressParams::default(),
-            partial_result_params: lsp::PartialResultParams::default(),
-        };
+  pub fn prepare_call_hierarchy(
+    &self,
+    text_document: lsp::TextDocumentIdentifier,
+    position: lsp::Position,
+  ) -> Option<impl Future<Output = Result<Option<Vec<lsp::CallHierarchyItem>>>> + use<>> {
+    let capabilities = self.capabilities.get().unwrap();
 
-        Some(self.call::<lsp::request::CallHierarchyOutgoingCalls>(params))
+    match capabilities.call_hierarchy_provider {
+      Some(
+        lsp::CallHierarchyServerCapability::Simple(true)
+        | lsp::CallHierarchyServerCapability::Options(_),
+      ) => (),
+      _ => return None,
     }
 
-    pub fn prepare_rename(
-        &self,
-        text_document: lsp::TextDocumentIdentifier,
-        position: lsp::Position,
-    ) -> Option<impl Future<Output = Result<Option<lsp::PrepareRenameResponse>>> + use<>> {
-        let capabilities = self.capabilities.get().unwrap();
+    let params = lsp::CallHierarchyPrepareParams {
+      text_document_position_params: lsp::TextDocumentPositionParams {
+        text_document,
+        position,
+      },
+      work_done_progress_params: lsp::WorkDoneProgressParams::default(),
+    };
 
-        match capabilities.rename_provider {
-            Some(lsp::OneOf::Right(lsp::RenameOptions {
-                prepare_provider: Some(true),
-                ..
-            })) => (),
-            _ => return None,
-        }
+    Some(self.call::<lsp::request::CallHierarchyPrepare>(params))
+  }
 
-        let params = lsp::TextDocumentPositionParams {
-            text_document,
-            position,
-        };
+  pub fn call_hierarchy_incoming(
+    &self,
+    item: lsp::CallHierarchyItem,
+  ) -> Option<impl Future<Output = Result<Option<Vec<lsp::CallHierarchyIncomingCall>>>> + use<>> {
+    let capabilities = self.capabilities.get().unwrap();
 
-        Some(self.call::<lsp::request::PrepareRenameRequest>(params))
+    match capabilities.call_hierarchy_provider {
+      Some(
+        lsp::CallHierarchyServerCapability::Simple(true)
+        | lsp::CallHierarchyServerCapability::Options(_),
+      ) => (),
+      _ => return None,
     }
 
-    // empty string to get all symbols
-    pub fn workspace_symbols(
-        &self,
-        query: String,
-    ) -> Option<impl Future<Output = Result<Option<lsp::WorkspaceSymbolResponse>>> + use<>> {
-        let capabilities = self.capabilities.get().unwrap();
+    let params = lsp::CallHierarchyIncomingCallsParams {
+      item,
+      work_done_progress_params: lsp::WorkDoneProgressParams::default(),
+      partial_result_params: lsp::PartialResultParams::default(),
+    };
 
-        // Return early if the server does not support workspace symbols.
-        match capabilities.workspace_symbol_provider {
-            Some(lsp::OneOf::Left(true) | lsp::OneOf::Right(_)) => (),
-            _ => return None,
-        }
+    Some(self.call::<lsp::request::CallHierarchyIncomingCalls>(params))
+  }
 
-        let params = lsp::WorkspaceSymbolParams {
-            query,
-            work_done_progress_params: lsp::WorkDoneProgressParams::default(),
-            partial_result_params: lsp::PartialResultParams::default(),
-        };
+  pub fn call_hierarchy_outgoing(
+    &self,
+    item: lsp::CallHierarchyItem,
+  ) -> Option<impl Future<Output = Result<Option<Vec<lsp::CallHierarchyOutgoingCall>>>> + use<>> {
+    let capabilities = self.capabilities.get().unwrap();
 
-        Some(self.call::<lsp::request::WorkspaceSymbolRequest>(params))
+    match capabilities.call_hierarchy_provider {
+      Some(
+        lsp::CallHierarchyServerCapability::Simple(true)
+        | lsp::CallHierarchyServerCapability::Options(_),
+      ) => (),
+      _ => return None,
     }
 
-    pub fn code_actions(
-        &self,
-        text_document: lsp::TextDocumentIdentifier,
-        range: lsp::Range,
-        context: lsp::CodeActionContext,
-    ) -> Option<impl Future<Output = Result<Option<Vec<lsp::CodeActionOrCommand>>>> + use<>> {
-        let capabilities = self.capabilities.get().unwrap();
+    let params = lsp::CallHierarchyOutgoingCallsParams {
+      item,
+      work_done_progress_params: lsp::WorkDoneProgressParams::default(),
+      partial_result_params: lsp::PartialResultParams::default(),
+    };
 
-        // Return early if the server does not support code actions.
-        match capabilities.code_action_provider {
-            Some(
-                lsp::CodeActionProviderCapability::Simple(true)
-                | lsp::CodeActionProviderCapability::Options(_),
-            ) => (),
-            _ => return None,
-        }
+    Some(self.call::<lsp::request::CallHierarchyOutgoingCalls>(params))
+  }
 
-        let params = lsp::CodeActionParams {
-            text_document,
-            range,
-            context,
-            work_done_progress_params: lsp::WorkDoneProgressParams::default(),
-            partial_result_params: lsp::PartialResultParams::default(),
-        };
+  pub fn prepare_rename(
+    &self,
+    text_document: lsp::TextDocumentIdentifier,
+    position: lsp::Position,
+  ) -> Option<impl Future<Output = Result<Option<lsp::PrepareRenameResponse>>> + use<>> {
+    let capabilities = self.capabilities.get().unwrap();
 
-        Some(self.call::<lsp::request::CodeActionRequest>(params))
+    match capabilities.rename_provider {
+      Some(lsp::OneOf::Right(lsp::RenameOptions {
+        prepare_provider: Some(true),
+        ..
+      })) => (),
+      _ => return None,
     }
 
-    pub fn rename_symbol(
-        &self,
-        text_document: lsp::TextDocumentIdentifier,
-        position: lsp::Position,
-        new_name: String,
-    ) -> Option<impl Future<Output = Result<Option<lsp::WorkspaceEdit>>> + use<>> {
-        if !self.supports_feature(LanguageServerFeature::RenameSymbol) {
-            return None;
-        }
+    let params = lsp::TextDocumentPositionParams {
+      text_document,
+      position,
+    };
 
-        let params = lsp::RenameParams {
-            text_document_position: lsp::TextDocumentPositionParams {
-                text_document,
-                position,
-            },
-            new_name,
-            work_done_progress_params: lsp::WorkDoneProgressParams {
-                work_done_token: None,
-            },
-        };
+    Some(self.call::<lsp::request::PrepareRenameRequest>(params))
+  }
 
-        Some(self.call::<lsp::request::Rename>(params))
+  // empty string to get all symbols
+  pub fn workspace_symbols(
+    &self,
+    query: String,
+  ) -> Option<impl Future<Output = Result<Option<lsp::WorkspaceSymbolResponse>>> + use<>> {
+    let capabilities = self.capabilities.get().unwrap();
+
+    // Return early if the server does not support workspace symbols.
+    match capabilities.workspace_symbol_provider {
+      Some(lsp::OneOf::Left(true) | lsp::OneOf::Right(_)) => (),
+      _ => return None,
     }
 
-    pub fn command(
-        &self,
-        command: lsp::Command,
-    ) -> Option<impl Future<Output = Result<Option<Value>>> + use<>> {
-        let capabilities = self.capabilities.get().unwrap();
+    let params = lsp::WorkspaceSymbolParams {
+      query,
+      work_done_progress_params: lsp::WorkDoneProgressParams::default(),
+      partial_result_params: lsp::PartialResultParams::default(),
+    };
 
-        // Return early if the language server does not support executing commands.
-        capabilities.execute_command_provider.as_ref()?;
+    Some(self.call::<lsp::request::WorkspaceSymbolRequest>(params))
+  }
 
-        let params = lsp::ExecuteCommandParams {
-            command: command.command,
-            arguments: command.arguments.unwrap_or_default(),
-            work_done_progress_params: lsp::WorkDoneProgressParams {
-                work_done_token: None,
-            },
-        };
+  pub fn code_actions(
+    &self,
+    text_document: lsp::TextDocumentIdentifier,
+    range: lsp::Range,
+    context: lsp::CodeActionContext,
+  ) -> Option<impl Future<Output = Result<Option<Vec<lsp::CodeActionOrCommand>>>> + use<>> {
+    let capabilities = self.capabilities.get().unwrap();
 
-        Some(self.call::<lsp::request::ExecuteCommand>(params))
+    // Return early if the server does not support code actions.
+    match capabilities.code_action_provider {
+      Some(
+        lsp::CodeActionProviderCapability::Simple(true)
+        | lsp::CodeActionProviderCapability::Options(_),
+      ) => (),
+      _ => return None,
     }
 
-    pub fn did_change_watched_files(&self, changes: Vec<lsp::FileEvent>) {
-        self.notify::<lsp::notification::DidChangeWatchedFiles>(lsp::DidChangeWatchedFilesParams {
-            changes,
-        });
+    let params = lsp::CodeActionParams {
+      text_document,
+      range,
+      context,
+      work_done_progress_params: lsp::WorkDoneProgressParams::default(),
+      partial_result_params: lsp::PartialResultParams::default(),
+    };
+
+    Some(self.call::<lsp::request::CodeActionRequest>(params))
+  }
+
+  pub fn rename_symbol(
+    &self,
+    text_document: lsp::TextDocumentIdentifier,
+    position: lsp::Position,
+    new_name: String,
+  ) -> Option<impl Future<Output = Result<Option<lsp::WorkspaceEdit>>> + use<>> {
+    if !self.supports_feature(LanguageServerFeature::RenameSymbol) {
+      return None;
     }
+
+    let params = lsp::RenameParams {
+      text_document_position: lsp::TextDocumentPositionParams {
+        text_document,
+        position,
+      },
+      new_name,
+      work_done_progress_params: lsp::WorkDoneProgressParams {
+        work_done_token: None,
+      },
+    };
+
+    Some(self.call::<lsp::request::Rename>(params))
+  }
+
+  pub fn command(
+    &self,
+    command: lsp::Command,
+  ) -> Option<impl Future<Output = Result<Option<Value>>> + use<>> {
+    let capabilities = self.capabilities.get().unwrap();
+
+    // Return early if the language server does not support executing commands.
+    capabilities.execute_command_provider.as_ref()?;
+
+    let params = lsp::ExecuteCommandParams {
+      command: command.command,
+      arguments: command.arguments.unwrap_or_default(),
+      work_done_progress_params: lsp::WorkDoneProgressParams {
+        work_done_token: None,
+      },
+    };
+
+    Some(self.call::<lsp::request::ExecuteCommand>(params))
+  }
+
+  pub fn did_change_watched_files(&self, changes: Vec<lsp::FileEvent>) {
+    self.notify::<lsp::notification::DidChangeWatchedFiles>(lsp::DidChangeWatchedFilesParams {
+      changes,
+    });
+  }
 }
