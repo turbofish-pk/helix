@@ -3,8 +3,8 @@ use std::{borrow::Cow, cmp::Reverse, iter};
 use ropey::iter::Chars;
 
 use crate::{
-  Range, RopeSlice, Selection, Syntax, char_idx_at_visual_offset,
-  chars::{CharCategory, categorize_char, char_is_line_ending},
+  char_idx_at_visual_offset,
+  chars::{categorize_char, char_is_line_ending, CharCategory},
   doc_formatter::TextFormat,
   graphemes::{
     next_grapheme_boundary, nth_next_grapheme_boundary, nth_prev_grapheme_boundary,
@@ -16,7 +16,7 @@ use crate::{
   text_annotations::TextAnnotations,
   textobject::TextObject,
   tree_sitter::Node,
-  visual_offset_from_block,
+  visual_offset_from_block, Range, RopeSlice, Selection, Syntax,
 };
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
@@ -120,13 +120,10 @@ pub fn move_vertically(
 
   // Compute the current position's 2d coordinates.
   let visual_pos = visual_offset_from_block(slice, line_start, pos, text_fmt, annotations).0;
-  let (mut new_row, new_col) = range.old_visual_position.map_or(
-    (
-      u32::try_from(visual_pos.row).unwrap(),
-      u32::try_from(visual_pos.col).unwrap(),
-    ),
-    |pos| pos,
-  );
+  let (mut new_row, new_col) = range.old_visual_position.unwrap_or((
+    u32::try_from(visual_pos.row).unwrap(),
+    u32::try_from(visual_pos.col).unwrap(),
+  ));
   new_row = new_row.max(u32::try_from(visual_pos.row).unwrap());
   let line_idx = slice.char_to_line(pos);
 

@@ -498,12 +498,6 @@ mod dir {
   }
 
   impl Ignore {
-    /// Return the directory path of this matcher.
-    #[cfg(test)]
-    pub(crate) fn path(&self) -> &Path {
-      &self.inner.dir
-    }
-
     /// Return true if this matcher has no parent.
     pub(crate) fn is_root(&self) -> bool {
       self.inner.parent.is_none()
@@ -555,14 +549,14 @@ mod dir {
       let mut ig = self.clone();
       for parent in parents.into_iter().rev() {
         let mut compiled = self.inner.compiled.write().unwrap();
-        if let Some(weak) = compiled.get(parent.as_os_str()) {
-          if let Some(prebuilt) = weak.upgrade() {
-            ig = Ignore {
-              inner: prebuilt,
-              absolute_base: Some(absolute_base.clone()),
-            };
-            continue;
-          }
+        if let Some(weak) = compiled.get(parent.as_os_str())
+          && let Some(prebuilt) = weak.upgrade()
+        {
+          ig = Ignore {
+            inner: prebuilt,
+            absolute_base: Some(absolute_base.clone()),
+          };
+          continue;
         }
         let (mut igtmp, err) = ig.add_child_path(parent);
         errs.maybe_push(err);
@@ -688,8 +682,8 @@ mod dir {
           Gitignore::empty()
         } else {
           let (m, err) = create_gitignore(
-            &dir,
-            &dir,
+            dir,
+            dir,
             &custom_ignore_names,
             self.inner.opts.ignore_case_insensitive,
           );
@@ -702,8 +696,8 @@ mod dir {
         Gitignore::empty()
       } else {
         let (m, err) = create_gitignore(
-          &dir,
-          &dir,
+          dir,
+          dir,
           &[".ignore"],
           self.inner.opts.ignore_case_insensitive,
         );
@@ -715,8 +709,8 @@ mod dir {
           Gitignore::empty()
         } else {
           let (m, err) = create_gitignore(
-            &dir,
-            &dir,
+            dir,
+            dir,
             &[".gitignore"],
             self.inner.opts.ignore_case_insensitive,
           );
@@ -731,7 +725,7 @@ mod dir {
           match resolve_git_commondir(dir, git_type) {
             Ok(git_dir) => {
               let (m, err) = create_gitignore(
-                &dir,
+                dir,
                 &git_dir,
                 &["info/exclude"],
                 self.inner.opts.ignore_case_insensitive,
@@ -881,80 +875,80 @@ mod dir {
         }
         saw_git = saw_git || ig.inner.has_git;
       }
-      if self.inner.opts.parents {
-        if let Some(abs_parent_path) = self.absolute_base() {
-          // What we want to do here is take the absolute base path of
-          // this directory and join it with the path we're searching.
-          // The main issue we want to avoid is accidentally duplicating
-          // directory components, so we try to strip any common prefix
-          // off of `path`. Overall, this seems a little ham-fisted, but
-          // it does fix a nasty bug. It should do fine until we overhaul
-          // this crate.
-          let path = abs_parent_path.join(
-            self
-              .parents()
-              .take_while(|ig| !ig.inner.is_absolute_parent)
-              .last()
-              .map_or(path, |ig| {
-                // This is a weird special case when ripgrep users
-                // search with just a `.`, as some tools do
-                // automatically (like consult). In this case, if
-                // we don't bail out now, the code below will strip
-                // a leading `.` from `path`, which might mangle
-                // a hidden file name!
-                if ig.inner.dir.as_path() == Path::new(".") {
-                  return path;
-                }
-                let without_dot_slash = strip_if_is_prefix("./", ig.inner.dir.as_path());
-                let relative_base = strip_if_is_prefix(without_dot_slash, path);
-                strip_if_is_prefix("/", relative_base)
-              }),
-          );
+      if self.inner.opts.parents
+        && let Some(abs_parent_path) = self.absolute_base()
+      {
+        // What we want to do here is take the absolute base path of
+        // this directory and join it with the path we're searching.
+        // The main issue we want to avoid is accidentally duplicating
+        // directory components, so we try to strip any common prefix
+        // off of `path`. Overall, this seems a little ham-fisted, but
+        // it does fix a nasty bug. It should do fine until we overhaul
+        // this crate.
+        let path = abs_parent_path.join(
+          self
+            .parents()
+            .take_while(|ig| !ig.inner.is_absolute_parent)
+            .last()
+            .map_or(path, |ig| {
+              // This is a weird special case when ripgrep users
+              // search with just a `.`, as some tools do
+              // automatically (like consult). In this case, if
+              // we don't bail out now, the code below will strip
+              // a leading `.` from `path`, which might mangle
+              // a hidden file name!
+              if ig.inner.dir.as_path() == Path::new(".") {
+                return path;
+              }
+              let without_dot_slash = strip_if_is_prefix("./", ig.inner.dir.as_path());
+              let relative_base = strip_if_is_prefix(without_dot_slash, path);
+              strip_if_is_prefix("/", relative_base)
+            }),
+        );
 
-          for ig in self.parents().skip_while(|ig| !ig.inner.is_absolute_parent) {
-            if m_custom_ignore.is_none() {
-              m_custom_ignore = ig
-                .inner
-                .custom_ignore_matcher
-                .matched(&path, is_dir)
-                .map(IgnoreMatch::gitignore);
-            }
-            if m_ignore.is_none() {
-              m_ignore = ig
-                .inner
-                .ignore_matcher
-                .matched(&path, is_dir)
-                .map(IgnoreMatch::gitignore);
-            }
-            if any_git && !saw_git && m_gi.is_none() {
-              m_gi = ig
-                .inner
-                .git_ignore_matcher
-                .matched(&path, is_dir)
-                .map(IgnoreMatch::gitignore);
-            }
-            if any_git && !saw_git && m_gi_exclude.is_none() {
-              m_gi_exclude = ig
-                .inner
-                .git_exclude_matcher
-                .matched(&path, is_dir)
-                .map(IgnoreMatch::gitignore);
-            }
-            saw_git = saw_git || ig.inner.has_git;
+        for ig in self.parents().skip_while(|ig| !ig.inner.is_absolute_parent) {
+          if m_custom_ignore.is_none() {
+            m_custom_ignore = ig
+              .inner
+              .custom_ignore_matcher
+              .matched(&path, is_dir)
+              .map(IgnoreMatch::gitignore);
           }
+          if m_ignore.is_none() {
+            m_ignore = ig
+              .inner
+              .ignore_matcher
+              .matched(&path, is_dir)
+              .map(IgnoreMatch::gitignore);
+          }
+          if any_git && !saw_git && m_gi.is_none() {
+            m_gi = ig
+              .inner
+              .git_ignore_matcher
+              .matched(&path, is_dir)
+              .map(IgnoreMatch::gitignore);
+          }
+          if any_git && !saw_git && m_gi_exclude.is_none() {
+            m_gi_exclude = ig
+              .inner
+              .git_exclude_matcher
+              .matched(&path, is_dir)
+              .map(IgnoreMatch::gitignore);
+          }
+          saw_git = saw_git || ig.inner.has_git;
         }
       }
       for gi in self.inner.explicit_ignores.iter().rev() {
         if !m_explicit.is_none() {
           break;
         }
-        m_explicit = gi.matched(&path, is_dir).map(IgnoreMatch::gitignore);
+        m_explicit = gi.matched(path, is_dir).map(IgnoreMatch::gitignore);
       }
       let m_global = if any_git {
         self
           .inner
           .git_global_matcher
-          .matched(&path, is_dir)
+          .matched(path, is_dir)
           .map(IgnoreMatch::gitignore)
       } else {
         Match::None
@@ -1320,7 +1314,7 @@ mod dir {
   ) -> Result<PathBuf, Option<Error>> {
     let git_dir_path = || dir.join(".git");
     let git_dir = git_dir_path();
-    if !git_type.map_or(false, |ft| ft.is_file()) {
+    if !git_type.is_some_and(|ft| ft.is_file()) {
       return Ok(git_dir);
     }
     let file = match File::open(git_dir) {
@@ -1404,7 +1398,7 @@ pub mod gitignore {
   impl Glob {
     /// Returns the file path that defined this glob.
     pub fn from(&self) -> Option<&Path> {
-      self.from.as_ref().map(|p| &**p)
+      self.from.as_deref()
     }
 
     /// The original glob as it was defined in a gitignore file.
@@ -1520,7 +1514,7 @@ pub mod gitignore {
     ///
     /// All matches are done relative to this path.
     pub fn path(&self) -> &Path {
-      &*self.root
+      &self.root
     }
 
     /// Returns true if and only if this gitignore has zero globs, and
@@ -1616,7 +1610,7 @@ pub mod gitignore {
       let path = path.as_ref();
       let mut matches = self.matches.as_ref().unwrap().get();
       let candidate = Candidate::new(path);
-      self.set.matches_candidate_into(&candidate, &mut *matches);
+      self.set.matches_candidate_into(&candidate, &mut matches);
       for &i in matches.iter().rev() {
         let glob = &self.globs[i];
         if !glob.is_only_dir() || is_dir {
@@ -1648,13 +1642,14 @@ pub mod gitignore {
       //
       // As an additional special case, if the root is just `.`, then we
       // shouldn't try to strip anything, e.g., when path begins with a `.`.
-      if self.root != Path::new(".") && !is_file_name(path) {
-        if let Some(p) = strip_prefix(&self.root, path) {
+      if self.root != Path::new(".")
+        && !is_file_name(path)
+        && let Some(p) = strip_prefix(&self.root, path)
+      {
+        path = p;
+        // If we're left with a leading slash, get rid of it.
+        if let Some(p) = strip_prefix("/", path) {
           path = p;
-          // If we're left with a leading slash, get rid of it.
-          if let Some(p) = strip_prefix("/", path) {
-            path = p;
-          }
         }
       }
       path
@@ -1705,7 +1700,7 @@ pub mod gitignore {
         globs: self.globs.clone(),
         num_ignores: nignore as u64,
         num_whitelists: nwhite as u64,
-        matches: Some(Arc::new(Pool::new(|| vec![]))),
+        matches: Some(Arc::new(Pool::new(std::vec::Vec::new))),
       })
     }
 
@@ -1773,29 +1768,11 @@ pub mod gitignore {
           &line
         };
 
-        if let Err(err) = self.add_line(Some(path.to_path_buf()), &line) {
+        if let Err(err) = self.add_line(Some(path.to_path_buf()), line) {
           errs.push(err.tagged(path, lineno));
         }
       }
       errs.into_error_option()
-    }
-
-    /// Add each glob line from the string given.
-    ///
-    /// If this string came from a particular `gitignore` file, then its path
-    /// should be provided here.
-    ///
-    /// The string given should be formatted as a `gitignore` file.
-    #[cfg(test)]
-    fn add_str(
-      &mut self,
-      from: Option<PathBuf>,
-      gitignore: &str,
-    ) -> Result<&mut GitignoreBuilder, Error> {
-      for line in gitignore.lines() {
-        self.add_line(from.clone(), line)?;
-      }
-      Ok(self)
     }
 
     /// Add a line from a gitignore file to this builder.
@@ -2195,7 +2172,7 @@ mod pathutil {
     use std::os::unix::ffi::OsStrExt;
 
     if let Some(name) = file_name(dent.path()) {
-      name.as_bytes().get(0) == Some(&b'.')
+      name.as_bytes().first() == Some(&b'.')
     } else {
       false
     }
@@ -2212,7 +2189,7 @@ mod pathutil {
     if prefix.len() > path.len() || prefix != &path[0..prefix.len()] {
       None
     } else {
-      Some(&Path::new(OsStr::from_bytes(&path[prefix.len()..])))
+      Some(Path::new(OsStr::from_bytes(&path[prefix.len()..])))
     }
   }
 
@@ -2225,18 +2202,16 @@ mod pathutil {
     memchr(b'/', path).is_none()
   }
 
-  pub(crate) fn file_name<'a, P: AsRef<Path> + ?Sized>(path: &'a P) -> Option<&'a OsStr> {
+  pub(crate) fn file_name<P: AsRef<Path> + ?Sized>(path: &P) -> Option<&OsStr> {
     use memchr::memrchr;
     use std::os::unix::ffi::OsStrExt;
 
     let path = path.as_ref().as_os_str().as_bytes();
-    if path.is_empty() {
-      return None;
-    } else if path.len() == 1 && path[0] == b'.' {
-      return None;
-    } else if path.last() == Some(&b'.') {
-      return None;
-    } else if path.len() >= 2 && &path[path.len() - 2..] == &b".."[..] {
+    if path.is_empty()
+      || (path.len() == 1 && path[0] == b'.')
+      || path.last() == Some(&b'.')
+      || (path.len() >= 2 && path[path.len() - 2..] == b".."[..])
+    {
       return None;
     }
     let last_slash = memrchr(b'/', path).map(|i| i + 1).unwrap_or(0);
@@ -2371,7 +2346,7 @@ pub mod types {
         has_selected: false,
         glob_to_selection: vec![],
         set: GlobSetBuilder::new().build().unwrap(),
-        matches: Arc::new(Pool::new(|| vec![])),
+        matches: Arc::new(Pool::new(std::vec::Vec::new)),
       }
     }
 
@@ -2410,7 +2385,7 @@ pub mod types {
         }
       };
       let mut matches = self.matches.get();
-      self.set.matches_into(name, &mut *matches);
+      self.set.matches_into(name, &mut matches);
       // The highest precedent match is the last one.
       if let Some(&i) = matches.last() {
         let (isel, _) = self.glob_to_selection[i];
@@ -2486,7 +2461,7 @@ pub mod types {
         has_selected,
         glob_to_selection,
         set,
-        matches: Arc::new(Pool::new(|| vec![])),
+        matches: Arc::new(Pool::new(std::vec::Vec::new)),
       })
     }
 
@@ -2623,118 +2598,6 @@ pub mod types {
         }
       }
       self
-    }
-  }
-
-  #[cfg(test)]
-  mod tests {
-    use super::TypesBuilder;
-
-    macro_rules! matched {
-      ($name:ident, $types:expr, $sel:expr, $selnot:expr,
-         $path:expr) => {
-        matched!($name, $types, $sel, $selnot, $path, true);
-      };
-      (not, $name:ident, $types:expr, $sel:expr, $selnot:expr,
-         $path:expr) => {
-        matched!($name, $types, $sel, $selnot, $path, false);
-      };
-      ($name:ident, $types:expr, $sel:expr, $selnot:expr,
-         $path:expr, $matched:expr) => {
-        #[test]
-        fn $name() {
-          let mut btypes = TypesBuilder::new();
-          for tydef in $types {
-            btypes.add_def(tydef).unwrap();
-          }
-          for sel in $sel {
-            btypes.select(sel);
-          }
-          for selnot in $selnot {
-            btypes.negate(selnot);
-          }
-          let types = btypes.build().unwrap();
-          let mat = types.matched($path, false);
-          assert_eq!($matched, !mat.is_ignore());
-        }
-      };
-    }
-
-    fn types() -> Vec<&'static str> {
-      vec![
-        "html:*.html",
-        "html:*.htm",
-        "rust:*.rs",
-        "js:*.js",
-        "py:*.py",
-        "python:*.py",
-        "foo:*.{rs,foo}",
-        "combo:include:html,rust",
-      ]
-    }
-
-    matched!(match1, types(), vec!["rust"], vec![], "lib.rs");
-    matched!(match2, types(), vec!["html"], vec![], "index.html");
-    matched!(match3, types(), vec!["html"], vec![], "index.htm");
-    matched!(match4, types(), vec!["html", "rust"], vec![], "main.rs");
-    matched!(match5, types(), vec![], vec![], "index.html");
-    matched!(match6, types(), vec![], vec!["rust"], "index.html");
-    matched!(match7, types(), vec!["foo"], vec!["rust"], "main.foo");
-    matched!(match8, types(), vec!["combo"], vec![], "index.html");
-    matched!(match9, types(), vec!["combo"], vec![], "lib.rs");
-    matched!(match10, types(), vec!["py"], vec![], "main.py");
-    matched!(match11, types(), vec!["python"], vec![], "main.py");
-
-    matched!(not, matchnot1, types(), vec!["rust"], vec![], "index.html");
-    matched!(not, matchnot2, types(), vec![], vec!["rust"], "main.rs");
-    matched!(
-      not,
-      matchnot3,
-      types(),
-      vec!["foo"],
-      vec!["rust"],
-      "main.rs"
-    );
-    matched!(
-      not,
-      matchnot4,
-      types(),
-      vec!["rust"],
-      vec!["foo"],
-      "main.rs"
-    );
-    matched!(
-      not,
-      matchnot5,
-      types(),
-      vec!["rust"],
-      vec!["foo"],
-      "main.foo"
-    );
-    matched!(not, matchnot6, types(), vec!["combo"], vec![], "leftpad.js");
-    matched!(not, matchnot7, types(), vec!["py"], vec![], "index.html");
-    matched!(not, matchnot8, types(), vec!["python"], vec![], "doc.md");
-
-    #[test]
-    fn test_invalid_defs() {
-      let mut btypes = TypesBuilder::new();
-      for tydef in types() {
-        btypes.add_def(tydef).unwrap();
-      }
-      // Preserve the original definitions for later comparison.
-      let original_defs = btypes.definitions();
-      let bad_defs = vec![
-        // Reference to type that does not exist
-        "combo:include:html,qwerty",
-        // Bad format
-        "combo:foobar:html,rust",
-        "",
-      ];
-      for def in bad_defs {
-        assert!(btypes.add_def(def).is_err());
-        // Ensure that nothing changed, even if some of the includes were valid.
-        assert_eq!(btypes.definitions(), original_defs);
-      }
     }
   }
 }

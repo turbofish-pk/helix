@@ -149,28 +149,26 @@ impl helix_event::AsyncHook for PullAllDocumentsDiagnosticHandler {
     job::dispatch_blocking(move |editor, _| {
       let documents: Vec<_> = editor.documents.keys().copied().collect();
 
-            for document in documents {
-                request_document_diagnostics_for_language_servers(
-                    editor,
-                    document,
-                    &language_servers.clone(),
-                );
-            }
-        });
-    }
+      for document in documents {
+        request_document_diagnostics_for_language_servers(
+          editor,
+          document,
+          &language_servers.clone(),
+        );
+      }
+    });
+  }
 }
 
 fn request_document_diagnostics_for_language_servers(
-    editor: &mut Editor,
-    doc_id: DocumentId,
-    language_servers: &HashSet<LanguageServerId>,
+  editor: &mut Editor,
+  doc_id: DocumentId,
+  language_servers: &HashSet<LanguageServerId>,
 ) {
   let Some(doc) = editor.document_mut(doc_id) else {
     return;
   };
-
   let cancel = doc.pull_diagnostic_controller.restart();
-
   let mut futures: FuturesUnordered<_> = language_servers
     .iter()
     .filter_map(|x| doc.language_servers().find(|y| &y.id() == x))
@@ -183,7 +181,6 @@ fn request_document_diagnostics_for_language_servers(
           .get(&language_server_id)
           .cloned(),
       )?;
-
       let identifier = language_server
         .capabilities()
         .diagnostic_provider
@@ -194,25 +191,20 @@ fn request_document_diagnostics_for_language_servers(
             options.diagnostic_options.identifier.clone()
           }
         });
-
       let provider = DiagnosticProvider::Lsp {
         server_id: language_server_id,
         identifier,
       };
       let uri = doc.uri()?;
-
       Some(async move {
         let result = future.await;
-
         (result, provider, uri)
       })
     })
     .collect();
-
   if futures.is_empty() {
     return;
   }
-
   tokio::spawn(async move {
     let mut retry_language_servers = HashSet::new();
     loop {
@@ -241,26 +233,15 @@ fn request_document_diagnostics_for_language_servers(
         None => return,
       }
     }
-
     if !retry_language_servers.is_empty() {
       tokio::time::sleep(Duration::from_millis(500)).await;
-
-        if !retry_language_servers.is_empty() {
-            tokio::time::sleep(Duration::from_millis(500)).await;
-
-            job::dispatch(move |editor, _| {
-                request_document_diagnostics_for_language_servers(
-                    editor,
-                    doc_id,
-                    &retry_language_servers,
-                );
-            })
-            .await;
-        }
-    });
-
+      job::dispatch(move |editor, _| {
+        request_document_diagnostics_for_language_servers(editor, doc_id, &retry_language_servers);
+      })
+      .await;
+    }
+  });
 }
-
 pub fn request_all_document_diagnostics_for_language_server(
   editor: &mut Editor,
   server_id: LanguageServerId,
@@ -286,7 +267,7 @@ pub fn request_document_diagnostics(editor: &mut Editor, doc_id: DocumentId) {
     .map(helix_lsp::Client::id)
     .collect();
 
-  request_document_diagnostics_for_language_severs(editor, doc_id, &language_servers);
+  request_document_diagnostics_for_language_servers(editor, doc_id, &language_servers);
 }
 
 fn handle_pull_diagnostics_response(
