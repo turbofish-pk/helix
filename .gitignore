@@ -9,3 +9,5 @@ vendor
 Cargo.lock
 dump.txt
 cargo_tree.txt
+testfile
+.testfile

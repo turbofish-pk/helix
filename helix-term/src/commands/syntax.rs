@@ -13,7 +13,8 @@ use helix_core::{
   Rope, RopeSlice, Selection, Syntax, Uri,
   syntax::{Loader, QueryMatchIterEvent},
 };
-use helix_ext::ignore::{DirEntry, WalkBuilder, WalkState};
+
+use helix_ext::ignore::{DirEntry, WalkOptions, WalkState, walk_parallel_ref};
 use helix_stdx::{
   path,
   rope::{self, RopeSliceExt},
@@ -220,7 +221,7 @@ pub fn syntax_workspace_symbol_picker(cx: &mut Context) {
   #[derive(Debug)]
   struct SearchState {
     searcher_builder: SearcherBuilder,
-    walk_builder: WalkBuilder,
+    walk_options: WalkOptions,
     regex_matcher_builder: RegexMatcherBuilder,
     rope_regex_builder: rope::RegexBuilder,
     search_root: PathBuf,
@@ -246,19 +247,25 @@ pub fn syntax_workspace_symbol_picker(cx: &mut Context) {
   let config = cx.editor.config();
   let dedup_symlinks = config.file_picker.deduplicate_links;
 
-  let mut walk_builder = WalkBuilder::new(&search_root);
-  walk_builder
-    .hidden(config.file_picker.hidden)
-    .parents(config.file_picker.parents)
-    .ignore(config.file_picker.ignore)
-    .follow_links(config.file_picker.follow_symlinks)
-    .git_ignore(config.file_picker.git_ignore)
-    .git_global(config.file_picker.git_global)
-    .git_exclude(config.file_picker.git_exclude)
-    .max_depth(config.file_picker.max_depth)
-    .filter_entry(move |entry| filter_picker_entry(entry, &absolute_root, dedup_symlinks))
-    .add_custom_ignore_filename(helix_loader::config_dir().join("ignore"))
-    .add_custom_ignore_filename(".helix/ignore");
+  let walk_options = WalkOptions {
+    root: search_root.clone(),
+    hidden: config.file_picker.hidden,
+    parents: config.file_picker.parents,
+    ignore: config.file_picker.ignore,
+    follow_links: config.file_picker.follow_symlinks,
+    git_ignore: config.file_picker.git_ignore,
+    git_global: config.file_picker.git_global,
+    git_exclude: config.file_picker.git_exclude,
+    max_depth: config.file_picker.max_depth,
+    custom_ignore_filenames: vec![
+      helix_loader::config_dir().join("ignore"),
+      ".helix/ignore".into(),
+    ],
+    filter: Some(Arc::new(move |entry| {
+      filter_picker_entry(entry, &absolute_root, dedup_symlinks)
+    })),
+    ..Default::default()
+  };
 
   let mut regex_matcher_builder = RegexMatcherBuilder::new();
   regex_matcher_builder.case_smart(config.search.smart_case);
@@ -266,7 +273,7 @@ pub fn syntax_workspace_symbol_picker(cx: &mut Context) {
   rope_regex_builder.syntax(rope::Config::new().case_insensitive(config.search.smart_case));
   let state = SearchState {
     searcher_builder,
-    walk_builder,
+    walk_options,
     regex_matcher_builder,
     rope_regex_builder,
     search_root,
@@ -346,7 +353,7 @@ pub fn syntax_workspace_symbol_picker(cx: &mut Context) {
 
       async move {
         let searcher = state.searcher_builder.build();
-        state.walk_builder.build_parallel().run(|| {
+        walk_parallel_ref(&state.walk_options).run(|| {
           let mut searcher = searcher.clone();
           let matcher = matcher.clone();
           let injector = injector.clone();

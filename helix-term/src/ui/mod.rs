@@ -36,7 +36,10 @@ use helix_view::Editor;
 use tui::text::{Span, Spans};
 
 use std::path::Path;
+use std::sync::Arc;
 use std::{error::Error, path::PathBuf};
+
+use helix_ext::ignore::{TypesBuilder, WalkOptions, walk};
 
 struct Utf8PathBuf {
   path: String,
@@ -196,8 +199,7 @@ pub fn raw_regex_prompt(
 }
 
 /// We want to exclude files that the editor can't handle yet
-fn get_excluded_types() -> helix_ext::ignore::types::Types {
-  use helix_ext::ignore::types::TypesBuilder;
+fn get_excluded_types() -> helix_ext::ignore::Types {
   let mut type_builder = TypesBuilder::new();
   type_builder
     .add(
@@ -219,7 +221,6 @@ pub struct FilePickerData {
 type FilePicker = Picker<PathBuf, FilePickerData>;
 
 pub fn file_picker(editor: &Editor, root: &PathBuf) -> FilePicker {
-  use helix_ext::ignore::WalkBuilder;
   use std::time::Instant;
 
   let config = editor.config();
@@ -233,30 +234,57 @@ pub fn file_picker(editor: &Editor, root: &PathBuf) -> FilePicker {
   let dedup_symlinks = config.file_picker.deduplicate_links;
   let absolute_root = root.canonicalize().unwrap_or_else(|_| root.clone());
 
-  let mut walk_builder = WalkBuilder::new(root);
+  let mut files = walk(WalkOptions {
+    root: root.clone(),
+    hidden: config.file_picker.hidden,
+    parents: config.file_picker.parents,
+    ignore: config.file_picker.ignore,
+    follow_links: config.file_picker.follow_symlinks,
+    git_ignore: config.file_picker.git_ignore,
+    git_global: config.file_picker.git_global,
+    git_exclude: config.file_picker.git_exclude,
+    sort_by_file_name: true,
+    max_depth: config.file_picker.max_depth,
+    custom_ignore_filenames: vec![
+      helix_loader::config_dir().join("ignore"),
+      ".helix/ignore".into(),
+    ],
+    types: get_excluded_types(),
+    filter: Some(Arc::new(move |entry| {
+      filter_picker_entry(entry, &absolute_root, dedup_symlinks)
+    })),
+  })
+  .filter_map(|entry| {
+    let entry = entry.ok()?;
+    if !entry.path().is_file() {
+      return None;
+    }
+    Some(entry.into_path())
+  });
+  // let mut walk_builder = WalkBuilder::new(root);
 
-  let mut files = walk_builder
-    .hidden(config.file_picker.hidden)
-    .parents(config.file_picker.parents)
-    .ignore(config.file_picker.ignore)
-    .follow_links(config.file_picker.follow_symlinks)
-    .git_ignore(config.file_picker.git_ignore)
-    .git_global(config.file_picker.git_global)
-    .git_exclude(config.file_picker.git_exclude)
-    .sort_by_file_name(Ord::cmp)
-    .max_depth(config.file_picker.max_depth)
-    .filter_entry(move |entry| filter_picker_entry(entry, &absolute_root, dedup_symlinks))
-    .add_custom_ignore_filename(helix_loader::config_dir().join("ignore"))
-    .add_custom_ignore_filename(".helix/ignore")
-    .types(get_excluded_types())
-    .build()
-    .filter_map(|entry| {
-      let entry = entry.ok()?;
-      if !entry.path().is_file() {
-        return None;
-      }
-      Some(entry.into_path())
-    });
+  // let mut files = walk_builder
+  //   .hidden(config.file_picker.hidden)
+  //   .parents(config.file_picker.parents)
+  //   .ignore(config.file_picker.ignore)
+  //   .follow_links(config.file_picker.follow_symlinks)
+  //   .git_ignore(config.file_picker.git_ignore)
+  //   .git_global(config.file_picker.git_global)
+  //   .git_exclude(config.file_picker.git_exclude)
+  //   .sort_by_file_name(Ord::cmp)
+  //   .max_depth(config.file_picker.max_depth)
+  //   .filter_entry(move |entry| filter_picker_entry(entry, &absolute_root, dedup_symlinks))
+  //   .add_custom_ignore_filename(helix_loader::config_dir().join("ignore"))
+  //   .add_custom_ignore_filename(".helix/ignore")
+  //   .types(get_excluded_types())
+  //   .build()
+  //   .filter_map(|entry| {
+  //     let entry = entry.ok()?;
+  //     if !entry.path().is_file() {
+  //       return None;
+  //     }
+  //     Some(entry.into_path())
+  //   });
   log::debug!("file_picker init {:?}", Instant::now().duration_since(now));
 
   let columns = [PickerColumn::new(
@@ -364,42 +392,42 @@ pub fn file_explorer(root: PathBuf, editor: &Editor) -> Result<FileExplorer, std
 }
 
 fn directory_content(root: &Path, editor: &Editor) -> Vec<(PathBuf, bool)> {
-  use helix_ext::ignore::WalkBuilder;
-
   let config = editor.config();
 
-  let mut walk_builder = WalkBuilder::new(root);
-
-  let mut content: Vec<(PathBuf, bool)> = walk_builder
-    .hidden(config.file_explorer.hidden)
-    .parents(config.file_explorer.parents)
-    .ignore(config.file_explorer.ignore)
-    .follow_links(config.file_explorer.follow_symlinks)
-    .git_ignore(config.file_explorer.git_ignore)
-    .git_global(config.file_explorer.git_global)
-    .git_exclude(config.file_explorer.git_exclude)
-    .max_depth(Some(1))
-    .add_custom_ignore_filename(helix_loader::config_dir().join("ignore"))
-    .add_custom_ignore_filename(".helix/ignore")
-    .types(get_excluded_types())
-    .build()
-    .filter_map(|entry| {
-      entry
-        .map(|entry| {
-          let path = entry.path();
-          let is_dir = path.is_dir();
-          let mut path = path.to_path_buf();
-          if is_dir && path != root && config.file_explorer.flatten_dirs {
-            while let Some(single_child_directory) = get_child_if_single_dir(&path) {
-              path = single_child_directory;
-            }
+  let mut content: Vec<(PathBuf, bool)> = walk(WalkOptions {
+    root: root.to_path_buf(),
+    hidden: config.file_explorer.hidden,
+    parents: config.file_explorer.parents,
+    ignore: config.file_explorer.ignore,
+    follow_links: config.file_explorer.follow_symlinks,
+    git_ignore: config.file_explorer.git_ignore,
+    git_global: config.file_explorer.git_global,
+    git_exclude: config.file_explorer.git_exclude,
+    max_depth: Some(1),
+    custom_ignore_filenames: vec![
+      helix_loader::config_dir().join("ignore"),
+      ".helix/ignore".into(),
+    ],
+    types: get_excluded_types(),
+    ..Default::default()
+  })
+  .filter_map(|entry| {
+    entry
+      .map(|entry| {
+        let path = entry.path();
+        let is_dir = path.is_dir();
+        let mut path = path.to_path_buf();
+        if is_dir && path != root && config.file_explorer.flatten_dirs {
+          while let Some(single_child_directory) = get_child_if_single_dir(&path) {
+            path = single_child_directory;
           }
-          (path, is_dir)
-        })
-        .ok()
-        .filter(|entry| entry.0 != root)
-    })
-    .collect();
+        }
+        (path, is_dir)
+      })
+      .ok()
+      .filter(|entry| entry.0 != root)
+  })
+  .collect();
 
   content.sort_by(|(path1, is_dir1), (path2, is_dir2)| (!is_dir1, path1).cmp(&(!is_dir2, path2)));
 
@@ -616,9 +644,8 @@ pub mod completers {
   {
     // Rust's filename handling is really annoying.
 
-    use helix_ext::ignore::WalkBuilder;
+    use helix_ext::ignore::{WalkOptions, walk};
     use std::path::Path;
-
     let is_tilde = input == "~";
     let path = helix_stdx::path::expand_tilde(Path::new(input));
 
@@ -651,48 +678,50 @@ pub mod completers {
 
     let end = input.len()..;
 
-    let files = WalkBuilder::new(&dir)
-      .hidden(false)
-      .follow_links(false) // We're scanning over depth 1
-      .git_ignore(git_ignore)
-      .max_depth(Some(1))
-      .build()
-      .filter_map(|file| {
-        file.ok().and_then(|entry| {
-          let fmatch = filter_fn(&entry);
+    let files = walk(WalkOptions {
+      root: dir.to_path_buf(),
+      hidden: false,
+      follow_links: false, // We're scanning over depth 1
+      git_ignore,
+      max_depth: Some(1),
+      ..Default::default()
+    })
+    .filter_map(|file| {
+      file.ok().and_then(|entry| {
+        let fmatch = filter_fn(&entry);
 
-          if fmatch == FileMatch::Reject {
-            return None;
-          }
+        if fmatch == FileMatch::Reject {
+          return None;
+        }
 
-          let path = entry.path();
-          let is_dir = path.is_dir();
-          let file_type = entry.file_type();
-          let is_symlink = file_type.is_some_and(|ft| ft.is_symlink());
-          let mut path = if is_tilde {
-            // if it's a single tilde an absolute path is displayed so that when `TAB` is pressed on
-            // one of the directories the tilde will be replaced with a valid path not with a relative
-            // home directory name.
-            // ~ -> <TAB> -> /home/user
-            // ~/ -> <TAB> -> ~/first_entry
-            path.to_path_buf()
-          } else {
-            path.strip_prefix(&dir).unwrap_or(path).to_path_buf()
-          };
+        let path = entry.path();
+        let is_dir = path.is_dir();
+        let file_type = entry.file_type();
+        let is_symlink = file_type.is_some_and(|ft| ft.is_symlink());
+        let mut path = if is_tilde {
+          // if it's a single tilde an absolute path is displayed so that when `TAB` is pressed on
+          // one of the directories the tilde will be replaced with a valid path not with a relative
+          // home directory name.
+          // ~ -> <TAB> -> /home/user
+          // ~/ -> <TAB> -> ~/first_entry
+          path.to_path_buf()
+        } else {
+          path.strip_prefix(&dir).unwrap_or(path).to_path_buf()
+        };
 
-          if fmatch == FileMatch::AcceptIncomplete {
-            path.push("");
-          }
+        if fmatch == FileMatch::AcceptIncomplete {
+          path.push("");
+        }
 
-          let path = path.into_os_string().into_string().ok()?;
-          Some(Utf8PathBuf {
-            path,
-            is_dir,
-            is_symlink,
-          })
+        let path = path.into_os_string().into_string().ok()?;
+        Some(Utf8PathBuf {
+          path,
+          is_dir,
+          is_symlink,
         })
-      }) // TODO: unwrap or skip
-      .filter(|path| !path.path.is_empty());
+      })
+    }) // TODO: unwrap or skip
+    .filter(|path| !path.path.is_empty());
 
     let directory_color = editor.theme.get("ui.text.directory");
     let symlink_color = editor.theme.get("ui.text.symlink");
