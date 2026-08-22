@@ -3,8 +3,8 @@ use std::{borrow::Cow, cmp::Reverse, iter};
 use ropey::iter::Chars;
 
 use crate::{
-  char_idx_at_visual_offset,
-  chars::{categorize_char, char_is_line_ending, CharCategory},
+  Range, RopeSlice, Selection, Syntax, char_idx_at_visual_offset,
+  chars::{CharCategory, categorize_char, char_is_line_ending},
   doc_formatter::TextFormat,
   graphemes::{
     next_grapheme_boundary, nth_next_grapheme_boundary, nth_prev_grapheme_boundary,
@@ -16,7 +16,7 @@ use crate::{
   text_annotations::TextAnnotations,
   textobject::TextObject,
   tree_sitter::Node,
-  visual_offset_from_block, Range, RopeSlice, Selection, Syntax,
+  visual_offset_from_block,
 };
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]

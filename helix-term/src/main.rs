@@ -143,8 +143,7 @@ FLAGS:
   });
 
   // TODO: use the thread local executor to spawn the application task separately from the work pool
-  let mut app = Application::new(args, config, lang_loader)
-    .context("unable to start Helix")?;
+  let mut app = Application::new(args, config, lang_loader).context("unable to start Helix")?;
   let mut events = app.event_stream();
 
   let exit_code = app.run(&mut events).await?;
