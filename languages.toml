@@ -52,7 +52,6 @@ cs = { command = "cs", args = [
 ] }
 csharp-ls = { command = "csharp-ls" }
 cuelsp = { command = "cue", args = ["lsp", "serve"] }
-dart = { command = "dart", args = ["language-server", "--client-id=helix"] }
 debian-lsp = { command = "debian-lsp" }
 deno = { command = "deno", args = ["lsp"], config.deno.enable = true }
 dhall-lsp-server = { command = "dhall-lsp-server" }
@@ -65,7 +64,6 @@ dot-language-server = { command = "dot-language-server", args = ["--stdio"] }
 dts-lsp = { command = "dts-lsp" }
 earthlyls = { command = "earthlyls" }
 eiffel-language-server = { command = "eiffel-language-server" }
-elixir-ls = { command = "elixir-ls", config = { elixirLS.dialyzerEnabled = false } }
 elm-language-server = { command = "elm-language-server" }
 elp = { command = "elp", args = ["server"] }
 elvish = { command = "elvish", args = ["-lsp"] }
@@ -1937,17 +1935,6 @@ name = "graphql"
 source = { git = "https://github.com/bkegley/tree-sitter-graphql", rev = "5e66e961eee421786bdda8495ed1db045e06b5fe" }
 
 [[language]]
-name = "iex"
-scope = "source.iex"
-injection-regex = "iex"
-file-types = ["iex"]
-comment-token = "#"
-
-[[grammar]]
-name = "iex"
-source = { git = "https://github.com/elixir-lang/tree-sitter-iex", rev = "39f20bb51f502e32058684e893c0c0b00bb2332c" }
-
-[[language]]
 name = "rescript"
 scope = "source.rescript"
 injection-regex = "rescript"
@@ -2083,33 +2070,6 @@ block-comment-tokens = { start = "<!--", end = "-->" }
 language-servers = ["r"]
 
 [[language]]
-name = "eex"
-scope = "source.eex"
-injection-regex = "eex"
-file-types = ["eex"]
-roots = ["mix.exs", "mix.lock"]
-block-comment-tokens = { start = "<!--", end = "-->" }
-indent = { tab-width = 2, unit = "  " }
-
-[[grammar]]
-name = "eex"
-source = { git = "https://github.com/connorlay/tree-sitter-eex", rev = "f742f2fe327463335e8671a87c0b9b396905d1d1" }
-
-[[language]]
-name = "heex"
-scope = "source.heex"
-injection-regex = "heex"
-file-types = ["heex"]
-roots = ["mix.exs", "mix.lock"]
-block-comment-tokens = { start = "<!--", end = "-->" }
-indent = { tab-width = 2, unit = "  " }
-language-servers = ["elixir-ls", "expert"]
-
-[[grammar]]
-name = "heex"
-source = { git = "https://github.com/phoenixframework/tree-sitter-heex", rev = "f6b83f305a755cd49cf5f6a66b2b789be93dc7b9" }
-
-[[language]]
 name = "sql"
 scope = "source.sql"
 file-types = ["sql", "dsql"]
@@ -2122,23 +2082,6 @@ injection-regex = "sql"
 name = "sql"
 # from gh-pages branch, as the main branch does not provide the `src` directory
 source = { git = "https://github.com/DerekStride/tree-sitter-sql", rev = "851e9cb257ba7c66cc8c14214a31c44d2f1e954e" }
-
-[[language]]
-name = "gdscript"
-scope = "source.gdscript"
-injection-regex = "gdscript"
-file-types = ["gd"]
-shebangs = []
-roots = ["project.godot"]
-auto-format = true
-formatter = { command = "gdformat", args = ["-"] }
-comment-tokens = ["#", "##"]
-indent = { tab-width = 4, unit = "\t" }
-language-servers = [ "godot" ]
-
-[[grammar]]
-name = "gdscript"
-source = { git = "https://github.com/PrestonKnopp/tree-sitter-gdscript", rev = "1f1e782fe2600f50ae57b53876505b8282388d77" }
 
 [[language]]
 name = "nu"
@@ -2804,28 +2747,6 @@ grammar = "rego"
 [[grammar]]
 name = "rego"
 source = { git = "https://github.com/FallenAngel97/tree-sitter-rego", rev = "ddd39af81fe8b0288102a7cb97959dfce723e0f3" }
-
-[[language]]
-name = "nim"
-scope = "source.nim"
-injection-regex = "nim"
-file-types = ["nim", "nims", "nimble"]
-shebangs = []
-comment-token = "#"
-block-comment-tokens = { start = "#[", end = "]#" }
-indent = { tab-width = 2, unit = "  " }
-language-servers = ["nimlangserver"]
-
-[language.auto-pairs]
-'(' = ')'
-'[' = ']'
-'"' = '"'
-"'" = "'"
-'{' = '}'
-
-[[grammar]]
-name = "nim"
-source = { git = "https://github.com/alaviss/tree-sitter-nim", rev = "c5f0ce3b65222f5dbb1a12f9fe894524881ad590" }
 
 [[language]]
 name = "markdoc"
