@@ -1,379 +1,338 @@
 use std::{
   cmp::{Ordering, min},
+  error,
+  ffi::OsStr,
   fmt,
-  fs::{self, ReadDir},
+  fs::{self, File, FileType, OpenOptions, ReadDir},
+  hash::{Hash, Hasher},
   io, iter,
+  os::unix::{
+    fs::MetadataExt,
+    io::{AsRawFd, IntoRawFd, RawFd},
+  },
   path::{Path, PathBuf},
   result, vec,
 };
-mod same_file {
-  use std::fs::{File, OpenOptions};
-  use std::hash::{Hash, Hasher};
-  use std::io;
-  use std::os::unix::fs::MetadataExt;
-  use std::os::unix::io::{AsRawFd, IntoRawFd, RawFd};
-  use std::path::Path;
+#[derive(Debug)]
+struct Handle {
+  file: Option<File>,
+  is_std: bool,
+  dev: u64,
+  ino: u64,
+}
 
-  #[derive(Debug)]
-  pub struct Handle {
-    file: Option<File>,
-    is_std: bool,
-    dev: u64,
-    ino: u64,
+impl Handle {
+  fn from_path<P: AsRef<Path>>(p: P) -> io::Result<Handle> {
+    Handle::from_file(OpenOptions::new().read(true).open(p)?)
   }
 
-  impl Handle {
-    pub fn from_path<P: AsRef<Path>>(p: P) -> io::Result<Handle> {
-      Handle::from_file(OpenOptions::new().read(true).open(p)?)
-    }
-
-    pub fn from_file(file: File) -> io::Result<Handle> {
-      let md = file.metadata()?;
-      Ok(Handle {
-        file: Some(file),
-        is_std: false,
-        dev: md.dev(),
-        ino: md.ino(),
-      })
-    }
+  fn from_file(file: File) -> io::Result<Handle> {
+    let md = file.metadata()?;
+    Ok(Handle {
+      file: Some(file),
+      is_std: false,
+      dev: md.dev(),
+      ino: md.ino(),
+    })
   }
+}
 
-  impl Drop for Handle {
-    fn drop(&mut self) {
-      if self.is_std {
-        // Leak the fd so the std stream stays open.
-        let _ = self.file.take().unwrap().into_raw_fd();
-      }
-    }
-  }
-
-  impl Eq for Handle {}
-
-  impl PartialEq for Handle {
-    fn eq(&self, other: &Handle) -> bool {
-      (self.dev, self.ino) == (other.dev, other.ino)
-    }
-  }
-
-  impl Hash for Handle {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-      self.dev.hash(state);
-      self.ino.hash(state);
-    }
-  }
-
-  impl AsRawFd for Handle {
-    fn as_raw_fd(&self) -> RawFd {
-      self.file.as_ref().unwrap().as_raw_fd()
-    }
-  }
-
-  impl IntoRawFd for Handle {
-    fn into_raw_fd(mut self) -> RawFd {
-      self.file.take().unwrap().into_raw_fd()
+impl Drop for Handle {
+  fn drop(&mut self) {
+    if self.is_std {
+      // Leak the fd so the std stream stays open.
+      let _ = self.file.take().unwrap().into_raw_fd();
     }
   }
 }
-use same_file::Handle;
 
-pub use crate::walkdir::dent::DirEntry;
-pub use crate::walkdir::dent::DirEntryExt;
-pub use crate::walkdir::error::Error;
+impl Eq for Handle {}
 
-pub mod dent {
-  use std::ffi::OsStr;
-  use std::fmt;
-  use std::fs::{self, FileType};
-  use std::path::{Path, PathBuf};
-
-  use crate::walkdir::Result;
-  use crate::walkdir::error::Error;
-
-  pub struct DirEntry {
-    path: PathBuf,
-    ty: FileType,
-    follow_link: bool,
-    depth: usize,
-
-    ino: u64,
-  }
-
-  impl DirEntry {
-    pub fn path(&self) -> &Path {
-      &self.path
-    }
-
-    pub fn into_path(self) -> PathBuf {
-      self.path
-    }
-
-    pub fn path_is_symlink(&self) -> bool {
-      self.ty.is_symlink() || self.follow_link
-    }
-
-    pub fn metadata(&self) -> Result<fs::Metadata> {
-      self.metadata_internal()
-    }
-
-    fn metadata_internal(&self) -> Result<fs::Metadata> {
-      if self.follow_link {
-        fs::metadata(&self.path)
-      } else {
-        fs::symlink_metadata(&self.path)
-      }
-      .map_err(|err| Error::from_entry(self, err))
-    }
-
-    pub fn file_type(&self) -> fs::FileType {
-      self.ty
-    }
-
-    pub fn file_name(&self) -> &OsStr {
-      self
-        .path
-        .file_name()
-        .unwrap_or_else(|| self.path.as_os_str())
-    }
-
-    pub fn depth(&self) -> usize {
-      self.depth
-    }
-
-    pub(crate) fn is_dir(&self) -> bool {
-      self.ty.is_dir()
-    }
-
-    pub(crate) fn from_entry(depth: usize, ent: &fs::DirEntry) -> Result<DirEntry> {
-      use std::os::unix::fs::DirEntryExt;
-
-      let ty = ent
-        .file_type()
-        .map_err(|err| Error::from_path(depth, ent.path(), err))?;
-      Ok(DirEntry {
-        path: ent.path(),
-        ty,
-        follow_link: false,
-        depth,
-        ino: ent.ino(),
-      })
-    }
-
-    pub(crate) fn from_path(depth: usize, pb: PathBuf, follow: bool) -> Result<DirEntry> {
-      use std::os::unix::fs::MetadataExt;
-
-      let md = if follow {
-        fs::metadata(&pb).map_err(|err| Error::from_path(depth, pb.clone(), err))?
-      } else {
-        fs::symlink_metadata(&pb).map_err(|err| Error::from_path(depth, pb.clone(), err))?
-      };
-      Ok(DirEntry {
-        path: pb,
-        ty: md.file_type(),
-        follow_link: follow,
-        depth,
-        ino: md.ino(),
-      })
-    }
-  }
-
-  impl Clone for DirEntry {
-    fn clone(&self) -> DirEntry {
-      DirEntry {
-        path: self.path.clone(),
-        ty: self.ty,
-        follow_link: self.follow_link,
-        depth: self.depth,
-        ino: self.ino,
-      }
-    }
-  }
-
-  impl fmt::Debug for DirEntry {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-      write!(f, "DirEntry({:?})", self.path)
-    }
-  }
-
-  pub trait DirEntryExt {
-    fn ino(&self) -> u64;
-  }
-
-  impl DirEntryExt for DirEntry {
-    fn ino(&self) -> u64 {
-      self.ino
-    }
+impl PartialEq for Handle {
+  fn eq(&self, other: &Handle) -> bool {
+    (self.dev, self.ino) == (other.dev, other.ino)
   }
 }
-mod error {
-  use std::error;
-  use std::fmt;
-  use std::io;
-  use std::path::{Path, PathBuf};
 
-  #[derive(Debug)]
-  pub struct Error {
-    depth: usize,
-    inner: ErrorInner,
-  }
-
-  #[derive(Debug)]
-  enum ErrorInner {
-    Io {
-      path: Option<PathBuf>,
-      err: io::Error,
-    },
-    Loop {
-      ancestor: PathBuf,
-      child: PathBuf,
-    },
-  }
-
-  impl Error {
-    pub fn path(&self) -> Option<&Path> {
-      match self.inner {
-        ErrorInner::Io { path: None, .. } => None,
-        ErrorInner::Io {
-          path: Some(ref path),
-          ..
-        } => Some(path),
-        ErrorInner::Loop { ref child, .. } => Some(child),
-      }
-    }
-
-    pub fn loop_ancestor(&self) -> Option<&Path> {
-      match self.inner {
-        ErrorInner::Loop { ref ancestor, .. } => Some(ancestor),
-        _ => None,
-      }
-    }
-
-    pub fn depth(&self) -> usize {
-      self.depth
-    }
-
-    pub fn io_error(&self) -> Option<&io::Error> {
-      match self.inner {
-        ErrorInner::Io { ref err, .. } => Some(err),
-        ErrorInner::Loop { .. } => None,
-      }
-    }
-
-    pub fn into_io_error(self) -> Option<io::Error> {
-      match self.inner {
-        ErrorInner::Io { err, .. } => Some(err),
-        ErrorInner::Loop { .. } => None,
-      }
-    }
-
-    pub(crate) fn from_path(depth: usize, pb: PathBuf, err: io::Error) -> Self {
-      Error {
-        depth,
-        inner: ErrorInner::Io {
-          path: Some(pb),
-          err,
-        },
-      }
-    }
-
-    pub(crate) fn from_entry(dent: &crate::walkdir::DirEntry, err: io::Error) -> Self {
-      Error {
-        depth: dent.depth(),
-        inner: ErrorInner::Io {
-          path: Some(dent.path().to_path_buf()),
-          err,
-        },
-      }
-    }
-
-    pub(crate) fn from_io(depth: usize, err: io::Error) -> Self {
-      Error {
-        depth,
-        inner: ErrorInner::Io { path: None, err },
-      }
-    }
-
-    pub(crate) fn from_loop(depth: usize, ancestor: &Path, child: &Path) -> Self {
-      Error {
-        depth,
-        inner: ErrorInner::Loop {
-          ancestor: ancestor.to_path_buf(),
-          child: child.to_path_buf(),
-        },
-      }
-    }
-  }
-
-  impl error::Error for Error {
-    #[allow(deprecated)]
-    fn description(&self) -> &str {
-      match self.inner {
-        ErrorInner::Io { ref err, .. } => err.description(),
-        ErrorInner::Loop { .. } => "file system loop found",
-      }
-    }
-
-    fn cause(&self) -> Option<&dyn error::Error> {
-      self.source()
-    }
-
-    fn source(&self) -> Option<&(dyn error::Error + 'static)> {
-      match self.inner {
-        ErrorInner::Io { ref err, .. } => Some(err),
-        ErrorInner::Loop { .. } => None,
-      }
-    }
-  }
-
-  impl fmt::Display for Error {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-      match self.inner {
-        ErrorInner::Io {
-          path: None,
-          ref err,
-        } => err.fmt(f),
-        ErrorInner::Io {
-          path: Some(ref path),
-          ref err,
-        } => write!(f, "IO error for operation on {}: {}", path.display(), err),
-        ErrorInner::Loop {
-          ref ancestor,
-          ref child,
-        } => write!(
-          f,
-          "File system loop found: \
-                 {} points to an ancestor {}",
-          child.display(),
-          ancestor.display()
-        ),
-      }
-    }
-  }
-
-  impl From<Error> for io::Error {
-    fn from(walk_err: Error) -> io::Error {
-      let kind = match walk_err {
-        Error {
-          inner: ErrorInner::Io { ref err, .. },
-          ..
-        } => err.kind(),
-        Error {
-          inner: ErrorInner::Loop { .. },
-          ..
-        } => io::ErrorKind::Other,
-      };
-      io::Error::new(kind, walk_err)
-    }
+impl Hash for Handle {
+  fn hash<H: Hasher>(&self, state: &mut H) {
+    self.dev.hash(state);
+    self.ino.hash(state);
   }
 }
-mod util {
-  use std::io;
-  use std::path::Path;
 
-  pub fn device_num<P: AsRef<Path>>(path: P) -> io::Result<u64> {
+impl AsRawFd for Handle {
+  fn as_raw_fd(&self) -> RawFd {
+    self.file.as_ref().unwrap().as_raw_fd()
+  }
+}
+
+impl IntoRawFd for Handle {
+  fn into_raw_fd(mut self) -> RawFd {
+    self.file.take().unwrap().into_raw_fd()
+  }
+}
+
+pub(crate) struct DirEntry {
+  path: PathBuf,
+  ty: FileType,
+  follow_link: bool,
+  depth: usize,
+
+  pub(crate) ino: u64,
+}
+
+impl DirEntry {
+  pub(crate) fn path(&self) -> &Path {
+    &self.path
+  }
+
+  pub(crate) fn into_path(self) -> PathBuf {
+    self.path
+  }
+
+  pub(crate) fn path_is_symlink(&self) -> bool {
+    self.ty.is_symlink() || self.follow_link
+  }
+
+  pub(crate) fn metadata(&self) -> WalkdirResult<fs::Metadata> {
+    self.metadata_internal()
+  }
+
+  fn metadata_internal(&self) -> WalkdirResult<fs::Metadata> {
+    if self.follow_link {
+      fs::metadata(&self.path)
+    } else {
+      fs::symlink_metadata(&self.path)
+    }
+    .map_err(|err| WalkdirError::from_entry(self, err))
+  }
+
+  pub(crate) fn file_type(&self) -> fs::FileType {
+    self.ty
+  }
+
+  pub(crate) fn file_name(&self) -> &OsStr {
+    self
+      .path
+      .file_name()
+      .unwrap_or_else(|| self.path.as_os_str())
+  }
+
+  pub(crate) fn depth(&self) -> usize {
+    self.depth
+  }
+
+  fn is_dir(&self) -> bool {
+    self.ty.is_dir()
+  }
+
+  fn from_entry(depth: usize, ent: &fs::DirEntry) -> WalkdirResult<DirEntry> {
+    use std::os::unix::fs::DirEntryExt;
+
+    let ty = ent
+      .file_type()
+      .map_err(|err| WalkdirError::from_path(depth, ent.path(), err))?;
+    Ok(DirEntry {
+      path: ent.path(),
+      ty,
+      follow_link: false,
+      depth,
+      ino: ent.ino(),
+    })
+  }
+
+  fn from_path(depth: usize, pb: PathBuf, follow: bool) -> WalkdirResult<DirEntry> {
     use std::os::unix::fs::MetadataExt;
 
-    path.as_ref().metadata().map(|md| md.dev())
+    let md = if follow {
+      fs::metadata(&pb).map_err(|err| WalkdirError::from_path(depth, pb.clone(), err))?
+    } else {
+      fs::symlink_metadata(&pb).map_err(|err| WalkdirError::from_path(depth, pb.clone(), err))?
+    };
+    Ok(DirEntry {
+      path: pb,
+      ty: md.file_type(),
+      follow_link: follow,
+      depth,
+      ino: md.ino(),
+    })
   }
+}
+
+impl Clone for DirEntry {
+  fn clone(&self) -> DirEntry {
+    DirEntry {
+      path: self.path.clone(),
+      ty: self.ty,
+      follow_link: self.follow_link,
+      depth: self.depth,
+      ino: self.ino,
+    }
+  }
+}
+
+impl fmt::Debug for DirEntry {
+  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    write!(f, "DirEntry({:?})", self.path)
+  }
+}
+
+pub(crate) trait DirEntryExt {
+  fn ino(&self) -> u64;
+}
+
+impl DirEntryExt for DirEntry {
+  fn ino(&self) -> u64 {
+    self.ino
+  }
+}
+
+#[derive(Debug)]
+pub(crate) struct WalkdirError {
+  depth: usize,
+  inner: ErrorInner,
+}
+
+#[derive(Debug)]
+enum ErrorInner {
+  Io {
+    path: Option<PathBuf>,
+    err: io::Error,
+  },
+  Loop {
+    ancestor: PathBuf,
+    child: PathBuf,
+  },
+}
+
+impl WalkdirError {
+  pub(crate) fn path(&self) -> Option<&Path> {
+    match self.inner {
+      ErrorInner::Io { path: None, .. } => None,
+      ErrorInner::Io {
+        path: Some(ref path),
+        ..
+      } => Some(path),
+      ErrorInner::Loop { ref child, .. } => Some(child),
+    }
+  }
+
+  pub(crate) fn loop_ancestor(&self) -> Option<&Path> {
+    match self.inner {
+      ErrorInner::Loop { ref ancestor, .. } => Some(ancestor),
+      _ => None,
+    }
+  }
+
+  pub(crate) fn depth(&self) -> usize {
+    self.depth
+  }
+
+  fn from_path(depth: usize, pb: PathBuf, err: io::Error) -> Self {
+    WalkdirError {
+      depth,
+      inner: ErrorInner::Io {
+        path: Some(pb),
+        err,
+      },
+    }
+  }
+
+  fn from_entry(dent: &crate::walkdir::DirEntry, err: io::Error) -> Self {
+    WalkdirError {
+      depth: dent.depth(),
+      inner: ErrorInner::Io {
+        path: Some(dent.path().to_path_buf()),
+        err,
+      },
+    }
+  }
+
+  fn from_io(depth: usize, err: io::Error) -> Self {
+    WalkdirError {
+      depth,
+      inner: ErrorInner::Io { path: None, err },
+    }
+  }
+
+  fn from_loop(depth: usize, ancestor: &Path, child: &Path) -> Self {
+    WalkdirError {
+      depth,
+      inner: ErrorInner::Loop {
+        ancestor: ancestor.to_path_buf(),
+        child: child.to_path_buf(),
+      },
+    }
+  }
+}
+
+impl error::Error for WalkdirError {
+  #[allow(deprecated)]
+  fn description(&self) -> &str {
+    match self.inner {
+      ErrorInner::Io { ref err, .. } => err.description(),
+      ErrorInner::Loop { .. } => "file system loop found",
+    }
+  }
+
+  fn cause(&self) -> Option<&dyn error::Error> {
+    self.source()
+  }
+
+  fn source(&self) -> Option<&(dyn error::Error + 'static)> {
+    match self.inner {
+      ErrorInner::Io { ref err, .. } => Some(err),
+      ErrorInner::Loop { .. } => None,
+    }
+  }
+}
+
+impl fmt::Display for WalkdirError {
+  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    match self.inner {
+      ErrorInner::Io {
+        path: None,
+        ref err,
+      } => err.fmt(f),
+      ErrorInner::Io {
+        path: Some(ref path),
+        ref err,
+      } => write!(f, "IO error for operation on {}: {}", path.display(), err),
+      ErrorInner::Loop {
+        ref ancestor,
+        ref child,
+      } => write!(
+        f,
+        "File system loop found: \
+                 {} points to an ancestor {}",
+        child.display(),
+        ancestor.display()
+      ),
+    }
+  }
+}
+
+impl From<WalkdirError> for io::Error {
+  fn from(walk_err: WalkdirError) -> io::Error {
+    let kind = match walk_err {
+      WalkdirError {
+        inner: ErrorInner::Io { ref err, .. },
+        ..
+      } => err.kind(),
+      WalkdirError {
+        inner: ErrorInner::Loop { .. },
+        ..
+      } => io::ErrorKind::Other,
+    };
+    io::Error::new(kind, walk_err)
+  }
+}
+
+fn device_num<P: AsRef<Path>>(path: P) -> io::Result<u64> {
+  use std::os::unix::fs::MetadataExt;
+
+  path.as_ref().metadata().map(|md| md.dev())
 }
 
 macro_rules! itry {
@@ -385,10 +344,10 @@ macro_rules! itry {
   };
 }
 
-pub type Result<T> = ::std::result::Result<T, Error>;
+pub(crate) type WalkdirResult<T> = ::std::result::Result<T, WalkdirError>;
 
 #[derive(Debug)]
-pub struct WalkDir {
+pub(crate) struct WalkDir {
   opts: WalkDirOptions,
   root: PathBuf,
 }
@@ -425,7 +384,7 @@ impl fmt::Debug for WalkDirOptions {
 }
 
 impl WalkDir {
-  pub fn new<P: AsRef<Path>>(root: P) -> Self {
+  pub(crate) fn new<P: AsRef<Path>>(root: P) -> Self {
     WalkDir {
       opts: WalkDirOptions {
         follow_links: false,
@@ -441,7 +400,7 @@ impl WalkDir {
     }
   }
 
-  pub fn min_depth(mut self, depth: usize) -> Self {
+  pub(crate) fn min_depth(mut self, depth: usize) -> Self {
     self.opts.min_depth = depth;
     if self.opts.min_depth > self.opts.max_depth {
       self.opts.min_depth = self.opts.max_depth;
@@ -449,7 +408,7 @@ impl WalkDir {
     self
   }
 
-  pub fn max_depth(mut self, depth: usize) -> Self {
+  pub(crate) fn max_depth(mut self, depth: usize) -> Self {
     self.opts.max_depth = depth;
     if self.opts.max_depth < self.opts.min_depth {
       self.opts.max_depth = self.opts.min_depth;
@@ -457,24 +416,12 @@ impl WalkDir {
     self
   }
 
-  pub fn follow_links(mut self, yes: bool) -> Self {
+  pub(crate) fn follow_links(mut self, yes: bool) -> Self {
     self.opts.follow_links = yes;
     self
   }
-  pub fn follow_root_links(mut self, yes: bool) -> Self {
-    self.opts.follow_root_links = yes;
-    self
-  }
 
-  pub fn max_open(mut self, mut n: usize) -> Self {
-    if n == 0 {
-      n = 1;
-    }
-    self.opts.max_open = n;
-    self
-  }
-
-  pub fn sort_by<F>(mut self, cmp: F) -> Self
+  pub(crate) fn sort_by<F>(mut self, cmp: F) -> Self
   where
     F: FnMut(&DirEntry, &DirEntry) -> Ordering + Send + Sync + 'static,
   {
@@ -482,31 +429,14 @@ impl WalkDir {
     self
   }
 
-  pub fn sort_by_key<K, F>(self, mut cmp: F) -> Self
-  where
-    F: FnMut(&DirEntry) -> K + Send + Sync + 'static,
-    K: Ord,
-  {
-    self.sort_by(move |a, b| cmp(a).cmp(&cmp(b)))
-  }
-
-  pub fn sort_by_file_name(self) -> Self {
-    self.sort_by(|a, b| a.file_name().cmp(b.file_name()))
-  }
-
-  pub fn contents_first(mut self, yes: bool) -> Self {
-    self.opts.contents_first = yes;
-    self
-  }
-
-  pub fn same_file_system(mut self, yes: bool) -> Self {
+  pub(crate) fn same_file_system(mut self, yes: bool) -> Self {
     self.opts.same_file_system = yes;
     self
   }
 }
 
 impl IntoIterator for WalkDir {
-  type Item = Result<DirEntry>;
+  type Item = WalkdirResult<DirEntry>;
   type IntoIter = IntoIter;
 
   fn into_iter(self) -> IntoIter {
@@ -524,7 +454,7 @@ impl IntoIterator for WalkDir {
 }
 
 #[derive(Debug)]
-pub struct IntoIter {
+pub(crate) struct IntoIter {
   opts: WalkDirOptions,
   start: Option<PathBuf>,
   stack_list: Vec<DirList>,
@@ -556,17 +486,17 @@ impl Ancestor {
 enum DirList {
   Opened {
     depth: usize,
-    it: result::Result<ReadDir, Option<Error>>,
+    it: result::Result<ReadDir, Option<WalkdirError>>,
   },
-  Closed(vec::IntoIter<Result<DirEntry>>),
+  Closed(vec::IntoIter<WalkdirResult<DirEntry>>),
 }
 
 impl Iterator for IntoIter {
-  type Item = Result<DirEntry>;
-  fn next(&mut self) -> Option<Result<DirEntry>> {
+  type Item = WalkdirResult<DirEntry>;
+  fn next(&mut self) -> Option<WalkdirResult<DirEntry>> {
     if let Some(start) = self.start.take() {
       if self.opts.same_file_system {
-        let result = util::device_num(&start).map_err(|e| Error::from_path(0, start.clone(), e));
+        let result = device_num(&start).map_err(|e| WalkdirError::from_path(0, start.clone(), e));
         self.root_device = Some(itry!(result));
       }
       let dent = itry!(DirEntry::from_path(0, start, false));
@@ -609,23 +539,13 @@ impl Iterator for IntoIter {
 }
 
 impl IntoIter {
-  pub fn skip_current_dir(&mut self) {
+  pub(crate) fn skip_current_dir(&mut self) {
     if !self.stack_list.is_empty() {
       self.pop();
     }
   }
 
-  pub fn filter_entry<P>(self, predicate: P) -> FilterEntry<Self, P>
-  where
-    P: FnMut(&DirEntry) -> bool,
-  {
-    FilterEntry {
-      it: self,
-      predicate,
-    }
-  }
-
-  fn handle_entry(&mut self, mut dent: DirEntry) -> Option<Result<DirEntry>> {
+  fn handle_entry(&mut self, mut dent: DirEntry) -> Option<WalkdirResult<DirEntry>> {
     if self.opts.follow_links && dent.file_type().is_symlink() {
       dent = itry!(self.follow(dent));
     }
@@ -639,10 +559,10 @@ impl IntoIter {
         itry!(self.push(&dent));
       }
     } else if dent.depth() == 0 && dent.file_type().is_symlink() && self.opts.follow_root_links {
-      let md = itry!(
-        fs::metadata(dent.path())
-          .map_err(|err| { Error::from_path(dent.depth(), dent.path().to_path_buf(), err) })
-      );
+      let md =
+        itry!(fs::metadata(dent.path()).map_err(|err| {
+          WalkdirError::from_path(dent.depth(), dent.path().to_path_buf(), err)
+        }));
       if md.file_type().is_dir() {
         itry!(self.push(&dent));
       }
@@ -672,7 +592,7 @@ impl IntoIter {
     None
   }
 
-  fn push(&mut self, dent: &DirEntry) -> Result<()> {
+  fn push(&mut self, dent: &DirEntry) -> WalkdirResult<()> {
     let free = self
       .stack_list
       .len()
@@ -681,8 +601,13 @@ impl IntoIter {
     if free == self.opts.max_open {
       self.stack_list[self.oldest_opened].close();
     }
-    let rd = fs::read_dir(dent.path())
-      .map_err(|err| Some(Error::from_path(self.depth, dent.path().to_path_buf(), err)));
+    let rd = fs::read_dir(dent.path()).map_err(|err| {
+      Some(WalkdirError::from_path(
+        self.depth,
+        dent.path().to_path_buf(),
+        err,
+      ))
+    });
     let mut list = DirList::Opened {
       depth: self.depth,
       it: rd,
@@ -698,7 +623,7 @@ impl IntoIter {
       list = DirList::Closed(entries.into_iter());
     }
     if self.opts.follow_links {
-      let ancestor = Ancestor::new(&dent).map_err(|err| Error::from_io(self.depth, err))?;
+      let ancestor = Ancestor::new(&dent).map_err(|err| WalkdirError::from_io(self.depth, err))?;
       self.stack_path.push(ancestor);
     }
     self.stack_list.push(list);
@@ -722,7 +647,7 @@ impl IntoIter {
     self.oldest_opened = min(self.oldest_opened, self.stack_list.len());
   }
 
-  fn follow(&self, mut dent: DirEntry) -> Result<DirEntry> {
+  fn follow(&self, mut dent: DirEntry) -> WalkdirResult<DirEntry> {
     dent = DirEntry::from_path(self.depth, dent.path().to_path_buf(), true)?;
     if dent.is_dir() {
       self.check_loop(dent.path())?;
@@ -730,21 +655,25 @@ impl IntoIter {
     Ok(dent)
   }
 
-  fn check_loop<P: AsRef<Path>>(&self, child: P) -> Result<()> {
-    let hchild = Handle::from_path(&child).map_err(|err| Error::from_io(self.depth, err))?;
+  fn check_loop<P: AsRef<Path>>(&self, child: P) -> WalkdirResult<()> {
+    let hchild = Handle::from_path(&child).map_err(|err| WalkdirError::from_io(self.depth, err))?;
     for ancestor in self.stack_path.iter().rev() {
       let is_same = ancestor
         .is_same(&hchild)
-        .map_err(|err| Error::from_io(self.depth, err))?;
+        .map_err(|err| WalkdirError::from_io(self.depth, err))?;
       if is_same {
-        return Err(Error::from_loop(self.depth, &ancestor.path, child.as_ref()));
+        return Err(WalkdirError::from_loop(
+          self.depth,
+          &ancestor.path,
+          child.as_ref(),
+        ));
       }
     }
     Ok(())
   }
 
-  fn is_same_file_system(&mut self, dent: &DirEntry) -> Result<bool> {
-    let dent_device = util::device_num(dent.path()).map_err(|err| Error::from_entry(dent, err))?;
+  fn is_same_file_system(&mut self, dent: &DirEntry) -> WalkdirResult<bool> {
+    let dent_device = device_num(dent.path()).map_err(|err| WalkdirError::from_entry(dent, err))?;
     Ok(
       self
         .root_device
@@ -769,66 +698,19 @@ impl DirList {
 }
 
 impl Iterator for DirList {
-  type Item = Result<DirEntry>;
+  type Item = WalkdirResult<DirEntry>;
 
   #[inline(always)]
-  fn next(&mut self) -> Option<Result<DirEntry>> {
+  fn next(&mut self) -> Option<WalkdirResult<DirEntry>> {
     match *self {
       DirList::Closed(ref mut it) => it.next(),
       DirList::Opened { depth, ref mut it } => match *it {
         Err(ref mut err) => err.take().map(Err),
         Ok(ref mut rd) => rd.next().map(|r| match r {
           Ok(r) => DirEntry::from_entry(depth + 1, &r),
-          Err(err) => Err(Error::from_io(depth + 1, err)),
+          Err(err) => Err(WalkdirError::from_io(depth + 1, err)),
         }),
       },
     }
-  }
-}
-
-#[derive(Debug)]
-pub struct FilterEntry<I, P> {
-  it: I,
-  predicate: P,
-}
-
-impl<P> Iterator for FilterEntry<IntoIter, P>
-where
-  P: FnMut(&DirEntry) -> bool,
-{
-  type Item = Result<DirEntry>;
-
-  fn next(&mut self) -> Option<Result<DirEntry>> {
-    loop {
-      let dent = match self.it.next() {
-        None => return None,
-        Some(result) => itry!(result),
-      };
-      if !(self.predicate)(&dent) {
-        if dent.is_dir() {
-          self.it.skip_current_dir();
-        }
-        continue;
-      }
-      return Some(Ok(dent));
-    }
-  }
-}
-
-impl<P> iter::FusedIterator for FilterEntry<IntoIter, P> where P: FnMut(&DirEntry) -> bool {}
-
-impl<P> FilterEntry<IntoIter, P>
-where
-  P: FnMut(&DirEntry) -> bool,
-{
-  pub fn filter_entry(self, predicate: P) -> FilterEntry<Self, P> {
-    FilterEntry {
-      it: self,
-      predicate,
-    }
-  }
-
-  pub fn skip_current_dir(&mut self) {
-    self.it.skip_current_dir();
   }
 }

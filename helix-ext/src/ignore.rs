@@ -2576,7 +2576,7 @@ impl std::iter::FusedIterator for Walk {}
 struct WalkEventIter {
   depth: usize,
   it: crate::walkdir::IntoIter,
-  next: Option<Result<crate::walkdir::DirEntry, crate::walkdir::Error>>,
+  next: Option<Result<crate::walkdir::DirEntry, crate::walkdir::WalkdirError>>,
 }
 
 #[derive(Debug)]
@@ -2597,10 +2597,10 @@ impl From<WalkDir> for WalkEventIter {
 }
 
 impl Iterator for WalkEventIter {
-  type Item = crate::walkdir::Result<WalkEvent>;
+  type Item = crate::walkdir::WalkdirResult<WalkEvent>;
 
   #[inline(always)]
-  fn next(&mut self) -> Option<crate::walkdir::Result<WalkEvent>> {
+  fn next(&mut self) -> Option<crate::walkdir::WalkdirResult<WalkEvent>> {
     let dent = self.next.take().or_else(|| self.it.next());
     let depth = match dent {
       None => 0,
@@ -3557,7 +3557,7 @@ impl Error {
   }
 
   /// Build an error from a walkdir error.
-  fn from_walkdir(err: crate::walkdir::Error) -> Error {
+  fn from_walkdir(err: crate::walkdir::WalkdirError) -> Error {
     let depth = err.depth();
     if let (Some(anc), Some(child)) = (err.loop_ancestor(), err.path()) {
       return Error::WithDepth {
