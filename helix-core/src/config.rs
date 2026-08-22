@@ -1,5 +1,3 @@
-use helix_loader::workspace_trust::WorkspaceTrust;
-
 use crate::syntax::{
   Loader, LoaderError,
   config::{Configuration, LanguageConfiguration},
@@ -46,7 +44,7 @@ pub fn user_lang_config() -> Result<Configuration, toml::de::Error> {
 }
 
 /// Language configuration loader based on user configured languages.toml.
-pub fn user_lang_loader(_trust: &WorkspaceTrust) -> Result<Loader, LanguageLoaderError> {
+pub fn user_lang_loader() -> Result<Loader, LanguageLoaderError> {
   let config_val =
     helix_loader::config::user_lang_config().map_err(LanguageLoaderError::DeserializeError)?;
   let config = config_val.clone().try_into().map_err(|e| {

@@ -1,7 +1,6 @@
 #![allow(clippy::missing_errors_doc, clippy::missing_panics_doc)]
 pub mod config;
 pub mod grammar;
-pub mod workspace_trust;
 
 use helix_stdx::{env::current_working_dir, path};
 

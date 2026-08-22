@@ -63,12 +63,7 @@ pub struct Application {
 }
 
 impl Application {
-  pub fn new(
-    args: Args,
-    config: Config,
-    lang_loader: syntax::Loader,
-    workspace_trust: helix_loader::workspace_trust::WorkspaceTrust,
-  ) -> Result<Self, Error> {
+  pub fn new(args: Args, config: Config, lang_loader: syntax::Loader) -> Result<Self, Error> {
     use helix_view::editor::Action;
 
     let mut theme_parent_dirs = vec![helix_loader::config_dir()];
@@ -92,7 +87,6 @@ impl Application {
         &config.editor
       })),
       handlers,
-      workspace_trust,
     );
     Self::load_configured_theme(&mut editor, &config.load(), theme_mode);
 
@@ -363,16 +357,10 @@ impl Application {
       let default_config =
         Config::load_default().map_err(|err| anyhow::anyhow!("Failed to load config: {err}"))?;
 
-      // Apply any change to editor.workspace_trust before reading local language config.
-      self
-        .editor
-        .workspace_trust
-        .set_config((&default_config.editor.workspace_trust).into());
-
       // Update the syntax language loader before setting the theme. Setting the theme will
       // call `Loader::set_scopes` which must be done before the documents are re-parsed for
       // the sake of locals highlighting.
-      let lang_loader = helix_core::config::user_lang_loader(&self.editor.workspace_trust)?;
+      let lang_loader = helix_core::config::user_lang_loader()?;
       self.editor.syn_loader.store(Arc::new(lang_loader));
       Self::load_configured_theme(&mut self.editor, &default_config, self.theme_mode);
 

@@ -4,8 +4,8 @@ use std::str::from_utf8;
 /// Default built-in languages.toml.
 #[must_use]
 pub fn default_lang_config() -> toml::Value {
-  let default_config = include_bytes!("../../languages.toml");
-  // let default_config = include_bytes!("/home/pk/.config/helix/languages.toml");
+  // let default_config = include_bytes!("../../languages.toml");
+  let default_config = include_bytes!("/home/pk/.config/helix/languages.toml");
 
   toml::from_str(from_utf8(default_config).unwrap())
     .expect("Could not parse built-in languages.toml to valid toml")
