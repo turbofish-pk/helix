@@ -11,3 +11,4 @@ dump.txt
 cargo_tree.txt
 testfile
 .testfile
+Cargo.lock

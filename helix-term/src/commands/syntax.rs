@@ -1,17 +1,16 @@
-use std::{
-  collections::HashSet,
-  iter,
-  path::{Path, PathBuf},
-  sync::Arc,
-};
-
-use dashmap::DashMap;
 use futures_util::FutureExt;
 use grep_regex::RegexMatcherBuilder;
 use grep_searcher::{BinaryDetection, SearcherBuilder, sinks};
 use helix_core::{
   Rope, RopeSlice, Selection, Syntax, Uri,
   syntax::{Loader, QueryMatchIterEvent},
+};
+use std::collections::HashMap;
+use std::{
+  collections::HashSet,
+  iter,
+  path::{Path, PathBuf},
+  sync::{Arc, Mutex},
 };
 
 use helix_ext::ignore::{DirEntry, WalkOptions, WalkState, walk_parallel_ref};
@@ -226,7 +225,7 @@ pub fn syntax_workspace_symbol_picker(cx: &mut Context) {
     rope_regex_builder: rope::RegexBuilder,
     search_root: PathBuf,
     /// A cache of files that have been parsed in prior searches.
-    syntax_cache: DashMap<PathBuf, Option<(Rope, Syntax)>>,
+    syntax_cache: Mutex<HashMap<PathBuf, Arc<Option<(Rope, Syntax)>>>>,
   }
 
   let mut searcher_builder = SearcherBuilder::new();
@@ -277,7 +276,7 @@ pub fn syntax_workspace_symbol_picker(cx: &mut Context) {
     regex_matcher_builder,
     rope_regex_builder,
     search_root,
-    syntax_cache: DashMap::default(),
+    syntax_cache: Mutex::new(HashMap::new()),
   };
   let reg = cx.register.unwrap_or('/');
   cx.editor.registers.last_search_register = reg;
@@ -376,14 +375,26 @@ pub fn syntax_workspace_symbol_picker(cx: &mut Context) {
               }
               let mut quit = false;
               let sink = sinks::UTF8(|_line, _content| {
-                if !syntax_cache.contains_key(path) {
-                  // Read the file into a Rope and attempt to recognize the language
-                  // and parse it with tree-sitter. Save the Rope and Syntax for future
-                  // queries.
-                  syntax_cache.insert(path.to_path_buf(), syntax_for_path(path, &loader));
-                }
-                let entry = syntax_cache.get(path).unwrap();
-                let Some((text, syntax)) = entry.value() else {
+                // Read the file into a Rope and attempt to recognize the language
+                // and parse it with tree-sitter. Save the Rope and Syntax for future
+                // queries.
+                let cached = syntax_cache
+                  .lock()
+                  .unwrap_or_else(|err| err.into_inner())
+                  .get(path)
+                  .cloned();
+                let entry = match cached {
+                  Some(entry) => entry,
+                  None => {
+                    let entry = Arc::new(syntax_for_path(path, &loader));
+                    syntax_cache
+                      .lock()
+                      .unwrap_or_else(|err| err.into_inner())
+                      .insert(path.to_path_buf(), Arc::clone(&entry));
+                    entry
+                  }
+                };
+                let Some((text, syntax)) = entry.as_ref() else {
                   // If the file couldn't be parsed, move on.
                   return Ok(false);
                 };
