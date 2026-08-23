@@ -115,10 +115,10 @@ impl LanguageConfiguration {
 
 pub type RootMarkers = GlobSet;
 
-/// A wrapper around `globset::GlobSet` which implements `Serialize` and `Deserialize`.
+/// A wrapper around `helix_ext::globset::GlobSet` which implements `Serialize` and `Deserialize`.
 #[derive(Default, Debug)]
 pub struct GlobSet {
-  inner: globset::GlobSet,
+  inner: helix_ext::globset::GlobSet,
   /// Glob patterns as-is before building. This is only used for `Serialize`.
   patterns: Vec<String>,
 }
@@ -148,9 +148,9 @@ impl<'de> Deserialize<'de> for GlobSet {
     D: serde::Deserializer<'de>,
   {
     let patterns: Vec<String> = Deserialize::deserialize(deserializer)?;
-    let mut builder = globset::GlobSetBuilder::new();
+    let mut builder = helix_ext::globset::GlobSetBuilder::new();
     for pattern in &patterns {
-      let glob = globset::Glob::new(pattern).map_err(serde::de::Error::custom)?;
+      let glob = helix_ext::globset::Glob::new(pattern).map_err(serde::de::Error::custom)?;
       builder.add(glob);
     }
     let inner = builder.build().map_err(serde::de::Error::custom)?;
@@ -167,7 +167,7 @@ pub enum FileType {
   /// it can be used to detect files based on their directories. If the glob
   /// is not an absolute path and does not already start with a glob pattern,
   /// a glob pattern will be prepended to it.
-  Glob(globset::Glob),
+  Glob(helix_ext::globset::Glob),
 }
 
 impl Serialize for FileType {
@@ -222,7 +222,7 @@ impl<'de> Deserialize<'de> for FileType {
               glob.insert_str(0, "*/");
             }
 
-            globset::Glob::new(glob.as_str())
+            helix_ext::globset::Glob::new(glob.as_str())
               .map(FileType::Glob)
               .map_err(|err| serde::de::Error::custom(format!("invalid `glob` pattern: {err}")))
           }

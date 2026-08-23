@@ -1,6 +1,6 @@
 use std::{collections::HashMap, path::PathBuf, sync::Weak};
 
-use globset::{GlobBuilder, GlobSetBuilder};
+use helix_ext::globset::{GlobBuilder, GlobSetBuilder};
 use tokio::sync::mpsc;
 
 use crate::{Client, LanguageServerId, lsp};
@@ -27,7 +27,7 @@ enum Event {
 #[derive(Default)]
 struct ClientState {
   client: Weak<Client>,
-  registered: HashMap<String, globset::GlobSet>,
+  registered: HashMap<String, helix_ext::globset::GlobSet>,
 }
 
 /// The Handler uses a dedicated tokio task to respond to file change events by

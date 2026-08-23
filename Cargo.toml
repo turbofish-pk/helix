@@ -51,7 +51,7 @@ tokio-stream = "0.1.18"
 toml = "1.1"
 termina = "0.3"
 sonic-rs = "0.5"
-globset = "0.4"
+helix-ext = {path = "./helix-ext"}
 etcetera = "0.11"
 arc-swap = "1.9"
 arrayvec = "0.7"

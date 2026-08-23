@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use globset::{GlobBuilder, GlobSet};
+use helix_ext::globset::{GlobBuilder, GlobSet};
 
 use crate::lsp;
 

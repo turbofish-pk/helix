@@ -3,17 +3,29 @@ use std::fs::{OpenOptions, ReadDir};
 use std::hash::{Hash, Hasher};
 use std::os::fd::{AsRawFd, IntoRawFd, RawFd};
 use std::os::unix::fs::MetadataExt;
-use std::{cmp::Ordering, collections::HashMap, error, ffi::{OsStr, OsString}, fmt, fs::{self, File, FileType, Metadata}, io::{self, BufRead, BufReader, Read}, iter, path::{Path, PathBuf}, result, sync::{
-  Arc, OnceLock, RwLock, Weak,
-  atomic::{AtomicBool, AtomicUsize, Ordering as AtomicOrdering},
-}, vec};
+use std::{
+  cmp::Ordering,
+  collections::HashMap,
+  error,
+  ffi::{OsStr, OsString},
+  fmt,
+  fs::{self, File, FileType, Metadata},
+  io::{self, BufRead, BufReader, Read},
+  iter,
+  path::{Path, PathBuf},
+  result,
+  sync::{
+    Arc, OnceLock, RwLock, Weak,
+    atomic::{AtomicBool, AtomicUsize, Ordering as AtomicOrdering},
+  },
+  vec,
+};
 use {
+  crate::globset::{Candidate, GlobBuilder, GlobSet, GlobSetBuilder},
   crossbeam_deque::{Stealer, Worker as Deque},
-  globset::{Candidate, GlobBuilder, GlobSet, GlobSetBuilder},
   regex_automata::util::pool::Pool,
   same_file::Handle,
 };
-
 
 macro_rules! itry {
   ($e:expr) => {
@@ -23,8 +35,6 @@ macro_rules! itry {
     }
   };
 }
-
-
 
 /// IgnoreMatch represents information about where a match came from when using
 /// the `Ignore` matcher.
@@ -3424,8 +3434,6 @@ fn is_same_file_system(root_device: u64, path: &Path) -> Result<bool, Error> {
   Ok(root_device == dent_device)
 }
 
-
-
 /// Represents an error that can occur when parsing a gitignore file.
 #[derive(Debug)]
 pub enum Error {
@@ -4089,7 +4097,8 @@ struct WalkDirOptions {
   max_open: usize,
   min_depth: usize,
   max_depth: usize,
-  sorter: Option<Box<dyn FnMut(&WalkdirDirEntry, &WalkdirDirEntry) -> Ordering + Send + Sync + 'static>>,
+  sorter:
+    Option<Box<dyn FnMut(&WalkdirDirEntry, &WalkdirDirEntry) -> Ordering + Send + Sync + 'static>>,
   contents_first: bool,
   same_file_system: bool,
 }
@@ -4387,7 +4396,8 @@ impl WalkdirIntoIter {
   }
 
   fn check_loop<P: AsRef<Path>>(&self, child: P) -> WalkdirResult<()> {
-    let hchild = WalkdirHandle::from_path(&child).map_err(|err| WalkdirError::from_io(self.depth, err))?;
+    let hchild =
+      WalkdirHandle::from_path(&child).map_err(|err| WalkdirError::from_io(self.depth, err))?;
     for ancestor in self.stack_path.iter().rev() {
       let is_same = ancestor
         .is_same(&hchild)

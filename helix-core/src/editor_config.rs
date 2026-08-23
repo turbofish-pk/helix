@@ -17,7 +17,7 @@ use std::{
 };
 
 use encoding_rs::Encoding;
-use globset::{GlobBuilder, GlobMatcher};
+use helix_ext::globset::{GlobBuilder, GlobMatcher};
 
 use crate::{
   LineEnding,
@@ -194,7 +194,7 @@ struct Ini {
 }
 
 impl FromStr for Ini {
-  type Err = globset::Error;
+  type Err = helix_ext::globset::Error;
 
   fn from_str(source: &str) -> Result<Self, Self::Err> {
     // <https://spec.editorconfig.org/#file-format>

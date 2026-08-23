@@ -289,7 +289,7 @@ pub struct Loader {
   scopes: ArcSwap<Vec<String>>,
 }
 
-pub type LoaderError = globset::Error;
+pub type LoaderError = helix_ext::globset::Error;
 
 impl Loader {
   pub fn new(config: Configuration) -> Result<Self, LoaderError> {
@@ -473,34 +473,34 @@ impl LanguageLoader for Loader {
 
 #[derive(Debug)]
 struct FileTypeGlob {
-  glob: globset::Glob,
+  glob: helix_ext::globset::Glob,
   language: Language,
 }
 
 impl FileTypeGlob {
-  pub fn new(glob: globset::Glob, language: Language) -> Self {
+  pub fn new(glob: helix_ext::globset::Glob, language: Language) -> Self {
     Self { glob, language }
   }
 }
 
 #[derive(Debug)]
 struct FileTypeGlobMatcher {
-  matcher: globset::GlobSet,
+  matcher: helix_ext::globset::GlobSet,
   file_types: Vec<FileTypeGlob>,
 }
 
 impl Default for FileTypeGlobMatcher {
   fn default() -> Self {
     Self {
-      matcher: globset::GlobSet::empty(),
+      matcher: helix_ext::globset::GlobSet::empty(),
       file_types: Vec::default(),
     }
   }
 }
 
 impl FileTypeGlobMatcher {
-  fn new(file_types: Vec<FileTypeGlob>) -> Result<Self, globset::Error> {
-    let mut builder = globset::GlobSetBuilder::new();
+  fn new(file_types: Vec<FileTypeGlob>) -> Result<Self, helix_ext::globset::Error> {
+    let mut builder = helix_ext::globset::GlobSetBuilder::new();
     for file_type in &file_types {
       builder.add(file_type.glob.clone());
     }
