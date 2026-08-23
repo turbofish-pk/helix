@@ -545,14 +545,26 @@ dependencies = [
 name = "helix-ext"
 version = "25.7.1"
 dependencies = [
+ "ahash",
  "aho-corasick",
  "bstr",
+ "bumpalo",
+ "bytes",
  "crossbeam-deque",
+ "faststr",
+ "itoa",
  "log",
  "memchr",
+ "ref-cast",
  "regex-automata",
  "regex-syntax",
  "same-file",
+ "serde",
+ "simdutf8",
+ "sonic-number",
+ "sonic-simd",
+ "thiserror",
+ "zmij",
 ]
 
 [[package]]
@@ -590,7 +602,6 @@ dependencies = [
  "serde",
  "serde_json",
  "slotmap",
- "sonic-rs",
  "thiserror",
  "tokio",
  "tokio-stream",
@@ -1419,27 +1430,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3775c3390edf958191f1ab1e8c5c188907feebd0f3ce1604cb621f72961dbf32"
 dependencies = [
  "cfg-if",
-]
-
-[[package]]
-name = "sonic-rs"
-version = "0.5.8"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d971cc77a245ccf1756dbd1a87c3e7f709c0191464096510d43eec056d0f2c4f"
-dependencies = [
- "ahash",
- "bumpalo",
- "bytes",
- "cfg-if",
- "faststr",
- "itoa",
- "ref-cast",
- "serde",
- "simdutf8",
- "sonic-number",
- "sonic-simd",
- "thiserror",
- "zmij",
 ]
 
 [[package]]

@@ -168,7 +168,7 @@ impl Transport {
     // NOTE: We avoid using `?` here, since it would return early on error
     // and skip clearing `content`. By returning the result directly instead,
     // we ensure `content.clear()` is always called.
-    let output = sonic_rs::from_slice(content).map_err(Into::into);
+    let output = helix_ext::sonic_rs::from_slice(content).map_err(Into::into);
 
     content.clear();
 

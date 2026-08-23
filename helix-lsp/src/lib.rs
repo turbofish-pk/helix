@@ -1,4 +1,3 @@
-#![allow(clippy::missing_errors_doc)]
 #![allow(clippy::missing_panics_doc)]
 mod client;
 pub mod file_event;
@@ -62,8 +61,8 @@ impl From<serde_json::Error> for Error {
   }
 }
 
-impl From<sonic_rs::Error> for Error {
-  fn from(value: sonic_rs::Error) -> Self {
+impl From<helix_ext::sonic_rs::SonicRsError> for Error {
+  fn from(value: helix_ext::sonic_rs::SonicRsError) -> Self {
     Self::Parse(Box::new(value))
   }
 }

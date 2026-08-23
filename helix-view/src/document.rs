@@ -467,21 +467,24 @@ impl Encoder {
 
 // Apply BOM if encoding permit it, return the number of bytes written at the start of buf
 fn apply_bom(encoding: &'static encoding::Encoding, buf: &mut [u8; BUF_SIZE]) -> usize {
-  match encoding {
-    UTF_8 => {
-      buf[0] = 0xef;
-      buf[1] = 0xbb;
-      buf[2] = 0xbf;
+  match encoding.name() {
+    "UTF_8" => {
+      // buf[0] = 0xef;
+      // buf[1] = 0xbb;
+      // buf[2] = 0xbf;
+      buf[..3].copy_from_slice(&[0xef, 0xbb, 0xbf]);
       3
     }
-    UTF_16BE => {
-      buf[0] = 0xfe;
-      buf[1] = 0xff;
+    "UTF_16BE" => {
+      // buf[0] = 0xfe;
+      // buf[1] = 0xff;
+      buf[..2].copy_from_slice(&[0xfe, 0xff]);
       2
     }
-    UTF_16LE => {
-      buf[0] = 0xff;
-      buf[1] = 0xfe;
+    "UTF_16LE" => {
+      // buf[0] = 0xff;
+      // buf[1] = 0xfe;
+      buf[..2].copy_from_slice(&[0xff, 0xfe]);
       2
     }
     _ => 0,
