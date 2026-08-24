@@ -54,25 +54,12 @@ version = "0.8.0"
 features = ["std"]
 default-features = false
 
-
-[dependencies.ahash]
-version = "0.8"
-
-[dependencies.bumpalo]
-version = "3.19"
-
 [dependencies.bytes]
 version = "1.10"
 
 [dependencies.faststr]
 version = "0.2"
 features = ["serde"]
-
-[dependencies.itoa]
-version = "1.0"
-
-[dependencies.ref-cast]
-version = "1.0"
 
 [dependencies.serde]
 version = "1.0"
@@ -92,6 +79,3 @@ version = "0.1"
 
 [dependencies.thiserror]
 version = "2.0"
-
-[dependencies.zmij]
-version = "1.0"

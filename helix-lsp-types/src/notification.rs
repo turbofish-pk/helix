@@ -7,7 +7,7 @@ use super::{
   WillSaveTextDocumentParams, WorkDoneProgressCancelParams,
 };
 
-use serde::{de::DeserializeOwned, Serialize};
+use serde::{Serialize, de::DeserializeOwned};
 
 pub trait Notification {
   type Params: DeserializeOwned + Serialize + Send + Sync + 'static;

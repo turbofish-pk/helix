@@ -3,7 +3,7 @@ version = 2
 
 [package]
 name = "helix"
-edition = "2021"
+edition = "2024"
 
 [dependencies]
 serde = "1.0"
