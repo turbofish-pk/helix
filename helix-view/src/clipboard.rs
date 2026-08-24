@@ -4,10 +4,10 @@
 // // NOTE(pk):
 // - clipboard = Ctrl+C / Ctrl+V. Works on every OS. Helix calls it register +.
 // - primary = highlight with mouse, paste with middle-click. Linux/X11/Wayland only. Helix calls it register *.
+
 use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
 use thiserror::Error;
-
 #[derive(Debug, Error)]
 pub enum ClipboardError {
   #[error(transparent)]
@@ -155,8 +155,8 @@ mod external {
         Self::XSel => paste_to(&XSEL, content),
         #[cfg(feature = "term")]
         Self::Termcode => {
+          use helix_ext::termina::escape::osc::{self, Osc};
           use std::io::Write;
-          use termina::escape::osc::{self, Osc};
           // NOTE: it would be ideal to have the terminal execute this but it _should_
           // work to send this over stdout instead.
           let mut stdout = std::io::stdout().lock();

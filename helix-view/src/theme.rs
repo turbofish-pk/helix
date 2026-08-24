@@ -42,11 +42,11 @@ pub enum Mode {
 }
 
 #[cfg(feature = "term")]
-impl From<termina::escape::csi::ThemeMode> for Mode {
-  fn from(mode: termina::escape::csi::ThemeMode) -> Self {
+impl From<helix_ext::termina::escape::csi::ThemeMode> for Mode {
+  fn from(mode: helix_ext::termina::escape::csi::ThemeMode) -> Self {
     match mode {
-      termina::escape::csi::ThemeMode::Dark => Self::Dark,
-      termina::escape::csi::ThemeMode::Light => Self::Light,
+      helix_ext::termina::escape::csi::ThemeMode::Dark => Self::Dark,
+      helix_ext::termina::escape::csi::ThemeMode::Light => Self::Light,
     }
   }
 }

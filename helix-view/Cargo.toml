@@ -17,7 +17,7 @@ bench = false
 
 [features]
 default = []
-term = ["termina"]
+term = []
 unicode-lines = []
 # Exposes internals. Should not be enabled except for benchmarking.
 bench = []
@@ -29,11 +29,11 @@ helix-event = { path = "../helix-event" }
 helix-loader = { path = "../helix-loader" }
 helix-lsp = { path = "../helix-lsp" }
 
-
+helix-ext = { path = "../helix-ext" }
 bitflags.workspace = true
 foldhash.workspace = true
 anyhow = "1"
-termina = { workspace = true, optional = true }
+# termina = { workspace = true, optional = true }
 
 tempfile.workspace = true
 
@@ -60,7 +60,7 @@ thiserror.workspace = true
 
 kstring = "2.0"
 
-[target.'cfg(unix)'.dependencies]
+
 libc = "0.2"
 
 [dev-dependencies]

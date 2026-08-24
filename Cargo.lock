@@ -521,16 +521,21 @@ name = "helix-ext"
 version = "25.7.1"
 dependencies = [
  "aho-corasick",
+ "bitflags",
  "bstr",
  "bytes",
  "crossbeam-deque",
  "faststr",
+ "futures-core",
  "log",
  "memchr",
+ "parking_lot",
  "regex-automata",
  "regex-syntax",
+ "rustix",
  "same-file",
  "serde",
+ "signal-hook 0.3.18",
  "simdutf8",
  "sonic-number",
  "sonic-simd",
@@ -639,7 +644,6 @@ dependencies = [
  "signal-hook-tokio",
  "smallvec",
  "tempfile",
- "termina",
  "thiserror",
  "tokio",
  "tokio-stream",
@@ -654,9 +658,9 @@ dependencies = [
  "bitflags",
  "cassowary",
  "helix-core",
+ "helix-ext",
  "helix-view",
  "log",
- "termina",
  "termini",
  "unicode-segmentation",
 ]
@@ -674,6 +678,7 @@ dependencies = [
  "futures-util",
  "helix-core",
  "helix-event",
+ "helix-ext",
  "helix-loader",
  "helix-lsp",
  "helix-stdx",
@@ -686,7 +691,6 @@ dependencies = [
  "serde",
  "slotmap",
  "tempfile",
- "termina",
  "thiserror",
  "tokio",
  "tokio-stream",
@@ -1418,20 +1422,6 @@ dependencies = [
  "getrandom",
  "once_cell",
  "rustix",
- "windows-sys",
-]
-
-[[package]]
-name = "termina"
-version = "0.3.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9048a889effe34a5cddee0af7f53285198b16dca3be510858d38dfdb3e62a04e"
-dependencies = [
- "bitflags",
- "futures-core",
- "parking_lot",
- "rustix",
- "signal-hook 0.3.18",
  "windows-sys",
 ]
 

@@ -1,14 +1,14 @@
 #![allow(clippy::missing_errors_doc)]
 use crate::config::{Config, ConfigLoadError};
 use helix_core::config::{default_lang_config, user_lang_config};
+use helix_ext::termina::{
+  Terminal as _,
+  style::{ColorSpec, StyleExt as _, Stylized},
+};
 use helix_loader::grammar::load_runtime_file;
 use std::{
   collections::HashSet,
   io::{IsTerminal, Write},
-};
-use termina::{
-  Terminal as _,
-  style::{ColorSpec, StyleExt as _, Stylized},
 };
 
 #[derive(Copy, Clone)]
@@ -191,7 +191,7 @@ fn languages(selection: Option<&HashSet<String>>) -> std::io::Result<()> {
     headings.push(feat.short_title());
   }
 
-  let terminal_cols = termina::PlatformTerminal::new()
+  let terminal_cols = helix_ext::termina::PlatformTerminal::new()
     .and_then(|terminal| terminal.get_dimensions())
     .map_or(80, |size| size.cols);
   let column_width = terminal_cols as usize / headings.len();

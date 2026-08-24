@@ -44,7 +44,7 @@ use tui::backend::TerminaBackend;
 
 type TerminalBackend = TerminaBackend;
 
-type TerminalEvent = termina::Event;
+type TerminalEvent = helix_ext::termina::Event;
 
 type Terminal = tui::terminal::Terminal<TerminalBackend>;
 
@@ -587,7 +587,7 @@ impl Application {
   }
 
   pub async fn handle_terminal_events(&mut self, event: std::io::Result<TerminalEvent>) {
-    use termina::escape::csi;
+    use helix_ext::termina::escape::csi;
 
     let mut cx = crate::compositor::Context {
       editor: &mut self.editor,
@@ -596,7 +596,11 @@ impl Application {
     };
     // Handle key events
     let should_redraw = match event.unwrap() {
-      termina::Event::WindowResized(termina::WindowSize { rows, cols, .. }) => {
+      helix_ext::termina::Event::WindowResized(helix_ext::termina::WindowSize {
+        rows,
+        cols,
+        ..
+      }) => {
         self
           .terminal
           .resize(Rect::new(0, 0, cols, rows))
@@ -612,12 +616,12 @@ impl Application {
       }
 
       // Ignore keyboard release events.
-      termina::Event::Key(termina::event::KeyEvent {
-        kind: termina::event::KeyEventKind::Release,
+      helix_ext::termina::Event::Key(helix_ext::termina::event::KeyEvent {
+        kind: helix_ext::termina::event::KeyEventKind::Release,
         ..
       }) => false,
 
-      termina::Event::Csi(csi::Csi::Mode(csi::Mode::ReportTheme(mode))) => {
+      helix_ext::termina::Event::Csi(csi::Csi::Mode(csi::Mode::ReportTheme(mode))) => {
         let config = self.config.load();
         let mode = mode.into();
         let mode_changed = self.theme_mode.as_ref().is_none_or(|m| m != &mode);
@@ -1141,14 +1145,14 @@ impl Application {
   }
 
   pub fn event_stream(&self) -> impl Stream<Item = std::io::Result<TerminalEvent>> + Unpin + use<> {
-    use termina::{Terminal as _, escape::csi};
+    use helix_ext::termina::{Terminal as _, escape::csi};
     let reader = self.terminal.backend().terminal().event_reader();
-    termina::EventStream::new(reader, |event| {
+    helix_ext::termina::EventStream::new(reader, |event| {
       // Accept either non-escape sequences or theme mode updates.
       !event.is_escape()
         || matches!(
           event,
-          termina::Event::Csi(csi::Csi::Mode(csi::Mode::ReportTheme(_)))
+          helix_ext::termina::Event::Csi(csi::Csi::Mode(csi::Mode::ReportTheme(_)))
         )
     })
   }

@@ -12,17 +12,17 @@ repository.workspace = true
 homepage.workspace = true
 
 [features]
-default = ["termina"]
+
 
 [dependencies]
 helix-view = { path = "../helix-view", features = ["term"] }
 helix-core = { path = "../helix-core" }
-
+helix-ext = { path = "../helix-ext" }
 bitflags.workspace = true
 cassowary = "0.3"
 arrayvec.workspace = true
 unicode-segmentation.workspace = true
-termina = { workspace = true, optional = true }
+
 termini = "1.0"
 # once_cell = "1.21"
 log = "~0.4"

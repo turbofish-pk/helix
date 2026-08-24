@@ -9,15 +9,10 @@ use helix_view::{
   theme::Color,
 };
 
-#[cfg(feature = "termina")]
-pub(crate) mod termina {
+pub mod termina {
   use std::io::{self, Write as _};
 
-  use helix_view::{
-    graphics::{CursorKind, Rect, UnderlineStyle},
-    theme::{self, Color, Modifier},
-  };
-  use termina::{
+  use helix_ext::termina::{
     Event, OneBased, PlatformTerminal, Terminal as _, WindowSize,
     escape::{
       csi::{self, Csi, SgrAttributes, SgrModifiers},
@@ -25,6 +20,10 @@ pub(crate) mod termina {
       osc::{self, Osc},
     },
     style::{CursorStyle, RgbColor},
+  };
+  use helix_view::{
+    graphics::{CursorKind, Rect, UnderlineStyle},
+    theme::{self, Color, Modifier},
   };
 
   use crate::{buffer::Cell, terminal::Config};
@@ -667,7 +666,7 @@ pub(crate) mod termina {
     modifiers
   }
 }
-#[cfg(feature = "termina")]
+
 pub use self::termina::TerminaBackend;
 
 /// Representation of a terminal backend.

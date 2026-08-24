@@ -457,31 +457,33 @@ impl<'de> Deserialize<'de> for KeyEvent {
 }
 
 #[cfg(feature = "term")]
-impl From<termina::event::Event> for Event {
-  fn from(event: termina::event::Event) -> Self {
+impl From<helix_ext::termina::event::Event> for Event {
+  fn from(event: helix_ext::termina::event::Event) -> Self {
     match event {
-      termina::event::Event::Key(key) => Self::Key(key.into()),
-      termina::event::Event::Mouse(mouse) => Self::Mouse(mouse.into()),
-      termina::event::Event::WindowResized(termina::WindowSize { rows, cols, .. }) => {
-        Self::Resize(cols, rows)
-      }
-      termina::event::Event::FocusIn => Self::FocusGained,
-      termina::event::Event::FocusOut => Self::FocusLost,
-      termina::event::Event::Paste(s) => Self::Paste(s),
+      helix_ext::termina::event::Event::Key(key) => Self::Key(key.into()),
+      helix_ext::termina::event::Event::Mouse(mouse) => Self::Mouse(mouse.into()),
+      helix_ext::termina::event::Event::WindowResized(helix_ext::termina::WindowSize {
+        rows,
+        cols,
+        ..
+      }) => Self::Resize(cols, rows),
+      helix_ext::termina::event::Event::FocusIn => Self::FocusGained,
+      helix_ext::termina::event::Event::FocusOut => Self::FocusLost,
+      helix_ext::termina::event::Event::Paste(s) => Self::Paste(s),
       _ => unreachable!(),
     }
   }
 }
 
 #[cfg(feature = "term")]
-impl From<termina::event::MouseEvent> for MouseEvent {
+impl From<helix_ext::termina::event::MouseEvent> for MouseEvent {
   fn from(
-    termina::event::MouseEvent {
+    helix_ext::termina::event::MouseEvent {
       kind,
       column,
       row,
       modifiers,
-    }: termina::event::MouseEvent,
+    }: helix_ext::termina::event::MouseEvent,
   ) -> Self {
     Self {
       kind: kind.into(),
@@ -493,40 +495,40 @@ impl From<termina::event::MouseEvent> for MouseEvent {
 }
 
 #[cfg(feature = "term")]
-impl From<termina::event::MouseEventKind> for MouseEventKind {
-  fn from(kind: termina::event::MouseEventKind) -> Self {
+impl From<helix_ext::termina::event::MouseEventKind> for MouseEventKind {
+  fn from(kind: helix_ext::termina::event::MouseEventKind) -> Self {
     match kind {
-      termina::event::MouseEventKind::Down(button) => Self::Down(button.into()),
-      termina::event::MouseEventKind::Up(button) => Self::Up(button.into()),
-      termina::event::MouseEventKind::Drag(button) => Self::Drag(button.into()),
-      termina::event::MouseEventKind::Moved => Self::Moved,
-      termina::event::MouseEventKind::ScrollDown => Self::ScrollDown,
-      termina::event::MouseEventKind::ScrollUp => Self::ScrollUp,
-      termina::event::MouseEventKind::ScrollLeft => Self::ScrollLeft,
-      termina::event::MouseEventKind::ScrollRight => Self::ScrollRight,
+      helix_ext::termina::event::MouseEventKind::Down(button) => Self::Down(button.into()),
+      helix_ext::termina::event::MouseEventKind::Up(button) => Self::Up(button.into()),
+      helix_ext::termina::event::MouseEventKind::Drag(button) => Self::Drag(button.into()),
+      helix_ext::termina::event::MouseEventKind::Moved => Self::Moved,
+      helix_ext::termina::event::MouseEventKind::ScrollDown => Self::ScrollDown,
+      helix_ext::termina::event::MouseEventKind::ScrollUp => Self::ScrollUp,
+      helix_ext::termina::event::MouseEventKind::ScrollLeft => Self::ScrollLeft,
+      helix_ext::termina::event::MouseEventKind::ScrollRight => Self::ScrollRight,
     }
   }
 }
 
 #[cfg(feature = "term")]
-impl From<termina::event::MouseButton> for MouseButton {
-  fn from(button: termina::event::MouseButton) -> Self {
+impl From<helix_ext::termina::event::MouseButton> for MouseButton {
+  fn from(button: helix_ext::termina::event::MouseButton) -> Self {
     match button {
-      termina::event::MouseButton::Left => MouseButton::Left,
-      termina::event::MouseButton::Right => MouseButton::Right,
-      termina::event::MouseButton::Middle => MouseButton::Middle,
+      helix_ext::termina::event::MouseButton::Left => MouseButton::Left,
+      helix_ext::termina::event::MouseButton::Right => MouseButton::Right,
+      helix_ext::termina::event::MouseButton::Middle => MouseButton::Middle,
     }
   }
 }
 
 #[cfg(feature = "term")]
-impl From<termina::event::KeyEvent> for KeyEvent {
+impl From<helix_ext::termina::event::KeyEvent> for KeyEvent {
   fn from(
-    termina::event::KeyEvent {
+    helix_ext::termina::event::KeyEvent {
       code, modifiers, ..
-    }: termina::event::KeyEvent,
+    }: helix_ext::termina::event::KeyEvent,
   ) -> Self {
-    if code == termina::event::KeyCode::BackTab {
+    if code == helix_ext::termina::event::KeyCode::BackTab {
       // special case for BackTab -> Shift-Tab
       let mut modifiers: KeyModifiers = modifiers.into();
       modifiers.insert(KeyModifiers::SHIFT);
@@ -543,25 +545,24 @@ impl From<termina::event::KeyEvent> for KeyEvent {
   }
 }
 
-#[cfg(feature = "term")]
-impl From<KeyEvent> for termina::event::KeyEvent {
+impl From<KeyEvent> for helix_ext::termina::event::KeyEvent {
   fn from(KeyEvent { code, modifiers }: KeyEvent) -> Self {
     if code == KeyCode::Tab && modifiers.contains(KeyModifiers::SHIFT) {
       // special case for Shift-Tab -> BackTab
       let mut modifiers = modifiers;
       modifiers.remove(KeyModifiers::SHIFT);
-      termina::event::KeyEvent {
-        code: termina::event::KeyCode::BackTab,
+      helix_ext::termina::event::KeyEvent {
+        code: helix_ext::termina::event::KeyCode::BackTab,
         modifiers: modifiers.into(),
-        kind: termina::event::KeyEventKind::Press,
-        state: termina::event::KeyEventState::NONE,
+        kind: helix_ext::termina::event::KeyEventKind::Press,
+        state: helix_ext::termina::event::KeyEventState::NONE,
       }
     } else {
-      termina::event::KeyEvent {
+      helix_ext::termina::event::KeyEvent {
         code: code.into(),
         modifiers: modifiers.into(),
-        kind: termina::event::KeyEventKind::Press,
-        state: termina::event::KeyEventState::NONE,
+        kind: helix_ext::termina::event::KeyEventKind::Press,
+        state: helix_ext::termina::event::KeyEventState::NONE,
       }
     }
   }

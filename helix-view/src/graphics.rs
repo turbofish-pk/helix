@@ -1,11 +1,11 @@
 use bitflags::bitflags;
+use helix_ext::termina;
 use serde::{Deserialize, Serialize};
 use std::{
   cmp::{max, min},
   fmt,
   str::FromStr,
 };
-
 #[must_use]
 const fn from_nibble(h: u8) -> u8 {
   match h {

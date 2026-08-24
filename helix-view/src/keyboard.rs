@@ -1,5 +1,5 @@
 use bitflags::bitflags;
-
+use helix_ext::termina;
 bitflags! {
     /// Represents key modifiers (shift, control, alt).
     #[derive(Debug, PartialOrd, Ord, PartialEq, Eq, Clone, Copy, Hash)]
