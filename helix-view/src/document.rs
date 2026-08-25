@@ -16,7 +16,7 @@ use helix_core::text_annotations::{InlineAnnotation, Overlay};
 use helix_event::TaskController;
 use helix_lsp::util::lsp_pos_to_pos;
 use helix_stdx::faccess::{copy_metadata, readonly};
-
+use helix_ext::tempfile;
 use once_cell::sync::OnceCell;
 use thiserror;
 

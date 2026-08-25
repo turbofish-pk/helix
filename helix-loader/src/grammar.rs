@@ -10,7 +10,7 @@ use std::{
   process::Command,
   sync::mpsc::channel,
 };
-use tempfile::TempPath;
+use helix_ext::tempfile::TempPath;
 use tree_house::tree_sitter::Grammar;
 
 use crate::config::user_lang_config;
@@ -213,6 +213,12 @@ pub fn build_grammars(target: Option<String>, strict: bool) -> Result<()> {
 // merged. The `grammar_selection` key of the config is then used to filter
 // down all grammars into a subset of the user's choosing.
 fn get_grammar_configs() -> Result<Vec<GrammarConfiguration>> {
+  let val = user_lang_config().context("Could not parse languages.toml")?;
+  eprintln!(
+    "top-level keys: {:?}",
+    val.as_table().map(|t| t.keys().collect::<Vec<_>>())
+  );
+  let config: Configuration = val.try_into()?;
   // `--grammar fetch/build` clones grammar sources from URLs in `languages.toml` and compiles
   // them into `.so` files helix later loads at runtime. If we let workspace
   // `.helix/languages.toml` in through `fully_trusted`, a malicious workspace could inject a

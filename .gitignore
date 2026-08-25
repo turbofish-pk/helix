@@ -12,3 +12,5 @@ cargo_tree.txt
 testfile
 .testfile
 Cargo.lock
+cargo_build_log.json
+helix_cargo_build.txt

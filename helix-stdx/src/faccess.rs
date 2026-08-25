@@ -31,10 +31,7 @@ mod imp {
 
   pub fn access(p: &Path, mode: AccessMode) -> io::Result<()> {
     // If helix has ambient CAP_DAC_OVERRIDE, everything is accessible regardless of mode bits
-    use rustix::thread::{CapabilitySet, capability_is_in_ambient_set};
-    if capability_is_in_ambient_set(CapabilitySet::DAC_OVERRIDE).unwrap_or(false) {
-      return Ok(());
-    }
+    // use rustix::thread::CapabilitySet;
 
     let mut imode = Access::empty();
 

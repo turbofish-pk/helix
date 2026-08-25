@@ -2735,9 +2735,6 @@ source = { git = "https://github.com/tree-sitter/tree-sitter-rust", rev = "77a37
 # source = { git = "https://github.com/markdoc-extra/tree-sitter-markdoc", rev = "e4211fe541a13350275e4684de79adfebe9a91f8" }
 
 # [[language]]
-# <<<<<<< HEAD
-
-# =======
 # name = "opencl"
 # scope = "source.cl"
 # injection-regex = "(cl|opencl)"

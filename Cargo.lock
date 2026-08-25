@@ -316,9 +316,9 @@ dependencies = [
 
 [[package]]
 name = "fastrand"
-version = "2.4.1"
+version = "2.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9f1f227452a390804cdb637b74a86990f2a7d7ba4b7d5693aac9b4dd6defd8d6"
+checksum = "da7c62ceae207dd37ea5b845da6a0696c799f85e97da1ab5b7910be3c1c80223"
 
 [[package]]
 name = "faststr"
@@ -525,17 +525,20 @@ dependencies = [
  "bstr",
  "bytes",
  "crossbeam-deque",
+ "fastrand",
  "faststr",
  "futures-core",
+ "getrandom",
  "log",
  "memchr",
+ "once_cell",
  "parking_lot",
  "regex-automata",
  "regex-syntax",
  "rustix",
  "same-file",
  "serde",
- "signal-hook 0.3.18",
+ "signal-hook",
  "simdutf8",
  "sonic-number",
  "sonic-simd",
@@ -549,11 +552,11 @@ dependencies = [
  "anyhow",
  "cc",
  "etcetera",
+ "helix-ext",
  "helix-stdx",
  "log",
  "once_cell",
  "serde",
- "tempfile",
  "threadpool",
  "toml",
  "tree-house",
@@ -640,10 +643,9 @@ dependencies = [
  "pulldown-cmark",
  "serde",
  "serde_json",
- "signal-hook 0.4.4",
+ "signal-hook",
  "signal-hook-tokio",
  "smallvec",
- "tempfile",
  "thiserror",
  "tokio",
  "tokio-stream",
@@ -690,7 +692,6 @@ dependencies = [
  "quickcheck",
  "serde",
  "slotmap",
- "tempfile",
  "thiserror",
  "tokio",
  "tokio-stream",
@@ -1186,14 +1187,9 @@ dependencies = [
 [[package]]
 name = "rustix"
 version = "1.1.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b6fe4565b9518b83ef4f91bb47ce29620ca828bd32cb7e408f0062e9930ba190"
 dependencies = [
  "bitflags",
- "errno",
- "libc",
  "linux-raw-sys",
- "windows-sys",
 ]
 
 [[package]]
@@ -1277,16 +1273,6 @@ checksum = "f8fadd59c855ef2080decdef8ff161eb6661b86933c9d82e5ba29dc602a55aba"
 
 [[package]]
 name = "signal-hook"
-version = "0.3.18"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d881a16cf4426aa584979d30bd82cb33429027e42122b169753d6ef1085ed6e2"
-dependencies = [
- "libc",
- "signal-hook-registry",
-]
-
-[[package]]
-name = "signal-hook"
 version = "0.4.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b2a0c28ca5908dbdbcd52e6fdaa00358ab88637f8ab33e1f188dd510eb44b53d"
@@ -1313,7 +1299,7 @@ checksum = "e513e435a8898a0002270f29d0a708b7879708fb5c4d00e46983ca2d2d378cf0"
 dependencies = [
  "futures-core",
  "libc",
- "signal-hook 0.4.4",
+ "signal-hook",
  "tokio",
 ]
 
@@ -1410,19 +1396,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "unicode-ident",
-]
-
-[[package]]
-name = "tempfile"
-version = "3.27.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "32497e9a4c7b38532efcdebeef879707aa9f794296a4f0244f6f69e9bc8574bd"
-dependencies = [
- "fastrand",
- "getrandom",
- "once_cell",
- "rustix",
- "windows-sys",
 ]
 
 [[package]]

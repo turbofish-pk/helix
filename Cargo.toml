@@ -11,7 +11,8 @@ members = [
   "helix-loader",
   "helix-parsec",
   "helix-stdx",
-  "xtask", "helix-ext",  # NOTE(pk): temporary deactivation
+  "xtask",
+  "helix-ext",
 ]
 
 default-members = [
@@ -39,7 +40,7 @@ tree-house = { version = "0.4", default-features = false }
 nucleo = "0.5.0"
 slotmap = "1.1.1"
 thiserror = "2.0"
-tempfile = "3.27.0"
+#tempfile = {package = "helix-ext", path = "./helix-ext"}
 bitflags = "2.12"
 unicode-segmentation = "1.13"
 ropey = { version = "1.6.1", default-features = false, features = ["simd"] }
@@ -59,18 +60,7 @@ arrayvec = "0.7"
 # dev dependencies
 criterion = { version = "0.8", default-features = false, features = ["cargo_bench_support"] }
 quickcheck = { version = "1", default-features = false }
-
-# [workspace.lints.clippy]
-# enum-glob-use = "allow"
-# explicit-iter-loop = "allow"
-# items-after-statements = "allow"
-# map-unwrap-or = "allow"
-# match-wildcard-for-single-variants = "allow"
-# missing-errors-doc = "allow"
-# mut-mut = "allow"
-# redundant-closure-for-method-calls = "allow"
-# struct-excessive-bools = "allow"
-# unnecessary-semicolon = "allow"
+rustix = { path = "../crates/rustix",  features = [ "std", "stdio", "termios", "event", "fs", "thread" ], default-features = false}
 
 [workspace.package]
 version = "25.7.1"

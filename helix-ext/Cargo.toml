@@ -9,6 +9,10 @@ license.workspace = true
 rust-version.workspace = true
 
 [dependencies]
+fastrand = "2.5.0"
+rustix.workspace = true
+once_cell = { version = "1.21.4", default-features = false, features = ["std"] }
+getrandom = { version = "0.4.3", default-features = false }
 
 
 # ///////////////// crate ignore
@@ -89,15 +93,14 @@ version = "0.12"
 [dependencies.futures-core]
 version = "0.3"
 
-[dependencies.rustix]
-version = "1"
-features = [
-    "std",
-    "stdio",
-    "termios",
-    "event",
-]
-default-features = false
+# version = "1"
+# features = [
+#     "std",
+#     "stdio",
+#     "termios",
+#     "event",
+# ]
+# default-features = false
 
 [dependencies.signal-hook]
-version = "0.3"
+version = "0.4"
